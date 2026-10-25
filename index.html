@@ -319,13 +319,6 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         </div>
         <p class="hint" id="codeMsg" style="margin:0" hidden></p>
         <ul class="hits" id="hits"></ul>
-        <details class="settings" id="apiBox">
-          <summary>品番検索の設定</summary>
-          <div class="field" style="margin-top:8px"><label for="appid">Yahoo!ショッピングのClient ID</label>
-            <input class="text-in" id="appid" placeholder="dj00aiZpPW..." autocomplete="off" spellcheck="false">
-            <span class="hint">品番検索にはYahoo!ショッピングの商品検索を使います。<a href="https://e.developer.yahoo.co.jp/register" target="_blank" rel="noopener">Yahoo!デベロッパーネットワーク</a>でアプリケーションを登録（無料）すると、Client IDがもらえます。IDはこの端末にだけ保存されます。</span>
-          </div>
-        </details>
       </div>
       <div class="divider"><span>見つからないときは手で入力</span></div>
       <div class="field"><label for="itName">名前</label>
@@ -781,10 +774,7 @@ function showCodeMsg(t, withSearch){
     m.appendChild(document.createTextNode(" ")); m.appendChild(a);
   }
 }
-let appid = LS.get("kn.appid", "");
-$("appid").value = appid;
-$("appid").addEventListener("change", ()=>{ appid = $("appid").value.trim(); LS.set("kn.appid", appid); });
-if(!appid) $("apiBox").open = false;
+const SEARCH_API = "https://kyou-nani-kiru-search.daichiforgemini.workers.dev/";
 
 function fillForm(h){
   const g = guess(h.name, h.genre);
@@ -800,14 +790,13 @@ function fillForm(h){
 async function lookup(){
   const q = $("codeQ").value.trim(); if(!q) return;
   $("hits").textContent = "";
-  if(!appid){ $("apiBox").open = true; showCodeMsg("品番検索を使うには、下の「品番検索の設定」でClient IDを入れてください。いまは手で入力して登録できます。", true); $("itCode").value = q; return; }
   const digits = q.replace(/[\s-]/g, "");
   const isJan = /^(\d{8}|\d{13})$/.test(digits);
-  const url = "https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=" + encodeURIComponent(appid) + "&results=6&" + (isJan ? "jan_code=" + digits : "query=" + encodeURIComponent(q));
+  const url = SEARCH_API + "?" + (isJan ? "jan_code=" + digits : "query=" + encodeURIComponent(q));
   const btn = $("codeBtn"); btn.disabled = true; btn.textContent = "検索中…"; showCodeMsg("");
   try{
     const res = await fetch(url);
-    if(res.status===401 || res.status===403){ showCodeMsg("Client IDが正しくないようです。設定を確かめてください。", false); $("apiBox").open = true; return; }
+    if(res.status===401 || res.status===403 || res.status===500){ showCodeMsg("検索サーバーの設定に問題があり、検索できませんでした。いまは下で手入力してください。", true); $("itCode").value = q; return; }
     if(res.status===429){ showCodeMsg("検索が混み合っています。少し待ってからもう一度押してください。", false); return; }
     if(!res.ok) throw new Error("http " + res.status);
     const j = await res.json();
