@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>きょう何着る？</title>
+<meta name="theme-color" content="#2F3F7A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="何着る">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+
+/* Layout: 左に「きょうの条件」パネル、右に結果（服装指数 → 気温スケール → 服のタグ）。狭い画面では縦一列。 */
+:root{
+  --bg:#EDF0F6; --surface:#FFFFFF; --sunk:#E3E8F2; --ink:#18203A; --muted:#5A6380; --line:#D3D9E6;
+  --accent:#C98A12; --accent-soft:#F6E7C4; --indigo:#2F3F7A; --on-indigo:#FFFFFF;
+  --b1:#4660B6; --b2:#5A85C8; --b3:#6CA5C6; --b4:#7DBDAA; --b5:#B6CC79; --b6:#E7C25C; --b7:#EC9C57; --b8:#DD6B56;
+  --band-ink:#0F1530; --band-ink-light:#FFFFFF;
+  --warn:#B4472F;
+  --f-display:"Dela Gothic One","Hiragino Kaku Gothic StdN","Yu Gothic",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;
+  --f-mono:"DM Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0F1327; --surface:#171D36; --sunk:#1F2747; --ink:#E5E8F4; --muted:#9AA3C3; --line:#2A3358;
+  --accent:#EDB443; --accent-soft:#3A3220; --indigo:#93A7EE; --on-indigo:#0F1327;
+  --b1:#5470CC; --b2:#6290D2; --b3:#6FA9C8; --b4:#7DBDAA; --b5:#B0C673; --b6:#DDB854; --b7:#E0904F; --b8:#D0634F;
+  --warn:#F08A6E; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0F1327; --surface:#171D36; --sunk:#1F2747; --ink:#E5E8F4; --muted:#9AA3C3; --line:#2A3358;
+  --accent:#EDB443; --accent-soft:#3A3220; --indigo:#93A7EE; --on-indigo:#0F1327;
+  --b1:#5470CC; --b2:#6290D2; --b3:#6FA9C8; --b4:#7DBDAA; --b5:#B0C673; --b6:#DDB854; --b7:#E0904F; --b8:#D0634F;
+  --warn:#F08A6E; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+textarea.text-in{resize:vertical;min-height:90px}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{text-wrap:balance;margin:0}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand h1{font-family:var(--f-display);font-weight:400;font-size:clamp(26px,5vw,34px);line-height:1.15;color:var(--indigo)}
+.brand .date{font-size:13px;color:var(--muted);letter-spacing:.04em}
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:999px}
+.tabs button{border:0;background:transparent;padding:7px 16px;border-radius:999px;cursor:pointer;font-weight:500;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+
+.grid{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:800px){.grid{grid-template-columns:minmax(0,1fr)}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel h2{font-size:13px;letter-spacing:.12em;color:var(--muted);font-weight:700}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.field>.lbl{font-size:13px;font-weight:700}
+.temps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
+.stepper button{border:0;background:transparent;width:36px;height:42px;cursor:pointer;font-size:18px;color:var(--muted);flex:none}
+.stepper button:hover{color:var(--ink);background:var(--sunk)}
+.stepper input{border:0;background:transparent;width:100%;min-width:0;text-align:center;font-family:var(--f-mono);font-size:20px;font-weight:500;height:42px;-moz-appearance:textfield;font-variant-numeric:tabular-nums}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stepper .unit{font-family:var(--f-mono);color:var(--muted);padding-right:6px;font-size:13px}
+.hi-lbl{color:var(--b8)} .lo-lbl{color:var(--b2)}
+
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{border:1px solid var(--line);border-radius:999px;padding:5px 13px;cursor:pointer;font-size:14px;background:var(--bg);user-select:none}
+.seg input:checked+label{background:var(--indigo);border-color:var(--indigo);color:var(--on-indigo);font-weight:700}
+.seg input:focus-visible+label{outline:2px solid var(--accent);outline-offset:2px}
+.range-row{display:flex;align-items:center;gap:10px}
+.range-row input[type=range]{flex:1;min-width:0;accent-color:var(--indigo)}
+.range-row output{font-family:var(--f-mono);font-size:14px;min-width:4.5em;text-align:right;font-variant-numeric:tabular-nums}
+.range-ends{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.hint{font-size:12.5px;color:var(--muted)}
+.hint a{color:var(--indigo)}
+.warn{color:var(--warn);font-size:13px}
+
+/* result */
+.result{display:flex;flex-direction:column;gap:16px;min-width:0}
+.verdict{background:var(--indigo);color:var(--on-indigo);border-radius:var(--r);padding:20px 22px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 22px;align-items:center}
+.idx{display:flex;flex-direction:column;align-items:center;gap:0}
+.idx .n{font-family:var(--f-display);font-size:58px;line-height:1;font-variant-numeric:tabular-nums}
+.idx .k{font-size:11px;letter-spacing:.14em;opacity:.8}
+.verdict h3{font-family:var(--f-body);font-weight:700;font-size:clamp(19px,3.2vw,24px);line-height:1.4}
+.feels{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.feels span{font-size:12.5px;border:1px solid currentColor;border-radius:999px;padding:2px 10px;opacity:.92}
+.feels b{font-family:var(--f-mono);font-weight:500}
+@media (max-width:440px){.verdict{grid-template-columns:minmax(0,1fr)}.idx{flex-direction:row;gap:10px;align-items:baseline}.idx .n{font-size:46px}}
+
+.scale{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 10px}
+.scale-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+.scale-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
+.scale-head small{font-size:12px;color:var(--muted)}
+.track{position:relative;padding-top:26px;padding-bottom:40px}
+.bands{display:flex;height:34px;border-radius:8px;overflow:hidden}
+.band{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:var(--band-ink);transition:opacity .2s;white-space:nowrap;overflow:hidden;min-width:0}
+.band.dim{opacity:.32}
+.ticks{position:absolute;left:0;right:0;top:62px;height:14px}
+.ticks span{position:absolute;transform:translateX(-50%);font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.mk{position:absolute;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.mk .line{width:2px;height:42px;background:var(--ink)}
+.mk .tag{font-size:11.5px;font-weight:700;white-space:nowrap;background:var(--ink);color:var(--bg);border-radius:6px;padding:0 6px;font-family:var(--f-body)}
+.mk.day{top:0}
+.mk.cold{top:28px;flex-direction:column-reverse}
+.mk.cold .line{height:40px;opacity:.6}
+.mk.cold .tag{background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);margin-top:20px}
+
+.outfit-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+.outfit-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 15px;cursor:pointer;font-weight:500;font-size:14px}
+.btn:hover{border-color:var(--indigo)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1C1300;font-weight:700}
+.btn:disabled{opacity:.55;cursor:wait}
+
+/* garment tags */
+.tags{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.gtag{position:relative;background:var(--surface);border-radius:10px;padding:14px 16px 14px 34px;display:flex;flex-direction:column;gap:3px;min-width:0;border:1px solid var(--line)}
+.gtag::before{content:"";position:absolute;inset:5px;border:1.5px dashed var(--accent);border-radius:7px;opacity:.55;pointer-events:none}
+.gtag::after{content:"";position:absolute;left:12px;top:18px;width:9px;height:9px;border-radius:50%;background:var(--bg);border:1.5px solid var(--line)}
+.gtag .cat{font-size:11.5px;letter-spacing:.14em;color:var(--muted);font-weight:700;display:flex;gap:8px;align-items:center}
+.gtag .name{font-weight:700;font-size:16.5px;line-height:1.4;overflow-wrap:anywhere}
+.gtag .sub{font-size:12.5px;color:var(--muted)}
+.dots{display:inline-flex;gap:2px}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--line);display:block}
+.dots i.on{background:var(--accent)}
+.badge{font-size:10.5px;letter-spacing:.06em;padding:0 6px;border-radius:4px;background:var(--accent-soft);color:var(--ink);font-weight:700}
+
+.notes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.notes li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:14px}
+.notes .k{font-size:11.5px;font-weight:700;letter-spacing:.06em;padding:1px 8px;border-radius:999px;background:var(--sunk);white-space:nowrap;margin-top:2px}
+
+.ai{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.ai h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
+.ai .txt{white-space:pre-wrap;font-size:15px;max-width:65ch}
+
+/* closet */
+.closet{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:800px){.closet{grid-template-columns:minmax(0,1fr)}}
+.text-in{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:9px 12px;width:100%}
+.checkrow{display:flex;align-items:center;gap:8px;font-size:14px}
+.checkrow input{accent-color:var(--indigo);width:17px;height:17px}
+.groups{display:flex;flex-direction:column;gap:16px;min-width:0}
+.group h3{font-size:14px;font-weight:700;margin-bottom:8px;display:flex;gap:8px;align-items:baseline}
+.group h3 small{font-weight:400;color:var(--muted);font-family:var(--f-mono)}
+.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.items li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 8px 8px 14px}
+.items .nm{overflow-wrap:anywhere}
+.items .rain{font-size:11px;color:var(--indigo);font-weight:700;margin-left:6px}
+.del{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px}
+.del:hover{color:var(--warn);background:var(--sunk)}
+.sample-bar{background:var(--accent-soft);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:14px}
+.empty{color:var(--muted);font-size:13.5px;padding:6px 2px}
+.store-note{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+html{color-scheme:light}
+body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:max(48px,env(safe-area-inset-bottom,0px))}
+.wx-box{display:flex;flex-direction:column;gap:10px;background:var(--sunk);border-radius:12px;padding:12px 14px}
+.wx-place{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.wx-place b{font-size:16px}
+.wx-place span{font-size:12.5px;color:var(--muted)}
+.wx-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.wx-row .btn{padding:6px 13px;font-size:13.5px}
+.search-row{display:flex;gap:6px}
+.search-row input{flex:1;min-width:0}
+.pill{font-size:12px;font-weight:700;border-radius:999px;padding:1px 9px;background:var(--surface);border:1px solid var(--line)}
+.auto-note{font-size:12px;color:var(--muted)}
+.backup{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+@media (max-width:800px){.has-loc #view-today .result{order:-1}}
+.lookup{display:flex;flex-direction:column;gap:10px;background:var(--sunk);border-radius:12px;padding:12px 14px}
+.hits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.hits li{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px}
+.hits img{width:48px;height:48px;object-fit:cover;border-radius:6px;background:var(--sunk)}
+.hits .t{font-size:13px;line-height:1.45;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.hits .b{font-size:11.5px;color:var(--muted)}
+.hits .btn{padding:5px 11px;font-size:13px}
+.settings summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)}
+.divider{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.items .code{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-left:6px}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="date" id="today"></span>
+      <h1>きょう何着る？</h1>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tab-today" aria-selected="true" data-view="today">きょうの服装</button>
+      <button role="tab" id="tab-closet" aria-selected="false" data-view="closet">クローゼット</button>
+    </nav>
+  </header>
+
+  <!-- ===== きょうの服装 ===== -->
+  <section id="view-today" class="grid">
+    <form class="panel" id="cond" autocomplete="off" onsubmit="return false">
+      <div class="wx-box" aria-live="polite">
+        <div class="wx-place"><b id="place">場所が未設定です</b><span id="wxStamp">現在地を取得すると予報が自動で入ります</span></div>
+        <div class="seg">
+          <input type="radio" name="day" id="d0" value="0" checked><label for="d0">今日</label>
+          <input type="radio" name="day" id="d1" value="1"><label for="d1">明日</label>
+        </div>
+        <div class="wx-row">
+          <button type="button" class="btn primary" id="locBtn">現在地の天気を取得</button>
+          <span class="pill" id="popPill" hidden></span>
+        </div>
+        <div class="search-row">
+          <input class="text-in" id="placeQ" placeholder="地名で探す（例：岐阜市）" enterkeyhint="search">
+          <button type="button" class="btn" id="placeBtn">探す</button>
+        </div>
+        <p class="hint" id="wxMsg" style="margin:0" hidden></p>
+      </div>
+
+      <div class="temps">
+        <div class="field">
+          <label for="hi" class="hi-lbl">最高気温</label>
+          <div class="stepper"><button type="button" data-step="hi" data-d="-1" aria-label="最高気温を下げる">−</button><input id="hi" type="number" inputmode="numeric" step="1" value="21"><span class="unit">℃</span><button type="button" data-step="hi" data-d="1" aria-label="最高気温を上げる">＋</button></div>
+        </div>
+        <div class="field">
+          <label for="lo" class="lo-lbl">最低気温</label>
+          <div class="stepper"><button type="button" data-step="lo" data-d="-1" aria-label="最低気温を下げる">−</button><input id="lo" type="number" inputmode="numeric" step="1" value="11"><span class="unit">℃</span><button type="button" data-step="lo" data-d="1" aria-label="最低気温を上げる">＋</button></div>
+        </div>
+      </div>
+      <p class="warn" id="tempWarn" hidden>最低気温が最高気温より高くなっています。入れ替えて計算しています。</p>
+
+      <div class="field"><span class="lbl">天気</span>
+        <div class="seg" role="radiogroup">
+          <input type="radio" name="wx" id="wx-sun" value="sun" checked><label for="wx-sun">晴れ</label>
+          <input type="radio" name="wx" id="wx-cloud" value="cloud"><label for="wx-cloud">くもり</label>
+          <input type="radio" name="wx" id="wx-rain" value="rain"><label for="wx-rain">雨</label>
+          <input type="radio" name="wx" id="wx-snow" value="snow"><label for="wx-snow">雪</label>
+        </div>
+      </div>
+
+      <div class="field"><label for="wind">風の強さ（日中の平均）</label>
+        <div class="range-row"><input type="range" id="wind" min="0" max="12" step="1" value="2"><output id="windOut" for="wind">2 m/s</output></div>
+        <span class="hint">風速1m/sごとに体感はおよそ1℃下がります</span>
+      </div>
+      <p class="auto-note" id="autoNote" hidden>予報から自動で入れました。手で変えることもできます。</p>
+
+      <div class="field"><span class="lbl">外にいる時間</span>
+        <div class="seg">
+          <input type="radio" name="span" id="span-day" value="day" checked><label for="span-day">日中だけ</label>
+          <input type="radio" name="span" id="span-long" value="long"><label for="span-long">朝早く〜夜まで</label>
+        </div>
+      </div>
+
+      <div class="field"><span class="lbl">移動手段</span>
+        <div class="seg">
+          <input type="radio" name="move" id="mv-walk" value="walk" checked><label for="mv-walk">徒歩・電車</label>
+          <input type="radio" name="move" id="mv-bike" value="bike"><label for="mv-bike">自転車</label>
+          <input type="radio" name="move" id="mv-car" value="car"><label for="mv-car">車</label>
+        </div>
+      </div>
+
+      <div class="field"><label for="body">体質</label>
+        <input type="range" id="body" min="-2" max="2" step="1" value="0" style="accent-color:var(--indigo)">
+        <div class="range-ends"><span>寒がり</span><span id="bodyOut">ふつう</span><span>暑がり</span></div>
+      </div>
+      <p class="hint" style="margin:0">天気データ：<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></p>
+    </form>
+
+    <div class="result">
+      <div class="verdict" aria-live="polite">
+        <div class="idx"><span class="n" id="idx">60</span><span class="k">服装指数</span></div>
+        <div>
+          <h3 id="verdict"></h3>
+          <div class="feels"><span>日中の体感 <b id="fDay">--</b></span><span>朝晩の体感 <b id="fCold">--</b></span><span>寒暖差 <b id="fGap">--</b></span></div>
+        </div>
+      </div>
+
+      <div class="scale">
+        <div class="scale-head"><h2>気温と服装のめやす</h2><small>体感温度 ℃</small></div>
+        <div class="track" id="track">
+          <div class="bands" id="bands"></div>
+          <div class="ticks" id="ticks"></div>
+        </div>
+      </div>
+
+      <div class="outfit-head">
+        <h2>きょうのコーデ</h2>
+        <div class="btns"><button type="button" class="btn" id="shuffle">ほかの組み合わせ</button></div>
+      </div>
+      <div class="tags" id="tags"></div>
+
+      <ul class="notes" id="notes"></ul>
+      <p class="hint">服装指数は 100 が「薄着でOK」、10 が「いちばん厚着」の目安です。</p>
+    </div>
+  </section>
+
+  <!-- ===== クローゼット ===== -->
+  <section id="view-closet" class="closet" hidden>
+    <form class="panel" id="addForm" autocomplete="off">
+      <h2>服を登録する</h2>
+      <div class="lookup">
+        <div class="field"><label for="codeQ">品番・JANコードで探す</label>
+          <div class="search-row">
+            <input class="text-in" id="codeQ" placeholder="例：469876 / 4550512345678" inputmode="text" enterkeyhint="search" autocapitalize="characters">
+            <button type="button" class="btn primary" id="codeBtn">探す</button>
+          </div>
+          <span class="hint">ブランド名と一緒に入れると見つかりやすくなります（例：ユニクロ 469876）</span>
+        </div>
+        <p class="hint" id="codeMsg" style="margin:0" hidden></p>
+        <ul class="hits" id="hits"></ul>
+        <details class="settings" id="apiBox">
+          <summary>品番検索の設定</summary>
+          <div class="field" style="margin-top:8px"><label for="appid">Yahoo!ショッピングのClient ID</label>
+            <input class="text-in" id="appid" placeholder="dj00aiZpPW..." autocomplete="off" spellcheck="false">
+            <span class="hint">品番検索にはYahoo!ショッピングの商品検索を使います。<a href="https://e.developer.yahoo.co.jp/register" target="_blank" rel="noopener">Yahoo!デベロッパーネットワーク</a>でアプリケーションを登録（無料）すると、Client IDがもらえます。IDはこの端末にだけ保存されます。</span>
+          </div>
+        </details>
+      </div>
+      <div class="divider"><span>見つからないときは手で入力</span></div>
+      <div class="field"><label for="itName">名前</label>
+        <input class="text-in" id="itName" required maxlength="40" placeholder="例：紺のカーディガン">
+      </div>
+      <div class="field"><label for="itCat">種類</label>
+        <select class="text-in" id="itCat">
+          <option value="top">トップス</option>
+          <option value="outer">アウター・羽織り</option>
+          <option value="bottom">ボトムス</option>
+          <option value="shoes">くつ</option>
+        </select>
+      </div>
+      <div class="field"><span class="lbl">暖かさ</span>
+        <div class="seg" id="warmSeg">
+          <input type="radio" name="warm" id="w1" value="1"><label for="w1">1 とても薄手</label>
+          <input type="radio" name="warm" id="w2" value="2" checked><label for="w2">2 薄手</label>
+          <input type="radio" name="warm" id="w3" value="3"><label for="w3">3 ふつう</label>
+          <input type="radio" name="warm" id="w4" value="4"><label for="w4">4 暖かい</label>
+          <input type="radio" name="warm" id="w5" value="5"><label for="w5">5 とても暖かい</label>
+        </div>
+        <span class="hint" id="warmHint"></span>
+      </div>
+      <label class="checkrow"><input type="checkbox" id="itRain"> 雨の日に強い（撥水・防水）</label>
+      <div class="field"><label for="itCode">品番（任意）</label>
+        <input class="text-in" id="itCode" maxlength="40" placeholder="メモとして残せます" spellcheck="false">
+      </div>
+      <p class="auto-note" id="fillNote" hidden>検索結果から自動で入れました。種類と暖かさは商品名から推定したので、違っていたら直してください。</p>
+      <button class="btn primary" type="submit">クローゼットに追加</button>
+      <p class="store-note">服はこの端末に保存されます。機種変更の前にバックアップを書き出してください。</p>
+      <div class="backup">
+        <button type="button" class="btn" id="exportBtn">バックアップを書き出す</button>
+        <label class="btn" for="importFile" style="cursor:pointer">バックアップを読み込む</label>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <p class="hint" id="backupMsg" style="margin:0"></p>
+    </form>
+
+    <div class="groups">
+      <div class="sample-bar" id="sampleBar" hidden>
+        <span>いま表示しているのは<b>サンプルの服</b>です。自分の服を1着登録すると置き換わります。</span>
+      </div>
+      <div id="groups"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- 定数 ---------- */
+const CATS = {top:"トップス", outer:"アウター・羽織り", bottom:"ボトムス", shoes:"くつ"};
+const WARM_HINT = {
+  top:   ["半袖T・タンクトップ","長袖T・シャツ","スウェット・薄手ニット","厚手ニット・タートル","裏起毛・極厚ニット"],
+  outer: ["カーディガン・シャツ羽織り","パーカー・デニムジャケット","トレンチ・ライトジャケット","ウールコート・中綿","ダウン"],
+  bottom:["ショートパンツ・薄手スカート","チノ・薄手パンツ","デニム・厚手パンツ","コーデュロイ・ウール","裏起毛パンツ"],
+  shoes: ["サンダル","スニーカー","革靴・ローファー","ブーツ","スノーブーツ"]
+};
+const GENERIC = {
+  top:   {1:"半袖Tシャツ・ポロシャツ",2:"長袖シャツ・薄手のロンT",3:"スウェット・薄手ニット",4:"厚手ニット・タートルネック"},
+  outer: {0:"なしでOK",1:"カーディガン・シャツの羽織り",2:"パーカー・デニムジャケット",3:"トレンチ・ライトジャケット",4:"ウールコート・中綿ジャケット",5:"ダウンジャケット"},
+  bottom:{1:"ショートパンツ・薄手のスカート",2:"チノパン・薄手のパンツ",3:"デニム・厚手のパンツ",4:"裏起毛パンツ・タイツ併用"},
+  shoes: {1:"サンダル",2:"スニーカー",3:"スニーカー・革靴",4:"ブーツ"}
+};
+const SHORT_TOP = {1:"半袖",2:"長袖",3:"スウェットやニット",4:"厚手ニット"};
+const SHORT_OUT = {1:"カーディガン",2:"パーカーや薄手ジャケット",3:"トレンチやジャケット",4:"コート",5:"ダウン"};
+const BODY = {"-2":"かなり寒がり","-1":"やや寒がり","0":"ふつう","1":"やや暑がり","2":"かなり暑がり"};
+const EDGES = [-4,5,9,13,17,21,25,28,34];
+const BAND_LABEL = ["ダウン","厚コート","コート","ジャケ","カーデ","長袖","半袖","薄着"];
+
+const SAMPLE = [
+  {id:"s1",cat:"top",name:"白Tシャツ",warmth:1},
+  {id:"s2",cat:"top",name:"ボーダーの長袖T",warmth:2},
+  {id:"s3",cat:"top",name:"オックスフォードシャツ",warmth:2},
+  {id:"s4",cat:"top",name:"グレーのスウェット",warmth:3},
+  {id:"s5",cat:"top",name:"黒のタートルネックニット",warmth:4},
+  {id:"s6",cat:"outer",name:"紺のカーディガン",warmth:1},
+  {id:"s7",cat:"outer",name:"マウンテンパーカー",warmth:2,rain:true},
+  {id:"s8",cat:"outer",name:"デニムジャケット",warmth:2},
+  {id:"s9",cat:"outer",name:"ベージュのトレンチコート",warmth:3,rain:true},
+  {id:"s10",cat:"outer",name:"チャコールのウールコート",warmth:4},
+  {id:"s11",cat:"outer",name:"黒のダウンジャケット",warmth:5},
+  {id:"s12",cat:"bottom",name:"ハーフパンツ",warmth:1},
+  {id:"s13",cat:"bottom",name:"白のチノパン",warmth:2},
+  {id:"s14",cat:"bottom",name:"インディゴのデニム",warmth:3},
+  {id:"s15",cat:"bottom",name:"コーデュロイパンツ",warmth:4},
+  {id:"s16",cat:"shoes",name:"サンダル",warmth:1},
+  {id:"s17",cat:"shoes",name:"白スニーカー",warmth:2},
+  {id:"s18",cat:"shoes",name:"防水スニーカー",warmth:2,rain:true},
+  {id:"s19",cat:"shoes",name:"サイドゴアブーツ",warmth:4,rain:true}
+];
+
+/* ---------- 保存（この端末） ---------- */
+const LS = {
+  get(k,d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let closet = LS.get("kn.closet", null);
+let prefs  = LS.get("kn.prefs", {move:"walk", body:0, span:"day"});
+let loc    = LS.get("kn.loc", null);          // {lat, lon, name}
+let forecast = null;                           // 取得した予報
+function usingSample(){ return !closet || closet.length === 0; }
+function activeCloset(){ return usingSample() ? SAMPLE : closet; }
+function persist(){ LS.set("kn.closet", closet); LS.set("kn.prefs", prefs); }
+
+/* ---------- 天気（Open-Meteo） ---------- */
+const $ = id => document.getElementById(id);
+function wxFromCode(code, pop){
+  let w = "cloud";
+  if(code===0 || code===1) w = "sun";
+  else if((code>=71 && code<=77) || code===85 || code===86) w = "snow";
+  else if((code>=51 && code<=67) || (code>=80 && code<=82) || code>=95) w = "rain";
+  if(w!=="snow" && pop!=null && pop >= 50) w = "rain";
+  return w;
+}
+function showWxMsg(t){ const m = $("wxMsg"); m.textContent = t || ""; m.hidden = !t; }
+function dayIndex(){ return +document.querySelector('input[name=day]:checked').value; }
+
+async function loadForecast(){
+  if(!loc) return;
+  $("place").textContent = loc.name || "現在地";
+  $("wxStamp").textContent = "予報を取得しています…";
+  const url = "https://api.open-meteo.com/v1/forecast?latitude="+loc.lat+"&longitude="+loc.lon+
+    "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max"+
+    "&hourly=wind_speed_10m&wind_speed_unit=ms&timezone=auto&forecast_days=2";
+  try{
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("http "+res.status);
+    forecast = await res.json();
+    forecast.fetchedAt = Date.now();
+    LS.set("kn.fc", forecast);
+    showWxMsg("");
+    applyForecast();
+  }catch(e){
+    const cached = LS.get("kn.fc", null);
+    if(cached){ forecast = cached; applyForecast(); showWxMsg("通信できなかったため、前回取得した予報を表示しています。"); }
+    else { $("wxStamp").textContent = "予報を取得できませんでした"; showWxMsg("電波の良い場所でもう一度「現在地の天気を取得」を押すか、気温を手で入れてください。"); }
+  }
+}
+function applyForecast(){
+  if(!forecast || !forecast.daily) return;
+  const i = dayIndex(), d = forecast.daily;
+  if(!d.time || !d.time[i]) return;
+  const hi = Math.round(d.temperature_2m_max[i]), lo = Math.round(d.temperature_2m_min[i]);
+  const pop = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
+  const wx = wxFromCode(d.weather_code[i], pop);
+  // 日中（8〜19時）の平均風速
+  let wind = 2;
+  if(forecast.hourly && forecast.hourly.time){
+    const day = d.time[i], vals = [];
+    forecast.hourly.time.forEach((t,k)=>{ if(t.slice(0,10)===day){ const h = +t.slice(11,13); if(h>=8 && h<=19) vals.push(forecast.hourly.wind_speed_10m[k]); } });
+    if(vals.length) wind = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*0.7);  // 予報は高さ10mの風。人の高さではおよそ7割
+  }
+  $("hi").value = hi; $("lo").value = lo; $("wind").value = Math.min(12, wind);
+  document.querySelector(`input[name=wx][value="${wx}"]`).checked = true;
+  const dt = new Date(day0(d.time[i]));
+  const when = dt.toLocaleDateString("ja-JP",{month:"numeric",day:"numeric",weekday:"short"});
+  const got = new Date(forecast.fetchedAt).toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+  $("wxStamp").textContent = when + "の予報 · " + got + " 取得";
+  const pill = $("popPill"); if(pop!=null){ pill.textContent = "降水確率 " + pop + "%"; pill.hidden = false; } else pill.hidden = true;
+  $("autoNote").hidden = false;
+  document.body.classList.add("has-loc");
+  seed = 0; renderToday();
+}
+function day0(s){ const [y,m,dd] = s.split("-").map(Number); return new Date(y, m-1, dd); }
+
+async function reverseName(lat, lon){
+  try{
+    const r = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude="+lat+"&longitude="+lon+"&localityLanguage=ja");
+    if(!r.ok) return "現在地";
+    const j = await r.json();
+    return j.city || j.locality || j.principalSubdivision || "現在地";
+  }catch(e){ return "現在地"; }
+}
+$("locBtn").addEventListener("click", ()=>{
+  if(!("geolocation" in navigator)){ showWxMsg("この端末では位置情報が使えません。地名で探してください。"); return; }
+  const btn = $("locBtn"); btn.disabled = true; btn.textContent = "現在地を確認中…";
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const lat = +pos.coords.latitude.toFixed(3), lon = +pos.coords.longitude.toFixed(3);
+    loc = {lat, lon, name: await reverseName(lat, lon)};
+    LS.set("kn.loc", loc);
+    btn.disabled = false; btn.textContent = "現在地の天気を取得";
+    loadForecast();
+  }, err=>{
+    btn.disabled = false; btn.textContent = "現在地の天気を取得";
+    showWxMsg(err.code===1 ? "位置情報が許可されていません。端末の設定で許可するか、地名で探してください。" : "現在地を取得できませんでした。もう一度押すか、地名で探してください。");
+  }, {enableHighAccuracy:false, timeout:12000, maximumAge:10*60*1000});
+});
+async function searchPlace(){
+  const q = $("placeQ").value.trim(); if(!q) return;
+  const btn = $("placeBtn"); btn.disabled = true;
+  try{
+    const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=ja&name="+encodeURIComponent(q));
+    const j = await r.json();
+    const hit = j.results && j.results[0];
+    if(!hit){ showWxMsg("「"+q+"」が見つかりませんでした。市区町村名で試してください（例：岐阜、名古屋）。"); return; }
+    loc = {lat:hit.latitude, lon:hit.longitude, name: hit.name + (hit.admin1 && hit.admin1!==hit.name ? "（"+hit.admin1+"）" : "")};
+    LS.set("kn.loc", loc); $("placeQ").value = "";
+    loadForecast();
+  }catch(e){ showWxMsg("地名を検索できませんでした。通信状態を確認してください。"); }
+  finally{ btn.disabled = false; }
+}
+$("placeBtn").addEventListener("click", searchPlace);
+$("placeQ").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); searchPlace(); } });
+document.querySelectorAll('input[name=day]').forEach(r=>r.addEventListener("change", ()=>{ applyForecast(); }));
+
+/* ---------- 計算 ---------- */
+function readCond(){
+  const f = $("cond");
+  let hi = parseFloat($("hi").value), lo = parseFloat($("lo").value);
+  if(!isFinite(hi)) hi = 20; if(!isFinite(lo)) lo = hi - 8;
+  const swapped = lo > hi; if(swapped){ const t = hi; hi = lo; lo = t; }
+  return { hi, lo, swapped,
+    wx: f.querySelector('input[name=wx]:checked').value,
+    wind: +$("wind").value,
+    span: f.querySelector('input[name=span]:checked').value,
+    move: prefs.move, body: prefs.body };
+}
+function bandOf(t){ if(t>=28)return 8; if(t>=25)return 7; if(t>=21)return 6; if(t>=17)return 5; if(t>=13)return 4; if(t>=9)return 3; if(t>=5)return 2; return 1; }
+const r1 = x => Math.round(x*10)/10;
+
+function compute(s){
+  const wind = s.move==="car" ? 0 : Math.min(s.wind, 12);
+  const bike = s.move==="bike" ? 2 : 0;
+  const body = s.body * 1.5;
+  const sky = s.wx==="sun" ? 1 : (s.wx==="rain"||s.wx==="snow") ? -1 : 0;
+  let day = s.hi + sky - wind*0.6 + body;
+  let cold = (s.span==="long" ? s.lo : s.lo + (s.hi - s.lo)*0.4) - wind - bike + body - (s.wx==="rain" ? 1 : 0);
+  if(s.move==="car") cold = (cold + day)/2;
+  cold = Math.min(cold, day);
+  day = r1(day); cold = r1(cold);
+  const gap = r1(s.hi - s.lo);
+  const db = bandOf(day), cb = bandOf(cold);
+
+  const topNeed = {8:1,7:1,6:2,5:2,4:3,3:3,2:4,1:4}[db];
+  let outerNeed = {8:0,7:0,6:0,5:(cold>=19?1:2),4:3,3:4,2:5,1:5}[cb];
+  let carry = false;
+  if(outerNeed===0 && (day-cold)>=7){ outerNeed = 1; carry = true; }
+  const bottomNeed = {8:1,7:2,6:2,5:2,4:3,3:3,2:4,1:4}[cb];
+  let shoesNeed = cb>=8 && s.wx!=="rain" ? 1 : cb<=2 ? 4 : 2;
+  if(s.wx==="snow") shoesNeed = 4;
+
+  const avg = (day + cold)/2;
+  const idx = Math.max(10, Math.min(100, Math.round(((avg+3)/36*90+10)/10)*10));
+
+  const notes = [];
+  if(gap >= 10) notes.push(["寒暖差", `最高と最低の差が${gap}℃あります。前を開けられる羽織りや、脱いで持てる服にしておくと調節しやすいです。`]);
+  if(carry) notes.push(["持ち歩き", "日中は羽織りなしで大丈夫ですが、朝晩は冷えます。薄手の羽織りをかばんに入れておきましょう。"]);
+  if(s.wx==="rain") notes.push(["雨", "撥水のアウターと、濡れても平気なくつを。裾が濡れやすいので長すぎるパンツは避けると快適です。傘も忘れずに。"]);
+  if(s.wx==="snow") notes.push(["雪", "滑りにくい靴底のブーツを。手袋・マフラー・帽子で首元と手先を守りましょう。"]);
+  if(s.move==="bike" && cold < 12) notes.push(["自転車", "走ると風を受けて体感が2℃ほど下がります。手袋とネックウォーマーがあると楽です。"]);
+  if(s.move==="bike" && s.wx==="rain") notes.push(["自転車", "雨の日はレインコートかポンチョを。スカートやワイドパンツは巻き込みに注意。"]);
+  if(wind >= 6) notes.push(["風", `風が強め（${s.wind}m/s）です。風を通しにくいアウターを選び、フードや襟で首元を守ると体感がかなり違います。`]);
+  if(cb <= 2) notes.push(["小物", cb===1 ? "マフラー・手袋・ニット帽があると安心。インナーに発熱素材を1枚足すのもおすすめです。" : "マフラーかストールを足すと首元から温かくなります。"]);
+  if(s.wx==="sun" && s.hi >= 25) notes.push(["日差し", "帽子や日傘、日焼け止めを。汗をかくので乾きやすい素材が快適です。"]);
+  if(s.hi >= 30) notes.push(["暑さ", "熱中症に注意。飲み物を持って、風通しのよい明るい色の服を選びましょう。"]);
+
+  let verdict = SHORT_TOP[topNeed] + (outerNeed && !carry ? "＋" + SHORT_OUT[outerNeed] : "");
+  if(carry) verdict += "。朝晩用に羽織りを1枚";
+  else verdict += cb<=1 ? "でしっかり防寒" : db>=8 ? "で涼しく" : "がちょうどいい日";
+
+  return {day, cold, gap, db, cb, topNeed, outerNeed, carry, bottomNeed, shoesNeed, idx, notes, verdict, rain: s.wx==="rain"||s.wx==="snow"};
+}
+
+let seed = 0;
+function pick(cat, need, rain){
+  const items = activeCloset().filter(i=>i.cat===cat);
+  if(!items.length || !need) return null;
+  const score = i => Math.abs(i.warmth - need) + (rain ? (i.rain ? -0.6 : 0.6) : 0);
+  const best = Math.min(...items.map(score));
+  const cands = items.filter(i => score(i) <= best + 0.5).sort((a,b)=>score(a)-score(b));
+  return cands[seed % cands.length];
+}
+
+/* ---------- 描画 ---------- */
+function el(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text!=null) e.textContent = text; return e; }
+function dots(n){ const d = el("span","dots"); d.setAttribute("aria-label","暖かさ"+n); for(let i=1;i<=5;i++) d.appendChild(el("i", i<=n?"on":"")); return d; }
+
+function renderToday(){
+  const s = readCond(); const r = compute(s);
+  $("tempWarn").hidden = !s.swapped;
+  $("idx").textContent = r.idx;
+  $("verdict").textContent = r.verdict;
+  $("fDay").textContent = r.day + "℃"; $("fCold").textContent = r.cold + "℃"; $("fGap").textContent = r.gap + "℃";
+  $("windOut").textContent = s.wind + " m/s";
+
+  const min = EDGES[0], max = EDGES[EDGES.length-1], span = max - min;
+  const bands = $("bands"); bands.textContent = "";
+  for(let i=0;i<8;i++){
+    const b = el("div","band", BAND_LABEL[i]);
+    b.style.flex = (EDGES[i+1]-EDGES[i]) + " 1 0";
+    b.style.background = `var(--b${i+1})`;
+    if(i<2) b.style.color = "var(--band-ink-light)";
+    if(i+1 < r.cb || i+1 > r.db) b.classList.add("dim");
+    bands.appendChild(b);
+  }
+  const ticks = $("ticks"); ticks.textContent = "";
+  EDGES.slice(1,-1).forEach(t=>{ const sp = el("span",null,t); sp.style.left = ((t-min)/span*100)+"%"; ticks.appendChild(sp); });
+  const track = $("track"); track.querySelectorAll(".mk").forEach(m=>m.remove());
+  const pos = t => Math.max(2, Math.min(98, (t-min)/span*100));
+  const mk = (cls, label, t) => { const m = el("div","mk "+cls); m.style.left = pos(t)+"%"; m.appendChild(el("span","tag",label)); m.appendChild(el("span","line")); track.appendChild(m); };
+  mk("day", "日中 "+r.day+"℃", r.day);
+  mk("cold", "朝晩 "+r.cold+"℃", r.cold);
+
+  const tags = $("tags"); tags.textContent = "";
+  [
+    ["top", r.topNeed, false, ""],
+    ["outer", r.outerNeed, r.rain, r.carry ? "かばんに入れて持ち歩き" : ""],
+    ["bottom", r.bottomNeed, false, ""],
+    ["shoes", r.shoesNeed, r.rain, r.rain ? "濡れても平気なものを" : ""]
+  ].forEach(([cat, need, rain, extra])=>{
+    const g = el("div","gtag");
+    const head = el("div","cat"); head.appendChild(el("span",null,CATS[cat]));
+    const p = pick(cat, need, rain);
+    if(p){ head.appendChild(dots(p.warmth)); if(usingSample()) head.appendChild(el("span","badge","サンプル")); }
+    g.appendChild(head);
+    g.appendChild(el("div","name", p ? p.name : GENERIC[cat][need]));
+    const sub = [];
+    if(p) sub.push("めやす：" + GENERIC[cat][need]);
+    else if(need) sub.push("クローゼットに該当する服がないので、一般的なめやすです");
+    if(extra) sub.push(extra);
+    if(sub.length) g.appendChild(el("div","sub", sub.join(" / ")));
+    tags.appendChild(g);
+  });
+
+  const notes = $("notes"); notes.textContent = "";
+  r.notes.forEach(([k,t])=>{ const li = el("li"); li.appendChild(el("span","k",k)); li.appendChild(el("span",null,t)); notes.appendChild(li); });
+}
+
+function renderCloset(){
+  $("sampleBar").hidden = !usingSample();
+  const wrap = $("groups"); wrap.textContent = "";
+  const list = activeCloset();
+  Object.keys(CATS).forEach(cat=>{
+    const items = list.filter(i=>i.cat===cat).sort((a,b)=>a.warmth-b.warmth);
+    const g = el("div","group");
+    const h = el("h3",null,CATS[cat]); h.appendChild(el("small",null,items.length+"着")); g.appendChild(h);
+    if(!items.length){ g.appendChild(el("p","empty","まだ登録がありません。")); }
+    else{
+      const ul = el("ul","items");
+      items.forEach(it=>{
+        const li = el("li");
+        const nm = el("span","nm",it.name); if(it.rain) nm.appendChild(el("span","rain","雨OK")); if(it.code) nm.appendChild(el("span","code",it.code));
+        li.appendChild(nm); li.appendChild(dots(it.warmth));
+        if(!usingSample()){
+          const d = el("button","del","削除"); d.type = "button"; d.setAttribute("aria-label", it.name+"を削除");
+          d.addEventListener("click", ()=>{ closet = closet.filter(x=>x.id!==it.id); persist(); renderAll(); });
+          li.appendChild(d);
+        } else li.appendChild(el("span"));
+        ul.appendChild(li);
+      });
+      g.appendChild(ul);
+    }
+    wrap.appendChild(g);
+  });
+}
+function renderAll(){ renderToday(); renderCloset(); }
+function updateWarmHint(){
+  const cat = $("itCat").value, w = +document.querySelector('input[name=warm]:checked').value;
+  $("warmHint").textContent = "たとえば：" + WARM_HINT[cat][w-1];
+}
+
+/* ---------- 入力 ---------- */
+function applyPrefs(){
+  const mv = document.querySelector(`input[name=move][value="${prefs.move}"]`); if(mv) mv.checked = true;
+  const sp = document.querySelector(`input[name=span][value="${prefs.span||"day"}"]`); if(sp) sp.checked = true;
+  $("body").value = prefs.body; $("bodyOut").textContent = BODY[String(prefs.body)];
+}
+$("cond").addEventListener("input", e=>{
+  if(e.target.name==="day") return;
+  if(e.target.name==="move"){ prefs.move = e.target.value; persist(); }
+  if(e.target.name==="span"){ prefs.span = e.target.value; persist(); }
+  if(e.target.id==="body"){ prefs.body = +e.target.value; $("bodyOut").textContent = BODY[e.target.value]; persist(); }
+  if(["hi","lo","wind"].includes(e.target.id) || e.target.name==="wx") $("autoNote").hidden = true;
+  seed = 0; renderToday();
+});
+document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", ()=>{
+  const inp = $(b.dataset.step); inp.value = (parseFloat(inp.value)||0) + (+b.dataset.d); $("autoNote").hidden = true; seed = 0; renderToday();
+}));
+$("shuffle").addEventListener("click", ()=>{ seed++; renderToday(); });
+document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click", ()=>{
+  const v = b.dataset.view;
+  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", String(x===b)));
+  $("view-today").hidden = v!=="today"; $("view-closet").hidden = v!=="closet";
+  window.scrollTo(0,0);
+}));
+$("itCat").addEventListener("change", updateWarmHint);
+$("warmSeg").addEventListener("change", updateWarmHint);
+$("addForm").addEventListener("submit", e=>{
+  e.preventDefault();
+  const name = $("itName").value.trim(); if(!name) return;
+  const item = {id:"i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), cat:$("itCat").value, name, warmth:+document.querySelector('input[name=warm]:checked').value};
+  if($("itRain").checked) item.rain = true;
+  const code = $("itCode").value.trim(); if(code) item.code = code;
+  closet = (closet || []).concat(item);
+  $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("fillNote").hidden = true; $("itName").focus();
+  persist(); renderAll();
+});
+
+/* ---------- 品番・JANで探す（Yahoo!ショッピング商品検索） ---------- */
+const RULES = [
+  // [正規表現, 種類, 暖かさ, 雨OK]
+  [/スノーブーツ|ウィンターブーツ/, "shoes", 5],
+  [/ブーツ/, "shoes", 4],
+  [/サンダル|スライド/, "shoes", 1],
+  [/ローファー|革靴|ドレスシューズ|モカシン|パンプス/, "shoes", 3],
+  [/スニーカー|シューズ|ランニング/, "shoes", 2],
+  [/ダウン(?!ロード)/, "outer", 5],
+  [/中綿|パファー|ボア|ムートン/, "outer", 4],
+  [/チェスター|ステンカラー|ピーコート|Pコート|ダッフル|ウールコート|ロングコート/, "outer", 4],
+  [/トレンチ/, "outer", 3],
+  [/マウンテンパーカ|ナイロンジャケット|ウインドブレーカ|ウィンドブレーカ|シェルジャケット|アノラック/, "outer", 2],
+  [/デニムジャケット|Gジャン|コーチジャケット|シャツジャケット|CPOジャケット/, "outer", 2],
+  [/フリース/, "outer", 3],
+  [/ジャケット|ブルゾン|ブレザー|MA-?1|ライダース|コート/, "outer", 3],
+  [/カーディガン/, "outer", 1],
+  [/ジップ.*パーカ|ジップアップ/, "outer", 2],
+  [/裏起毛.*(パンツ|ズボン)|暖パン|防寒パンツ/, "bottom", 5],
+  [/コーデュロイ|ウール.*(パンツ|スラックス)/, "bottom", 4],
+  [/デニム|ジーンズ|ジーパン/, "bottom", 3],
+  [/ショートパンツ|ショーツ|ハーフパンツ|短パン/, "bottom", 1],
+  [/スカート|チノ|スラックス|ワイドパンツ|イージーパンツ|カーゴ|パンツ/, "bottom", 2],
+  [/ローゲージ|ケーブル|タートル|厚手ニット|ヘビーウェイト.*ニット/, "top", 4],
+  [/ニット|セーター|スウェット|トレーナー|パーカ|フーディ/, "top", 3],
+  [/ロンT|長袖|ロングスリーブ/, "top", 2],
+  [/Tシャツ|カットソー|タンクトップ|ポロ|半袖/, "top", 1],
+  [/シャツ|ブラウス/, "top", 2]
+];
+const GENRE_CAT = [[/靴|シューズ|ブーツ|スニーカー/, "shoes"],[/アウター|コート|ジャケット/, "outer"],[/パンツ|ボトム|スカート|ジーンズ/, "bottom"],[/トップス|シャツ|ニット|カットソー|スウェット/, "top"]];
+function guess(name, genre){
+  name = name.replace(/ボタンダウン/g, "BD");
+  const text = name + " " + genre;
+  let cat = null, warmth = 3;
+  for(const [re, c, w] of RULES){ if(re.test(name)){ cat = c; warmth = w; break; } }
+  if(!cat){ for(const [re, c] of GENRE_CAT){ if(re.test(genre)){ cat = c; break; } } }
+  if(!cat) cat = "top";
+  if(cat==="top" && /半袖/.test(text)) warmth = 1;
+  if(cat==="top" && warmth===3 && /薄手|サマー|リネン/.test(text)) warmth = 2;
+  const rain = /撥水|防水|GORE-?TEX|ゴアテックス|レイン/i.test(text);
+  return {cat, warmth, rain};
+}
+function cleanName(name){
+  let n = name.replace(/【[^】]*】|［[^］]*］|\[[^\]]*\]|＜[^＞]*＞|<[^>]*>|★|☆|◆|◇|■|□|●|送料無料|ポイント\d+倍|あす楽|即納|SALE|セール|\d+%OFF/gi, " ");
+  n = n.replace(/\s+/g, " ").trim();
+  return n.length > 40 ? n.slice(0, 40) : n;
+}
+function showCodeMsg(t, withSearch){
+  const m = $("codeMsg"); m.textContent = t || ""; m.hidden = !t;
+  if(t && withSearch){
+    const q = $("codeQ").value.trim();
+    const a = document.createElement("a"); a.href = "https://www.google.com/search?q=" + encodeURIComponent(q); a.target = "_blank"; a.rel = "noopener"; a.textContent = "Webで「" + q + "」を調べる";
+    m.appendChild(document.createTextNode(" ")); m.appendChild(a);
+  }
+}
+let appid = LS.get("kn.appid", "");
+$("appid").value = appid;
+$("appid").addEventListener("change", ()=>{ appid = $("appid").value.trim(); LS.set("kn.appid", appid); });
+if(!appid) $("apiBox").open = false;
+
+function fillForm(h){
+  const g = guess(h.name, h.genre);
+  $("itName").value = cleanName(h.name);
+  $("itCat").value = g.cat;
+  const w = document.querySelector(`input[name=warm][value="${g.warmth}"]`); if(w) w.checked = true;
+  $("itRain").checked = g.rain;
+  $("itCode").value = $("codeQ").value.trim();
+  $("fillNote").hidden = false;
+  updateWarmHint();
+  $("itName").scrollIntoView({behavior:"smooth", block:"center"});
+}
+async function lookup(){
+  const q = $("codeQ").value.trim(); if(!q) return;
+  $("hits").textContent = "";
+  if(!appid){ $("apiBox").open = true; showCodeMsg("品番検索を使うには、下の「品番検索の設定」でClient IDを入れてください。いまは手で入力して登録できます。", true); $("itCode").value = q; return; }
+  const digits = q.replace(/[\s-]/g, "");
+  const isJan = /^(\d{8}|\d{13})$/.test(digits);
+  const url = "https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=" + encodeURIComponent(appid) + "&results=6&" + (isJan ? "jan_code=" + digits : "query=" + encodeURIComponent(q));
+  const btn = $("codeBtn"); btn.disabled = true; btn.textContent = "検索中…"; showCodeMsg("");
+  try{
+    const res = await fetch(url);
+    if(res.status===401 || res.status===403){ showCodeMsg("Client IDが正しくないようです。設定を確かめてください。", false); $("apiBox").open = true; return; }
+    if(res.status===429){ showCodeMsg("検索が混み合っています。少し待ってからもう一度押してください。", false); return; }
+    if(!res.ok) throw new Error("http " + res.status);
+    const j = await res.json();
+    const hits = (j.hits || []).map(h=>({
+      name: String(h.name || ""),
+      brand: h.brand && h.brand.name ? h.brand.name : "",
+      genre: [h.genreCategory && h.genreCategory.name].concat((h.parentGenreCategories || []).map(x=>x && x.name)).filter(Boolean).join(" "),
+      img: h.image && (h.image.small || h.image.medium) || ""
+    })).filter(h=>h.name);
+    if(!hits.length){ showCodeMsg("この品番では見つかりませんでした。ブランド名を足して探すか、下で手入力してください。", true); $("itCode").value = q; return; }
+    showCodeMsg("近い商品を選ぶと、下のフォームに入ります。");
+    const ul = $("hits");
+    hits.forEach(h=>{
+      const li = el("li");
+      const im = el("img"); im.alt = ""; im.loading = "lazy"; if(h.img) im.src = h.img; li.appendChild(im);
+      const box = el("div"); box.style.minWidth = "0"; box.appendChild(el("div","t",h.name)); if(h.brand) box.appendChild(el("div","b",h.brand)); li.appendChild(box);
+      const b = el("button","btn","これ"); b.type = "button"; b.addEventListener("click", ()=>{ fillForm(h); $("hits").textContent = ""; showCodeMsg(""); }); li.appendChild(b);
+      ul.appendChild(li);
+    });
+  }catch(e){
+    showCodeMsg("検索サービスにつながりませんでした。通信状態を確かめるか、下で手入力してください。", true);
+    $("itCode").value = q;
+  }finally{ btn.disabled = false; btn.textContent = "探す"; }
+}
+$("codeBtn").addEventListener("click", lookup);
+$("codeQ").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); lookup(); } });
+
+/* バックアップ */
+$("exportBtn").addEventListener("click", async ()=>{
+  const data = JSON.stringify({app:"kyou-nani-kiru", version:1, closet: closet||[], prefs}, null, 2);
+  const name = "kyou-nani-kiru-backup-" + new Date().toISOString().slice(0,10) + ".json";
+  const file = new File([data], name, {type:"application/json"});
+  try{
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:"きょう何着る？ バックアップ"}); $("backupMsg").textContent = "バックアップを書き出しました。"; return; }
+  }catch(e){ if(e && e.name==="AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  $("backupMsg").textContent = "バックアップを書き出しました。";
+});
+$("importFile").addEventListener("change", async e=>{
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  try{
+    const j = JSON.parse(await f.text());
+    if(!j || !Array.isArray(j.closet)) throw new Error("bad");
+    closet = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined}));
+    if(j.prefs) prefs = {...prefs, ...j.prefs};
+    persist(); applyPrefs(); renderAll();
+    $("backupMsg").textContent = closet.length + "着を読み込みました。";
+  }catch(err){ $("backupMsg").textContent = "このファイルは読み込めませんでした。書き出したバックアップ（.json）を選んでください。"; }
+  e.target.value = "";
+});
+
+/* ---------- 起動 ---------- */
+$("today").textContent = new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
+if(new Date().getHours() >= 18) $("d1").checked = true;   // 夜は明日の服を考える
+applyPrefs(); updateWarmHint(); renderAll();
+if(loc){ $("place").textContent = loc.name || "現在地"; const c = LS.get("kn.fc", null); if(c){ forecast = c; applyForecast(); } loadForecast(); }
+if("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+
+</script>
+</body>
+</html>
