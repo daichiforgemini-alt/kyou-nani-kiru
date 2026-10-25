@@ -188,6 +188,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .hits .t{font-size:13px;line-height:1.45;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .hits .b{font-size:11.5px;color:var(--muted)}
 .hits .btn{padding:5px 11px;font-size:13px}
+.hits .color-sel{margin-top:4px;padding:3px 8px;font-size:12.5px;width:auto;max-width:100%}
 .settings summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)}
 .divider{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
 .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -312,10 +313,10 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       <div class="lookup">
         <div class="field"><label for="codeQ">品番・JANコードで探す</label>
           <div class="search-row">
-            <input class="text-in" id="codeQ" placeholder="例：469876 / 4550512345678" inputmode="text" enterkeyhint="search" autocapitalize="characters">
+            <input class="text-in" id="codeQ" placeholder="例：470067 / 4550512345678" inputmode="text" enterkeyhint="search" autocapitalize="characters">
             <button type="button" class="btn primary" id="codeBtn">探す</button>
           </div>
-          <span class="hint">ブランド名と一緒に入れると見つかりやすくなります（例：ユニクロ 469876）</span>
+          <span class="hint">ユニクロ・GUは公式サイトから探します。6桁の品番か商品名を入れてください（例：470067）</span>
         </div>
         <p class="hint" id="codeMsg" style="margin:0" hidden></p>
         <ul class="hits" id="hits"></ul>
@@ -727,6 +728,7 @@ const RULES = [
   [/サンダル|スライド/, "shoes", 1],
   [/ローファー|革靴|ドレスシューズ|モカシン|パンプス/, "shoes", 3],
   [/スニーカー|シューズ|ランニング/, "shoes", 2],
+  [/ウルトラライトダウン|ライトダウン|インナーダウン|ダウンベスト/, "outer", 4],
   [/ダウン(?!ロード)/, "outer", 5],
   [/中綿|パファー|ボア|ムートン/, "outer", 4],
   [/チェスター|ステンカラー|ピーコート|Pコート|ダッフル|ウールコート|ロングコート/, "outer", 4],
@@ -776,46 +778,99 @@ function showCodeMsg(t, withSearch){
 }
 const SEARCH_API = "https://kyou-nani-kiru-search.daichiforgemini.workers.dev/";
 
-function fillForm(h){
-  const g = guess(h.name, h.genre);
+function fillForm(h, code){
+  const g = guess(h.name, h.genre || "");
   $("itName").value = cleanName(h.name);
   $("itCat").value = g.cat;
   const w = document.querySelector(`input[name=warm][value="${g.warmth}"]`); if(w) w.checked = true;
   $("itRain").checked = g.rain;
-  $("itCode").value = $("codeQ").value.trim();
+  $("itCode").value = code || $("codeQ").value.trim();
   $("fillNote").hidden = false;
   updateWarmHint();
   $("itName").scrollIntoView({behavior:"smooth", block:"center"});
+}
+const COLOR_JA = {"BLACK":"ブラック","WHITE":"ホワイト","OFF WHITE":"オフホワイト","NATURAL":"ナチュラル","CREAM":"クリーム","GRAY":"グレー","LIGHT GRAY":"ライトグレー","DARK GRAY":"ダークグレー","NAVY":"ネイビー","BLUE":"ブルー","LIGHT BLUE":"ライトブルー","DARK BLUE":"ダークブルー","BEIGE":"ベージュ","DARK BEIGE":"ダークベージュ","BROWN":"ブラウン","DARK BROWN":"ダークブラウン","OLIVE":"オリーブ","DARK GREEN":"ダークグリーン","GREEN":"グリーン","LIGHT GREEN":"ライトグリーン","KHAKI":"カーキ","RED":"レッド","WINE":"ワイン","PINK":"ピンク","LIGHT PINK":"ライトピンク","ORANGE":"オレンジ","YELLOW":"イエロー","PURPLE":"パープル","LIGHT ORANGE":"ライトオレンジ","DARK RED":"ダークレッド","DARK GRAY ":"ダークグレー"};
+const colorJa = n => COLOR_JA[String(n||"").toUpperCase()] || String(n||"");
+
+function renderOfficial(items, q){
+  const ul = $("hits"); ul.textContent = "";
+  items.forEach(h=>{
+    const li = el("li");
+    const im = el("img"); im.alt = ""; im.loading = "lazy";
+    const first = h.colors[0]; if(first && first.img) im.src = first.img;
+    li.appendChild(im);
+    const box = el("div"); box.style.minWidth = "0";
+    box.appendChild(el("div","t",h.name));
+    box.appendChild(el("div","b",[h.brand, h.gender, "品番 " + h.code].filter(Boolean).join(" · ")));
+    let sel = null;
+    if(h.colors.length){
+      sel = el("select","text-in color-sel"); sel.setAttribute("aria-label", h.name + "の色");
+      h.colors.forEach(c=>{ const o = el("option", null, colorJa(c.name)); o.value = c.code; sel.appendChild(o); });
+      sel.addEventListener("change", ()=>{ const c = h.colors.find(x=>x.code===sel.value); if(c && c.img) im.src = c.img; });
+      box.appendChild(sel);
+    }
+    li.appendChild(box);
+    const b = el("button","btn","これ"); b.type = "button";
+    b.addEventListener("click", ()=>{
+      const c = sel ? h.colors.find(x=>x.code===sel.value) : null;
+      fillForm({name: h.name.split("/")[0] + (c ? "（" + colorJa(c.name) + "）" : ""), genre: h.name}, h.brand + " " + h.code);
+      $("hits").textContent = ""; showCodeMsg("");
+    });
+    li.appendChild(b);
+    ul.appendChild(li);
+  });
+}
+function renderYahoo(hits){
+  const ul = $("hits"); ul.textContent = "";
+  hits.forEach(h=>{
+    const li = el("li");
+    const im = el("img"); im.alt = ""; im.loading = "lazy"; if(h.img) im.src = h.img; li.appendChild(im);
+    const box = el("div"); box.style.minWidth = "0"; box.appendChild(el("div","t",h.name)); box.appendChild(el("div","b",(h.brand ? h.brand + " · " : "") + "Yahoo!ショッピングの出品")); li.appendChild(box);
+    const b = el("button","btn","これ"); b.type = "button"; b.addEventListener("click", ()=>{ fillForm(h); $("hits").textContent = ""; showCodeMsg(""); }); li.appendChild(b);
+    ul.appendChild(li);
+  });
+}
+async function searchYahoo(q, isJan, digits){
+  const res = await fetch(SEARCH_API + "?" + (isJan ? "jan_code=" + digits : "query=" + encodeURIComponent(q)));
+  if(!res.ok) return [];
+  const j = await res.json();
+  return (j.hits || []).map(h=>({
+    name: String(h.name || ""),
+    brand: h.brand && h.brand.name ? h.brand.name : "",
+    genre: [h.genreCategory && h.genreCategory.name].concat((h.parentGenreCategories || []).map(x=>x && x.name)).filter(Boolean).join(" "),
+    img: h.image && (h.image.small || h.image.medium) || ""
+  })).filter(h=>h.name);
 }
 async function lookup(){
   const q = $("codeQ").value.trim(); if(!q) return;
   $("hits").textContent = "";
   const digits = q.replace(/[\s-]/g, "");
   const isJan = /^(\d{8}|\d{13})$/.test(digits);
-  const url = SEARCH_API + "?" + (isJan ? "jan_code=" + digits : "query=" + encodeURIComponent(q));
   const btn = $("codeBtn"); btn.disabled = true; btn.textContent = "検索中…"; showCodeMsg("");
   try{
-    const res = await fetch(url);
-    if(res.status===401 || res.status===403 || res.status===500){ showCodeMsg("検索サーバーの設定に問題があり、検索できませんでした。いまは下で手入力してください。", true); $("itCode").value = q; return; }
-    if(res.status===429){ showCodeMsg("検索が混み合っています。少し待ってからもう一度押してください。", false); return; }
-    if(!res.ok) throw new Error("http " + res.status);
-    const j = await res.json();
-    const hits = (j.hits || []).map(h=>({
-      name: String(h.name || ""),
-      brand: h.brand && h.brand.name ? h.brand.name : "",
-      genre: [h.genreCategory && h.genreCategory.name].concat((h.parentGenreCategories || []).map(x=>x && x.name)).filter(Boolean).join(" "),
-      img: h.image && (h.image.small || h.image.medium) || ""
-    })).filter(h=>h.name);
-    if(!hits.length){ showCodeMsg("この品番では見つかりませんでした。ブランド名を足して探すか、下で手入力してください。", true); $("itCode").value = q; return; }
-    showCodeMsg("近い商品を選ぶと、下のフォームに入ります。");
-    const ul = $("hits");
-    hits.forEach(h=>{
-      const li = el("li");
-      const im = el("img"); im.alt = ""; im.loading = "lazy"; if(h.img) im.src = h.img; li.appendChild(im);
-      const box = el("div"); box.style.minWidth = "0"; box.appendChild(el("div","t",h.name)); if(h.brand) box.appendChild(el("div","b",h.brand)); li.appendChild(box);
-      const b = el("button","btn","これ"); b.type = "button"; b.addEventListener("click", ()=>{ fillForm(h); $("hits").textContent = ""; showCodeMsg(""); }); li.appendChild(b);
-      ul.appendChild(li);
-    });
+    if(!isJan){
+      // ユニクロ・GU公式（ブランド名は外して品番・商品名で探す）
+      const oq = q.replace(/ユニクロ|UNIQLO|ジーユー|\bGU\b/gi, " ").replace(/\s+/g, " ").trim() || q;
+      const res = await fetch(SEARCH_API + "official?q=" + encodeURIComponent(oq));
+      if(res.status===429){ showCodeMsg("検索が混み合っています。少し待ってからもう一度押してください。", false); return; }
+      if(res.ok){
+        const j = await res.json();
+        const items = (j.items || []).filter(x=>x && x.name);
+        if(items.length){
+          showCodeMsg("ユニクロ・GUの公式サイトで見つかりました。色を選んで「これ」を押すと、下のフォームに入ります。");
+          renderOfficial(items, q);
+          return;
+        }
+      }
+    }
+    // 公式で見つからないとき・JANコードのときはYahoo!ショッピングの出品から
+    const hits = await searchYahoo(q, isJan, digits);
+    if(!hits.length){
+      showCodeMsg(isJan ? "このJANコードでは見つかりませんでした。下で手入力してください。" : "公式サイトでも見つかりませんでした。ユニクロ・GUの公式サイトには、いま販売中の商品しか載っていません。下で手入力してください。", true);
+      $("itCode").value = q; return;
+    }
+    showCodeMsg(isJan ? "Yahoo!ショッピングの出品から見つかりました。近いものを選んでください。" : "公式サイトでは見つからなかったので、Yahoo!ショッピングの出品から探しました。近いものを選んでください。");
+    renderYahoo(hits);
   }catch(e){
     showCodeMsg("検索サービスにつながりませんでした。通信状態を確かめるか、下で手入力してください。", true);
     $("itCode").value = q;
