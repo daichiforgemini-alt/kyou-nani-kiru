@@ -181,17 +181,6 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .auto-note{font-size:12px;color:var(--muted)}
 .backup{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 @media (max-width:800px){.has-loc #view-today .result{order:-1}}
-.lookup{display:flex;flex-direction:column;gap:10px;background:var(--sunk);border-radius:12px;padding:12px 14px}
-.hits{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.hits li{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px}
-.hits img{width:48px;height:48px;object-fit:cover;border-radius:6px;background:var(--sunk)}
-.hits .t{font-size:13px;line-height:1.45;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.hits .b{font-size:11.5px;color:var(--muted)}
-.hits .btn{padding:5px 11px;font-size:13px}
-.hits .color-sel{margin-top:4px;padding:3px 8px;font-size:12.5px;width:auto;max-width:100%}
-.settings summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)}
-.divider{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
-.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
 .items .code{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-left:6px}
 
 </style>
@@ -310,18 +299,6 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
   <section id="view-closet" class="closet" hidden>
     <form class="panel" id="addForm" autocomplete="off">
       <h2>服を登録する</h2>
-      <div class="lookup">
-        <div class="field"><label for="codeQ">品番・JANコードで探す</label>
-          <div class="search-row">
-            <input class="text-in" id="codeQ" placeholder="例：470067 / 4550512345678" inputmode="text" enterkeyhint="search" autocapitalize="characters">
-            <button type="button" class="btn primary" id="codeBtn">探す</button>
-          </div>
-          <span class="hint">ユニクロ・GUは公式サイトから探します。6桁の品番か商品名を入れてください（例：470067）</span>
-        </div>
-        <p class="hint" id="codeMsg" style="margin:0" hidden></p>
-        <ul class="hits" id="hits"></ul>
-      </div>
-      <div class="divider"><span>見つからないときは手で入力</span></div>
       <div class="field"><label for="itName">名前</label>
         <input class="text-in" id="itName" required maxlength="40" placeholder="例：紺のカーディガン">
       </div>
@@ -345,9 +322,8 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
       <label class="checkrow"><input type="checkbox" id="itRain"> 雨の日に強い（撥水・防水）</label>
       <div class="field"><label for="itCode">品番（任意）</label>
-        <input class="text-in" id="itCode" maxlength="40" placeholder="メモとして残せます" spellcheck="false">
+        <input class="text-in" id="itCode" maxlength="40" placeholder="タグの品番をメモできます（例：470067）" spellcheck="false">
       </div>
-      <p class="auto-note" id="fillNote" hidden>検索結果から自動で入れました。種類と暖かさは商品名から推定したので、違っていたら直してください。</p>
       <button class="btn primary" type="submit">クローゼットに追加</button>
       <p class="store-note">服はこの端末に保存されます。機種変更の前にバックアップを書き出してください。</p>
       <div class="backup">
@@ -716,168 +692,9 @@ $("addForm").addEventListener("submit", e=>{
   if($("itRain").checked) item.rain = true;
   const code = $("itCode").value.trim(); if(code) item.code = code;
   closet = (closet || []).concat(item);
-  $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("fillNote").hidden = true; $("itName").focus();
+  $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("itName").focus();
   persist(); renderAll();
 });
-
-/* ---------- 品番・JANで探す（Yahoo!ショッピング商品検索） ---------- */
-const RULES = [
-  // [正規表現, 種類, 暖かさ, 雨OK]
-  [/スノーブーツ|ウィンターブーツ/, "shoes", 5],
-  [/ブーツ/, "shoes", 4],
-  [/サンダル|スライド/, "shoes", 1],
-  [/ローファー|革靴|ドレスシューズ|モカシン|パンプス/, "shoes", 3],
-  [/スニーカー|シューズ|ランニング/, "shoes", 2],
-  [/ウルトラライトダウン|ライトダウン|インナーダウン|ダウンベスト/, "outer", 4],
-  [/ダウン(?!ロード)/, "outer", 5],
-  [/中綿|パファー|ボア|ムートン/, "outer", 4],
-  [/チェスター|ステンカラー|ピーコート|Pコート|ダッフル|ウールコート|ロングコート/, "outer", 4],
-  [/トレンチ/, "outer", 3],
-  [/マウンテンパーカ|ナイロンジャケット|ウインドブレーカ|ウィンドブレーカ|シェルジャケット|アノラック/, "outer", 2],
-  [/デニムジャケット|Gジャン|コーチジャケット|シャツジャケット|CPOジャケット/, "outer", 2],
-  [/フリース/, "outer", 3],
-  [/ジャケット|ブルゾン|ブレザー|MA-?1|ライダース|コート/, "outer", 3],
-  [/カーディガン/, "outer", 1],
-  [/ジップ.*パーカ|ジップアップ/, "outer", 2],
-  [/裏起毛.*(パンツ|ズボン)|暖パン|防寒パンツ/, "bottom", 5],
-  [/コーデュロイ|ウール.*(パンツ|スラックス)/, "bottom", 4],
-  [/デニム|ジーンズ|ジーパン/, "bottom", 3],
-  [/ショートパンツ|ショーツ|ハーフパンツ|短パン/, "bottom", 1],
-  [/スカート|チノ|スラックス|ワイドパンツ|イージーパンツ|カーゴ|パンツ/, "bottom", 2],
-  [/ローゲージ|ケーブル|タートル|厚手ニット|ヘビーウェイト.*ニット/, "top", 4],
-  [/ニット|セーター|スウェット|トレーナー|パーカ|フーディ/, "top", 3],
-  [/ロンT|長袖|ロングスリーブ/, "top", 2],
-  [/Tシャツ|カットソー|タンクトップ|ポロ|半袖/, "top", 1],
-  [/シャツ|ブラウス/, "top", 2]
-];
-const GENRE_CAT = [[/靴|シューズ|ブーツ|スニーカー/, "shoes"],[/アウター|コート|ジャケット/, "outer"],[/パンツ|ボトム|スカート|ジーンズ/, "bottom"],[/トップス|シャツ|ニット|カットソー|スウェット/, "top"]];
-function guess(name, genre){
-  name = name.replace(/ボタンダウン/g, "BD");
-  const text = name + " " + genre;
-  let cat = null, warmth = 3;
-  for(const [re, c, w] of RULES){ if(re.test(name)){ cat = c; warmth = w; break; } }
-  if(!cat){ for(const [re, c] of GENRE_CAT){ if(re.test(genre)){ cat = c; break; } } }
-  if(!cat) cat = "top";
-  if(cat==="top" && /半袖/.test(text)) warmth = 1;
-  if(cat==="top" && warmth===3 && /薄手|サマー|リネン/.test(text)) warmth = 2;
-  const rain = /撥水|防水|GORE-?TEX|ゴアテックス|レイン/i.test(text);
-  return {cat, warmth, rain};
-}
-function cleanName(name){
-  let n = name.replace(/【[^】]*】|［[^］]*］|\[[^\]]*\]|＜[^＞]*＞|<[^>]*>|★|☆|◆|◇|■|□|●|送料無料|ポイント\d+倍|あす楽|即納|SALE|セール|\d+%OFF/gi, " ");
-  n = n.replace(/\s+/g, " ").trim();
-  return n.length > 40 ? n.slice(0, 40) : n;
-}
-function showCodeMsg(t, withSearch){
-  const m = $("codeMsg"); m.textContent = t || ""; m.hidden = !t;
-  if(t && withSearch){
-    const q = $("codeQ").value.trim();
-    const a = document.createElement("a"); a.href = "https://www.google.com/search?q=" + encodeURIComponent(q); a.target = "_blank"; a.rel = "noopener"; a.textContent = "Webで「" + q + "」を調べる";
-    m.appendChild(document.createTextNode(" ")); m.appendChild(a);
-  }
-}
-const SEARCH_API = "https://kyou-nani-kiru-search.daichiforgemini.workers.dev/";
-
-function fillForm(h, code){
-  const g = guess(h.name, h.genre || "");
-  $("itName").value = cleanName(h.name);
-  $("itCat").value = g.cat;
-  const w = document.querySelector(`input[name=warm][value="${g.warmth}"]`); if(w) w.checked = true;
-  $("itRain").checked = g.rain;
-  $("itCode").value = code || $("codeQ").value.trim();
-  $("fillNote").hidden = false;
-  updateWarmHint();
-  $("itName").scrollIntoView({behavior:"smooth", block:"center"});
-}
-const COLOR_JA = {"BLACK":"ブラック","WHITE":"ホワイト","OFF WHITE":"オフホワイト","NATURAL":"ナチュラル","CREAM":"クリーム","GRAY":"グレー","LIGHT GRAY":"ライトグレー","DARK GRAY":"ダークグレー","NAVY":"ネイビー","BLUE":"ブルー","LIGHT BLUE":"ライトブルー","DARK BLUE":"ダークブルー","BEIGE":"ベージュ","DARK BEIGE":"ダークベージュ","BROWN":"ブラウン","DARK BROWN":"ダークブラウン","OLIVE":"オリーブ","DARK GREEN":"ダークグリーン","GREEN":"グリーン","LIGHT GREEN":"ライトグリーン","KHAKI":"カーキ","RED":"レッド","WINE":"ワイン","PINK":"ピンク","LIGHT PINK":"ライトピンク","ORANGE":"オレンジ","YELLOW":"イエロー","PURPLE":"パープル","LIGHT ORANGE":"ライトオレンジ","DARK RED":"ダークレッド","DARK GRAY ":"ダークグレー"};
-const colorJa = n => COLOR_JA[String(n||"").toUpperCase()] || String(n||"");
-
-function renderOfficial(items, q){
-  const ul = $("hits"); ul.textContent = "";
-  items.forEach(h=>{
-    const li = el("li");
-    const im = el("img"); im.alt = ""; im.loading = "lazy";
-    const first = h.colors[0]; if(first && first.img) im.src = first.img;
-    li.appendChild(im);
-    const box = el("div"); box.style.minWidth = "0";
-    box.appendChild(el("div","t",h.name));
-    box.appendChild(el("div","b",[h.brand, h.gender, "品番 " + h.code].filter(Boolean).join(" · ")));
-    let sel = null;
-    if(h.colors.length){
-      sel = el("select","text-in color-sel"); sel.setAttribute("aria-label", h.name + "の色");
-      h.colors.forEach(c=>{ const o = el("option", null, colorJa(c.name)); o.value = c.code; sel.appendChild(o); });
-      sel.addEventListener("change", ()=>{ const c = h.colors.find(x=>x.code===sel.value); if(c && c.img) im.src = c.img; });
-      box.appendChild(sel);
-    }
-    li.appendChild(box);
-    const b = el("button","btn","これ"); b.type = "button";
-    b.addEventListener("click", ()=>{
-      const c = sel ? h.colors.find(x=>x.code===sel.value) : null;
-      fillForm({name: h.name.split("/")[0] + (c ? "（" + colorJa(c.name) + "）" : ""), genre: h.name}, h.brand + " " + h.code);
-      $("hits").textContent = ""; showCodeMsg("");
-    });
-    li.appendChild(b);
-    ul.appendChild(li);
-  });
-}
-function renderYahoo(hits){
-  const ul = $("hits"); ul.textContent = "";
-  hits.forEach(h=>{
-    const li = el("li");
-    const im = el("img"); im.alt = ""; im.loading = "lazy"; if(h.img) im.src = h.img; li.appendChild(im);
-    const box = el("div"); box.style.minWidth = "0"; box.appendChild(el("div","t",h.name)); box.appendChild(el("div","b",(h.brand ? h.brand + " · " : "") + "Yahoo!ショッピングの出品")); li.appendChild(box);
-    const b = el("button","btn","これ"); b.type = "button"; b.addEventListener("click", ()=>{ fillForm(h); $("hits").textContent = ""; showCodeMsg(""); }); li.appendChild(b);
-    ul.appendChild(li);
-  });
-}
-async function searchYahoo(q, isJan, digits){
-  const res = await fetch(SEARCH_API + "?" + (isJan ? "jan_code=" + digits : "query=" + encodeURIComponent(q)));
-  if(!res.ok) return [];
-  const j = await res.json();
-  return (j.hits || []).map(h=>({
-    name: String(h.name || ""),
-    brand: h.brand && h.brand.name ? h.brand.name : "",
-    genre: [h.genreCategory && h.genreCategory.name].concat((h.parentGenreCategories || []).map(x=>x && x.name)).filter(Boolean).join(" "),
-    img: h.image && (h.image.small || h.image.medium) || ""
-  })).filter(h=>h.name);
-}
-async function lookup(){
-  const q = $("codeQ").value.trim(); if(!q) return;
-  $("hits").textContent = "";
-  const digits = q.replace(/[\s-]/g, "");
-  const isJan = /^(\d{8}|\d{13})$/.test(digits);
-  const btn = $("codeBtn"); btn.disabled = true; btn.textContent = "検索中…"; showCodeMsg("");
-  try{
-    if(!isJan){
-      // ユニクロ・GU公式（ブランド名は外して品番・商品名で探す）
-      const oq = q.replace(/ユニクロ|UNIQLO|ジーユー|\bGU\b/gi, " ").replace(/\s+/g, " ").trim() || q;
-      const res = await fetch(SEARCH_API + "official?q=" + encodeURIComponent(oq));
-      if(res.status===429){ showCodeMsg("検索が混み合っています。少し待ってからもう一度押してください。", false); return; }
-      if(res.ok){
-        const j = await res.json();
-        const items = (j.items || []).filter(x=>x && x.name);
-        if(items.length){
-          showCodeMsg("ユニクロ・GUの公式サイトで見つかりました。色を選んで「これ」を押すと、下のフォームに入ります。");
-          renderOfficial(items, q);
-          return;
-        }
-      }
-    }
-    // 公式で見つからないとき・JANコードのときはYahoo!ショッピングの出品から
-    const hits = await searchYahoo(q, isJan, digits);
-    if(!hits.length){
-      showCodeMsg(isJan ? "このJANコードでは見つかりませんでした。下で手入力してください。" : "公式サイトでも見つかりませんでした。ユニクロ・GUの公式サイトには、いま販売中の商品しか載っていません。下で手入力してください。", true);
-      $("itCode").value = q; return;
-    }
-    showCodeMsg(isJan ? "Yahoo!ショッピングの出品から見つかりました。近いものを選んでください。" : "公式サイトでは見つからなかったので、Yahoo!ショッピングの出品から探しました。近いものを選んでください。");
-    renderYahoo(hits);
-  }catch(e){
-    showCodeMsg("検索サービスにつながりませんでした。通信状態を確かめるか、下で手入力してください。", true);
-    $("itCode").value = q;
-  }finally{ btn.disabled = false; btn.textContent = "探す"; }
-}
-$("codeBtn").addEventListener("click", lookup);
-$("codeQ").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); lookup(); } });
 
 /* バックアップ */
 $("exportBtn").addEventListener("click", async ()=>{
