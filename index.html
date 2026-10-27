@@ -197,6 +197,13 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .pill{font-size:12px;font-weight:700;border-radius:999px;padding:1px 9px;background:var(--surface);border:1px solid var(--line)}
 .auto-note{font-size:12px;color:var(--muted)}
 .backup{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sync-box{display:flex;flex-direction:column;gap:10px;background:var(--sunk);border-radius:12px;padding:12px 14px}
+.sync-box #syncOff,.sync-box #syncOn{display:flex;flex-direction:column;gap:10px}
+.sync-box [hidden]{display:none!important}
+.sync-h{margin:0;font-weight:700}
+.sync-join{display:flex;flex-wrap:wrap;gap:8px}
+.sync-join .text-in{flex:1 1 220px;min-width:0;font-family:var(--f-mono);text-transform:uppercase}
+.sync-code{font-family:var(--f-mono);font-size:16px;font-weight:700;letter-spacing:.04em;user-select:all}
 @media (max-width:800px){.has-loc #view-today .result{order:-1}}
 .items .attr{font-size:11px;color:var(--muted);margin-left:6px;white-space:nowrap}
 .why-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
@@ -402,6 +409,28 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
       <p class="hint" id="backupMsg" style="margin:0"></p>
+      <div class="sync-box">
+        <p class="sync-h">iPhone・iPadで同期</p>
+        <div id="syncOff">
+          <p class="hint" style="margin:0">同じ「同期コード」を入れた端末どうしで、クローゼットが自動で同じになります。</p>
+          <button type="button" class="btn" id="syncNew">同期をはじめる（コードを作る）</button>
+          <div class="divider">もう一方の端末でコードを作ったとき</div>
+          <div class="sync-join">
+            <input class="text-in" id="syncIn" placeholder="XXXX-XXXX-XXXX-XXXX" autocapitalize="characters" spellcheck="false" aria-label="同期コード">
+            <button type="button" class="btn" id="syncJoin">このコードで同期</button>
+          </div>
+        </div>
+        <div id="syncOn" hidden>
+          <p style="margin:0">同期コード：<code id="syncCode" class="sync-code"></code></p>
+          <p class="hint" style="margin:0">もう一方の端末の「このコードで同期」に、このコードを入れてください。コードを知っている人は服を見られるので、人には教えないでください。</p>
+          <div class="backup">
+            <button type="button" class="btn" id="syncCopy">コードをコピー</button>
+            <button type="button" class="btn" id="syncNowBtn">今すぐ同期</button>
+            <button type="button" class="btn" id="syncStop">同期をやめる</button>
+          </div>
+        </div>
+        <p class="hint" id="syncMsg" style="margin:0"></p>
+      </div>
     </form>
 
     <div class="groups">
@@ -648,7 +677,59 @@ let loc    = LS.get("kn.loc", null);          // {lat, lon, name}
 let forecast = null;                           // 取得した予報
 function usingSample(){ return !closet || closet.length === 0; }
 function activeCloset(){ return usingSample() ? SAMPLE : closet; }
-function persist(){ const ok = LS.set("kn.closet", closet); LS.set("kn.prefs", prefs); if(!ok){ const m = document.getElementById("backupMsg"); if(m) m.textContent = "端末の保存容量がいっぱいで、最後の変更を保存できませんでした。写真付きの服をいくつか削除するか、バックアップを書き出してください。"; } }
+function persist(){ const ok = LS.set("kn.closet", closet); LS.set("kn.prefs", prefs); if(!ok){ const m = document.getElementById("backupMsg"); if(m) m.textContent = "端末の保存容量がいっぱいで、最後の変更を保存できませんでした。写真付きの服をいくつか削除するか、バックアップを書き出してください。"; } scheduleSync(); }
+
+/* ---------- 端末どうしの同期（同じ同期コードの端末でクローゼットを共有） ---------- */
+const SYNC_API = "https://kyou-nani-kiru-search.daichiforgemini.workers.dev/sync";
+const SYNC_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+let syncKey  = LS.get("kn.sync", null);       // 同期コード（16文字）
+let syncBase = LS.get("kn.syncBase", {});     // 前回同期したときの服ごとの指紋
+let tomb     = LS.get("kn.tomb", {});         // 消した服（id → 消した時刻）
+let syncBusy = false, syncAgain = false, syncTimer = null;
+function itemPrint(x){ const {u, ...r} = x; const s = JSON.stringify(r); let h = 5381; for(let i=0;i<s.length;i++) h = ((h*33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36) + ":" + s.length; }
+function fmtCode(k){ return k ? k.match(/.{1,4}/g).join("-") : ""; }
+function newCode(){ const a = new Uint32Array(16); crypto.getRandomValues(a); return [...a].map(n=>SYNC_CHARS[n % SYNC_CHARS.length]).join(""); }
+function setSyncMsg(t){ const m = document.getElementById("syncMsg"); if(m) m.textContent = t; }
+function scheduleSync(){ if(!syncKey) return; clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 1500); }
+async function syncApi(op, data, key){
+  const r = await fetch(SYNC_API, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({key: key || syncKey, op, data}), signal: AbortSignal.timeout(20000)});
+  const j = await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error || ("http" + r.status)); return j;
+}
+async function syncNow(){
+  if(!syncKey) return;
+  if(syncBusy){ syncAgain = true; return; }
+  syncBusy = true; setSyncMsg("同期しています…");
+  try{
+    const now = Date.now();
+    const local = closet || [];
+    const ids = new Set();
+    local.forEach(x=>{ ids.add(x.id); if(syncBase[x.id] !== itemPrint(x) || !x.u) x.u = now; });   // 前回から変わった服に時刻を付ける
+    Object.keys(syncBase).forEach(id=>{ if(!ids.has(id) && !tomb[id]) tomb[id] = now; });         // 消した服を記録
+    const snap = JSON.stringify(closet);
+    const got = (await syncApi("get")).data;
+    const remote = got || {items:[], tomb:{}};
+    const T = {...(remote.tomb || {})};
+    Object.entries(tomb).forEach(([k,v])=>{ if(!T[k] || T[k] < v) T[k] = v; });
+    const M = new Map();
+    [...(remote.items || []), ...local].forEach(x=>{ if(!x || !x.id) return; const o = M.get(x.id); if(!o || (x.u||0) > (o.u||0)) M.set(x.id, x); });
+    const merged = [...M.values()].filter(x=>!(T[x.id] && T[x.id] >= (x.u||0)));
+    Object.keys(T).forEach(k=>{ if(now - T[k] > 90*864e5) delete T[k]; });
+    if(!got || JSON.stringify(remote.items || []) !== JSON.stringify(merged) || JSON.stringify(remote.tomb || {}) !== JSON.stringify(T)){
+      await syncApi("put", {items: merged, tomb: T, at: now});
+    }
+    if(JSON.stringify(closet) !== snap){ syncAgain = true; return; }   // 同期中に服が変わったら、もう一度やり直す
+    const before = JSON.stringify(closet || []);
+    if(merged.length || closet) closet = merged;
+    tomb = T; syncBase = {}; merged.forEach(x=>{ syncBase[x.id] = itemPrint(x); });
+    LS.set("kn.closet", closet); LS.set("kn.tomb", tomb); LS.set("kn.syncBase", syncBase);
+    if(JSON.stringify(closet || []) !== before) renderAll();
+    setSyncMsg("同期しました（" + new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"}) + "）・" + (closet ? closet.length : 0) + "着");
+  }catch(err){
+    setSyncMsg(err.message === "no_kv" ? "同期サーバーの準備がまだです。" : "同期できませんでした。電波のいいところで「今すぐ同期」を押してください。");
+  }finally{
+    syncBusy = false; if(syncAgain){ syncAgain = false; setTimeout(syncNow, 300); }
+  }
+}
 
 /* ---------- 天気（Open-Meteo） ---------- */
 const $ = id => document.getElementById(id);
@@ -1173,12 +1254,33 @@ $("importFile").addEventListener("change", async e=>{
   e.target.value = "";
 });
 
+/* 同期の画面 */
+function renderSync(){ $("syncOff").hidden = !!syncKey; $("syncOn").hidden = !syncKey; $("syncCode").textContent = fmtCode(syncKey); }
+$("syncNew").addEventListener("click", ()=>{ syncKey = newCode(); syncBase = {}; LS.set("kn.sync", syncKey); LS.set("kn.syncBase", syncBase); renderSync(); syncNow(); });
+$("syncIn").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); $("syncJoin").click(); } });
+$("syncJoin").addEventListener("click", async ()=>{
+  const k = $("syncIn").value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+  if(!/^[A-Z2-9]{16}$/.test(k)){ setSyncMsg("コードは16文字です（ハイフンはなくても大丈夫）。もう一度確かめてください。"); return; }
+  setSyncMsg("コードを確かめています…");
+  try{
+    const r = await syncApi("get", null, k);
+    if(!r.data){ setSyncMsg("このコードの同期データが見つかりません。もう一方の端末に表示されているコードを確かめてください。"); return; }
+  }catch(err){ setSyncMsg("つながりませんでした。電波のいいところでもう一度押してください。"); return; }
+  syncKey = k; syncBase = {}; LS.set("kn.sync", syncKey); LS.set("kn.syncBase", syncBase); $("syncIn").value = ""; renderSync(); syncNow();
+});
+$("syncNowBtn").addEventListener("click", ()=>syncNow());
+$("syncCopy").addEventListener("click", async ()=>{ try{ await navigator.clipboard.writeText(fmtCode(syncKey)); setSyncMsg("コードをコピーしました。"); }catch(err){ setSyncMsg("コピーできませんでした。コードを長押しして選んでください。"); } });
+$("syncStop").addEventListener("click", ()=>{ syncKey = null; syncBase = {}; tomb = {}; try{ localStorage.removeItem("kn.sync"); localStorage.removeItem("kn.syncBase"); localStorage.removeItem("kn.tomb"); }catch(err){} renderSync(); setSyncMsg("同期をやめました。この端末の服はそのまま残ります。"); });
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "visible") syncNow(); });
+window.addEventListener("online", ()=>syncNow());
+
 /* ---------- 起動 ---------- */
 $("today").textContent = new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
 if(new Date().getHours() >= 18) $("d1").checked = true;   // 夜は明日の服を考える
 fillSelect($("myStyle"), STYLES); fillSelect($("itStyle"), STYLES); fillSelect($("itColor"), COLORS, "わからない・その他");
 applyPrefs(); updateWarmHint(); updateGuess(); renderAll(); renderKnow();
 if(loc){ $("place").textContent = loc.name || "現在地"; const c = LS.get("kn.fc", null); if(c){ forecast = c; applyForecast(); } loadForecast(); }
+renderSync(); syncNow();
 if("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
 
