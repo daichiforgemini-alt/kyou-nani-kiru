@@ -1,5 +1,5 @@
 // きょう何着る？ — オフラインでも開けるようにアプリ本体をキャッシュ
-const CACHE = "kyou-nani-kiru-v1";
+const CACHE = "kyou-nani-kiru-v4";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -13,9 +13,9 @@ self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   // 天気APIなど外部は常にネットワーク（キャッシュしない）
   if (url.origin !== self.location.origin) return;
-  // アプリ本体：ネット優先、つながらなければキャッシュ
+  // アプリ本体：ネット優先（ブラウザの古いキャッシュも使わず、必ず最新を確かめる）、つながらなければキャッシュ
   e.respondWith(
-    fetch(e.request).then(res => {
+    fetch(new Request(e.request.url, { cache: "no-cache" })).then(res => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));
       return res;
