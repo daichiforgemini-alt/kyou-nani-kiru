@@ -162,6 +162,17 @@ button,input,select{font:inherit;color:inherit}
 .group h3{font-size:14px;font-weight:700;margin-bottom:8px;display:flex;gap:8px;align-items:baseline}
 .group h3 small{font-weight:400;color:var(--muted);font-family:var(--f-mono)}
 .items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.photo-box{display:flex;flex-direction:column;gap:10px;background:var(--sunk);border-radius:12px;padding:12px 14px}
+.photo-box .btn{align-self:flex-start;cursor:pointer}
+.photo-res{display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px;align-items:start}
+.photo-res img{width:72px;height:72px;object-fit:cover;border-radius:8px;background:var(--surface)}
+.photo-res p{margin:0;font-size:13.5px}
+.divider{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.thumb{width:36px;height:36px;object-fit:cover;border-radius:6px;flex:none;background:var(--sunk)}
+.items .nmrow{display:flex;gap:10px;align-items:center;min-width:0}
+.gtag .gimg{position:absolute;right:12px;top:12px;width:52px;height:52px;object-fit:cover;border-radius:8px}
+.gtag.has-img{padding-right:76px}
 .items li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 8px 8px 14px}
 .items .nm{overflow-wrap:anywhere}
 .items .rain{font-size:11px;color:var(--indigo);font-weight:700;margin-left:6px}
@@ -333,6 +344,13 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
   <section id="view-closet" class="closet" hidden>
     <form class="panel" id="addForm" autocomplete="off">
       <h2>服を登録する</h2>
+      <div class="photo-box">
+        <label class="btn primary" for="photoIn">写真から登録</label>
+        <input type="file" id="photoIn" accept="image/*" hidden>
+        <span class="hint">服を1点だけ、床に平置きするかハンガーにかけて撮ると正確です。顔や部屋が写らないようにしてください。</span>
+        <div class="photo-res" id="photoRes" hidden><img id="photoImg" alt="選んだ写真"><p id="photoMsg"></p></div>
+      </div>
+      <div class="divider"><span>または手で入力</span></div>
       <div class="field"><label for="itName">名前</label>
         <input class="text-in" id="itName" required maxlength="40" placeholder="例：紺のカーディガン">
       </div>
@@ -610,7 +628,7 @@ const KNOWLEDGE = [
 /* ---------- 保存（この端末） ---------- */
 const LS = {
   get(k,d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
-  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 };
 let closet = LS.get("kn.closet", null);
 let prefs  = LS.get("kn.prefs", {move:"walk", body:0, span:"day"});
@@ -619,7 +637,7 @@ let loc    = LS.get("kn.loc", null);          // {lat, lon, name}
 let forecast = null;                           // 取得した予報
 function usingSample(){ return !closet || closet.length === 0; }
 function activeCloset(){ return usingSample() ? SAMPLE : closet; }
-function persist(){ LS.set("kn.closet", closet); LS.set("kn.prefs", prefs); }
+function persist(){ const ok = LS.set("kn.closet", closet); LS.set("kn.prefs", prefs); if(!ok){ const m = document.getElementById("backupMsg"); if(m) m.textContent = "端末の保存容量がいっぱいで、最後の変更を保存できませんでした。写真付きの服をいくつか削除するか、バックアップを書き出してください。"; } }
 
 /* ---------- 天気（Open-Meteo） ---------- */
 const $ = id => document.getElementById(id);
@@ -871,6 +889,7 @@ function renderToday(){
     const g = el("div","gtag");
     const head = el("div","cat"); head.appendChild(el("span",null,CATS[cat]));
     const p = outfit.items[k];
+    if(p && p.img){ const im = el("img","gimg"); im.src = p.img; im.alt = ""; g.appendChild(im); g.classList.add("has-img"); }
     if(p){ head.appendChild(dots(p.warmth)); if(usingSample()) head.appendChild(el("span","badge","サンプル")); }
     g.appendChild(head);
     g.appendChild(el("div","name", p ? p.name : text));
@@ -910,7 +929,9 @@ function renderCloset(){
         const li = el("li");
         const nm = el("span","nm",it.name); if(it.rain) nm.appendChild(el("span","rain","雨OK")); if(it.code) nm.appendChild(el("span","code",it.code));
         const c0 = colorOf(it); nm.appendChild(el("span","attr", STYLES[styleOf(it)].replace(/（.*）/,"") + (c0 ? "・" + COLORS[c0].n : "") + (it.style ? "" : "（推定）")));
-        li.appendChild(nm); li.appendChild(dots(it.warmth));
+        if(it.img){ const row = el("span","nmrow"); const im = el("img","thumb"); im.src = it.img; im.alt = ""; row.appendChild(im); row.appendChild(nm); li.appendChild(row); }
+        else li.appendChild(nm);
+        li.appendChild(dots(it.warmth));
         if(!usingSample()){
           const acts = el("span","acts");
           const ed = el("button","edit","直す"); ed.type = "button"; ed.setAttribute("aria-label", it.name+"の系統と色を直す");
@@ -986,6 +1007,45 @@ $("itName").addEventListener("input", updateGuess);
 $("itStyle").addEventListener("change", ()=>{ $("itStyle").dataset.touched = "1"; });
 $("itColor").addEventListener("change", ()=>{ $("itColor").dataset.touched = "1"; });
 $("warmSeg").addEventListener("change", updateWarmHint);
+/* ---------- 写真から登録（Geminiで判定） ---------- */
+const AI_API = "https://kyou-nani-kiru-search.daichiforgemini.workers.dev/classify";
+let photoThumb = null;
+function shrink(file, max, q){
+  return new Promise((res, rej)=>{
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = ()=>{ const k = Math.min(1, max/Math.max(img.width, img.height)); const c = document.createElement("canvas");
+      c.width = Math.round(img.width*k); c.height = Math.round(img.height*k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", q)); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("load")); };
+    img.src = url;
+  });
+}
+$("photoIn").addEventListener("change", async e=>{
+  const f = e.target.files && e.target.files[0]; e.target.value = ""; if(!f) return;
+  const msg = $("photoMsg"); $("photoRes").hidden = false; msg.textContent = "写真を読み込んでいます…";
+  let big;
+  try{ big = await shrink(f, 768, .8); photoThumb = await shrink(f, 160, .7); $("photoImg").src = photoThumb; }
+  catch(err){ msg.textContent = "この写真は読み込めませんでした。別の写真を選んでください。"; photoThumb = null; return; }
+  msg.textContent = "AIが服を見ています…（数秒かかります）";
+  try{
+    const r = await fetch(AI_API, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({image: big.split(",")[1], mime:"image/jpeg"})});
+    const j = await r.json().catch(()=>({}));
+    if(r.status===429){ msg.textContent = "AIが混み合っています。少し待ってからもう一度選んでください。"; return; }
+    if(!r.ok || !j.item){ msg.textContent = "判定できませんでした。下のフォームに手で入力してください。"; return; }
+    const it = j.item;
+    if(!it.is_clothing || it.cat==="other" || !CATS[it.cat]){ msg.textContent = "服が見つかりませんでした。服1点だけが写るように撮り直してみてください。"; photoThumb = null; return; }
+    $("itName").value = String(it.name||"").slice(0,40);
+    $("itCat").value = it.cat;
+    const w = Math.max(1, Math.min(5, Math.round(+it.warmth||3)));
+    const wr = document.querySelector(`input[name=warm][value="${w}"]`); if(wr) wr.checked = true;
+    $("itRain").checked = !!it.rain;
+    if(STYLES[it.style]){ $("itStyle").value = it.style; $("itStyle").dataset.touched = "1"; }
+    if(COLORS[it.color]){ $("itColor").value = it.color; $("itColor").dataset.touched = "1"; }
+    updateWarmHint();
+    msg.textContent = `「${$("itName").value}」と判定しました。系統は${STYLES[it.style]||"不明"}${it.reason ? "（" + it.reason + "）" : ""}。違うところだけ直して「クローゼットに追加」を押してください。`;
+  }catch(err){ msg.textContent = "AIにつながりませんでした。通信状態を確かめるか、下のフォームに手で入力してください。"; }
+});
+
 $("addForm").addEventListener("submit", e=>{
   e.preventDefault();
   const name = $("itName").value.trim(); if(!name) return;
@@ -994,7 +1054,9 @@ $("addForm").addEventListener("submit", e=>{
   const code = $("itCode").value.trim(); if(code) item.code = code;
   item.style = $("itStyle").value || guessStyle(name);
   if($("itColor").value) item.color = $("itColor").value;
+  if(photoThumb) item.img = photoThumb;
   closet = (closet || []).concat(item);
+  photoThumb = null; $("photoRes").hidden = true;
   $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("itName").focus();
   delete $("itStyle").dataset.touched; delete $("itColor").dataset.touched; updateGuess();
   persist(); renderAll();
@@ -1017,7 +1079,7 @@ $("importFile").addEventListener("change", async e=>{
   try{
     const j = JSON.parse(await f.text());
     if(!j || !Array.isArray(j.closet)) throw new Error("bad");
-    closet = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, color:COLORS[x.color]?x.color:undefined}));
+    closet = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined}));
     if(j.prefs) prefs = {...prefs, ...j.prefs};
     persist(); applyPrefs(); renderAll();
     $("backupMsg").textContent = closet.length + "着を読み込みました。";
