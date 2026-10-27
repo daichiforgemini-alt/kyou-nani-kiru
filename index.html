@@ -66,14 +66,19 @@ button,input,select{font:inherit;color:inherit}
 .panel h2{font-size:13px;letter-spacing:.12em;color:var(--muted);font-weight:700}
 .field{display:flex;flex-direction:column;gap:6px}
 .field>label,.field>.lbl{font-size:13px;font-weight:700}
-.temps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.temps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
 .stepper button{border:0;background:transparent;width:36px;height:42px;cursor:pointer;font-size:18px;color:var(--muted);flex:none}
 .stepper button:hover{color:var(--ink);background:var(--sunk)}
 .stepper input{border:0;background:transparent;width:100%;min-width:0;text-align:center;font-family:var(--f-mono);font-size:20px;font-weight:500;height:42px;-moz-appearance:textfield;font-variant-numeric:tabular-nums}
 .stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .stepper .unit{font-family:var(--f-mono);color:var(--muted);padding-right:6px;font-size:13px}
-.hi-lbl{color:var(--b8)} .lo-lbl{color:var(--b2)}
+.am-lbl{color:var(--b3)} .noon-lbl{color:var(--b8)} .pm-lbl{color:var(--b2)}
+.temps .stepper button{width:28px}
+.temps .stepper input{font-size:18px}
+.temps .stepper .unit{display:none}
+.credit{font-size:12px;color:var(--muted);margin:6px 0 0}
+.credit a{color:var(--indigo)}
 
 .seg{display:flex;flex-wrap:wrap;gap:6px}
 .seg input{position:absolute;opacity:0;pointer-events:none}
@@ -104,7 +109,7 @@ button,input,select{font:inherit;color:inherit}
 .scale-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
 .scale-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
 .scale-head small{font-size:12px;color:var(--muted)}
-.track{position:relative;padding-top:26px;padding-bottom:40px}
+.track{position:relative;padding-top:26px;padding-bottom:22px}
 .bands{display:flex;height:34px;border-radius:8px;overflow:hidden}
 .band{display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;color:var(--band-ink);transition:opacity .2s;white-space:nowrap;overflow:hidden;min-width:0}
 .band.dim{opacity:.32}
@@ -181,6 +186,21 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .auto-note{font-size:12px;color:var(--muted)}
 .backup{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 @media (max-width:800px){.has-loc #view-today .result{order:-1}}
+.items .attr{font-size:11px;color:var(--muted);margin-left:6px;white-space:nowrap}
+.why-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.why-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
+.notes .k.why{background:var(--accent-soft)}
+.fix{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.fix select{font-size:13px;padding:5px 8px;width:auto;max-width:100%}
+.edit{border:0;background:transparent;color:var(--indigo);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px}
+.edit:hover{background:var(--sunk)}
+.items li .acts{display:flex;gap:2px}
+.know{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
+.kcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-width:0}
+.kcard h3{font-size:15px;font-weight:700;color:var(--indigo);margin-bottom:8px}
+.kcard ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.kcard li{overflow-wrap:anywhere}
+.know-src{font-size:12px;color:var(--muted)}
 .items .code{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-left:6px}
 
 </style>
@@ -195,6 +215,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
     <nav class="tabs" role="tablist">
       <button role="tab" id="tab-today" aria-selected="true" data-view="today">きょうの服装</button>
       <button role="tab" id="tab-closet" aria-selected="false" data-view="closet">クローゼット</button>
+      <button role="tab" id="tab-know" aria-selected="false" data-view="know">服の知識</button>
     </nav>
   </header>
 
@@ -220,15 +241,19 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 
       <div class="temps">
         <div class="field">
-          <label for="hi" class="hi-lbl">最高気温</label>
-          <div class="stepper"><button type="button" data-step="hi" data-d="-1" aria-label="最高気温を下げる">−</button><input id="hi" type="number" inputmode="numeric" step="1" value="21"><span class="unit">℃</span><button type="button" data-step="hi" data-d="1" aria-label="最高気温を上げる">＋</button></div>
+          <label for="tAm" class="am-lbl">朝 ℃</label>
+          <div class="stepper"><button type="button" data-step="tAm" data-d="-1" aria-label="朝の気温を下げる">−</button><input id="tAm" type="number" inputmode="numeric" step="1" value="13"><button type="button" data-step="tAm" data-d="1" aria-label="朝の気温を上げる">＋</button></div>
         </div>
         <div class="field">
-          <label for="lo" class="lo-lbl">最低気温</label>
-          <div class="stepper"><button type="button" data-step="lo" data-d="-1" aria-label="最低気温を下げる">−</button><input id="lo" type="number" inputmode="numeric" step="1" value="11"><span class="unit">℃</span><button type="button" data-step="lo" data-d="1" aria-label="最低気温を上げる">＋</button></div>
+          <label for="tNoon" class="noon-lbl">昼 ℃</label>
+          <div class="stepper"><button type="button" data-step="tNoon" data-d="-1" aria-label="昼の気温を下げる">−</button><input id="tNoon" type="number" inputmode="numeric" step="1" value="21"><button type="button" data-step="tNoon" data-d="1" aria-label="昼の気温を上げる">＋</button></div>
+        </div>
+        <div class="field">
+          <label for="tPm" class="pm-lbl">夜 ℃</label>
+          <div class="stepper"><button type="button" data-step="tPm" data-d="-1" aria-label="夜の気温を下げる">−</button><input id="tPm" type="number" inputmode="numeric" step="1" value="15"><button type="button" data-step="tPm" data-d="1" aria-label="夜の気温を上げる">＋</button></div>
         </div>
       </div>
-      <p class="warn" id="tempWarn" hidden>最低気温が最高気温より高くなっています。入れ替えて計算しています。</p>
+      <span class="hint" style="margin-top:-8px">朝8時・昼（11〜15時でいちばん高い）・夜20時の気温です</span>
 
       <div class="field"><span class="lbl">天気</span>
         <div class="seg" role="radiogroup">
@@ -247,8 +272,8 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 
       <div class="field"><span class="lbl">外にいる時間</span>
         <div class="seg">
-          <input type="radio" name="span" id="span-day" value="day" checked><label for="span-day">日中だけ</label>
-          <input type="radio" name="span" id="span-long" value="long"><label for="span-long">朝早く〜夜まで</label>
+          <input type="radio" name="span" id="span-day" value="day" checked><label for="span-day">夕方までに帰る</label>
+          <input type="radio" name="span" id="span-long" value="long"><label for="span-long">夜まで外にいる</label>
         </div>
       </div>
 
@@ -258,6 +283,11 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
           <input type="radio" name="move" id="mv-bike" value="bike"><label for="mv-bike">自転車</label>
           <input type="radio" name="move" id="mv-car" value="car"><label for="mv-car">車</label>
         </div>
+      </div>
+
+      <div class="field"><label for="myStyle">目指すスタイル</label>
+        <select class="text-in" id="myStyle"></select>
+        <span class="hint">この系統を軸に、75/25ルールで組み合わせを選びます</span>
       </div>
 
       <div class="field"><label for="body">体質</label>
@@ -272,16 +302,17 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <div class="idx"><span class="n" id="idx">60</span><span class="k">服装指数</span></div>
         <div>
           <h3 id="verdict"></h3>
-          <div class="feels"><span>日中の体感 <b id="fDay">--</b></span><span>朝晩の体感 <b id="fCold">--</b></span><span>寒暖差 <b id="fGap">--</b></span></div>
+          <div class="feels"><span>昼の体感 <b id="fDay">--</b></span><span>いちばん寒い時間 <b id="fCold">--</b></span><span>寒暖差 <b id="fGap">--</b></span></div>
         </div>
       </div>
 
       <div class="scale">
-        <div class="scale-head"><h2>気温と服装のめやす</h2><small>体感温度 ℃</small></div>
+        <div class="scale-head"><h2>気温とアウターのめやす</h2><small>朝と昼の平均体感 ℃</small></div>
         <div class="track" id="track">
           <div class="bands" id="bands"></div>
           <div class="ticks" id="ticks"></div>
         </div>
+        <p class="credit">めやすは、コットン西村さんの衣装予報（X @slimboy24、2022〜2026年の307日分）と、その日の東京の気温から作っています。</p>
       </div>
 
       <div class="outfit-head">
@@ -291,6 +322,9 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       <div class="tags" id="tags"></div>
 
       <ul class="notes" id="notes"></ul>
+
+      <div class="why-head"><h2>コーデの理屈</h2></div>
+      <ul class="notes" id="why"></ul>
       <p class="hint">服装指数は 100 が「薄着でOK」、10 が「いちばん厚着」の目安です。</p>
     </div>
   </section>
@@ -320,6 +354,13 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         </div>
         <span class="hint" id="warmHint"></span>
       </div>
+      <div class="field"><label for="itStyle">系統</label>
+        <select class="text-in" id="itStyle"></select>
+        <span class="hint">名前から推定します。違っていたら選び直してください。系統は名前より、サイズ感・生地感・ディテールで決まります。</span>
+      </div>
+      <div class="field"><label for="itColor">色</label>
+        <select class="text-in" id="itColor"></select>
+      </div>
       <label class="checkrow"><input type="checkbox" id="itRain"> 雨の日に強い（撥水・防水）</label>
       <div class="field"><label for="itCode">品番（任意）</label>
         <input class="text-in" id="itCode" maxlength="40" placeholder="タグの品番をメモできます（例：470067）" spellcheck="false">
@@ -341,6 +382,11 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       <div id="groups"></div>
     </div>
   </section>
+  <!-- ===== 服の知識 ===== -->
+  <section id="view-know" hidden>
+    <div class="know" id="know"></div>
+    <p class="know-src">出典：TikTok @yuuki0210000 の動画の要約、色彩・素材の基礎知識（「知識\服」フォルダのノート）。理論は「多くの人に良く見えやすい」という目安で、最後は自分の好きを優先してOK。</p>
+  </section>
 </div>
 
 <script>
@@ -355,38 +401,210 @@ const WARM_HINT = {
   bottom:["ショートパンツ・薄手スカート","チノ・薄手パンツ","デニム・厚手パンツ","コーデュロイ・ウール","裏起毛パンツ"],
   shoes: ["サンダル","スニーカー","革靴・ローファー","ブーツ","スノーブーツ"]
 };
-const GENERIC = {
-  top:   {1:"半袖Tシャツ・ポロシャツ",2:"長袖シャツ・薄手のロンT",3:"スウェット・薄手ニット",4:"厚手ニット・タートルネック"},
-  outer: {0:"なしでOK",1:"カーディガン・シャツの羽織り",2:"パーカー・デニムジャケット",3:"トレンチ・ライトジャケット",4:"ウールコート・中綿ジャケット",5:"ダウンジャケット"},
-  bottom:{1:"ショートパンツ・薄手のスカート",2:"チノパン・薄手のパンツ",3:"デニム・厚手のパンツ",4:"裏起毛パンツ・タイツ併用"},
-  shoes: {1:"サンダル",2:"スニーカー",3:"スニーカー・革靴",4:"ブーツ"}
-};
-const SHORT_TOP = {1:"半袖",2:"長袖",3:"スウェットやニット",4:"厚手ニット"};
-const SHORT_OUT = {1:"カーディガン",2:"パーカーや薄手ジャケット",3:"トレンチやジャケット",4:"コート",5:"ダウン"};
+// コットン西村さんの衣装予報ツイート（2022〜2026年・307件）と、その日の東京の気温から作った基準。
+// アウターは「朝と昼の平均体感」、トップスは「朝・昼・夜の平均体感」で決まる（実際の投稿との一致率：アウター約7割、トップス約9割）。
+const OUTER_BANDS = [   // 下限℃（高い順）
+  {min:25,   need:0, text:"なしでOK（冷房が苦手なら薄手の羽織りをかばんに）", s:"",              label:"半袖"},
+  {min:22.5, need:1, text:"長袖シャツなどの軽い羽織り",                         s:"軽い羽織り",    label:"羽織り"},
+  {min:19,   need:2, text:"ジップパーカー・ナイロンジャケット・デニムジャケットなど", s:"秋アウター", label:"秋物"},
+  {min:12,   need:3, text:"トレンチ・マウンテンパーカー・レザージャケットなど",     s:"コートやジャケット", label:"コート"},
+  {min:10,   need:4, text:"メルトンコート・MA-1・フリースなどの冬アウター",        s:"冬アウター",    label:"冬物"},
+  {min:-99,  need:5, text:"ダウン・厚手のコート",                                 s:"ダウン",        label:"ダウン"}
+];
+const TOP_BANDS = [
+  {min:19.5, need:1, text:"半袖（Tシャツ・半袖シャツ）", s:"半袖"},
+  {min:13,   need:2, text:"ロンT・長袖シャツ",            s:"ロンT"},
+  {min:-99,  need:3, text:"スウェット・ニット・シャツ＋カーディガン", s:"ニット"}
+];
 const BODY = {"-2":"かなり寒がり","-1":"やや寒がり","0":"ふつう","1":"やや暑がり","2":"かなり暑がり"};
-const EDGES = [-4,5,9,13,17,21,25,28,34];
-const BAND_LABEL = ["ダウン","厚コート","コート","ジャケ","カーデ","長袖","半袖","薄着"];
+const EDGES = [4,10,12,19,22.5,25,30];          // 判定に使う「朝と昼の平均体感」の帯
+const BAND_COLOR = [1,2,4,6,7,8];
+let curPop = null;
 
 const SAMPLE = [
-  {id:"s1",cat:"top",name:"白Tシャツ",warmth:1},
-  {id:"s2",cat:"top",name:"ボーダーの長袖T",warmth:2},
-  {id:"s3",cat:"top",name:"オックスフォードシャツ",warmth:2},
-  {id:"s4",cat:"top",name:"グレーのスウェット",warmth:3},
-  {id:"s5",cat:"top",name:"黒のタートルネックニット",warmth:4},
-  {id:"s6",cat:"outer",name:"紺のカーディガン",warmth:1},
-  {id:"s7",cat:"outer",name:"マウンテンパーカー",warmth:2,rain:true},
-  {id:"s8",cat:"outer",name:"デニムジャケット",warmth:2},
-  {id:"s9",cat:"outer",name:"ベージュのトレンチコート",warmth:3,rain:true},
-  {id:"s10",cat:"outer",name:"チャコールのウールコート",warmth:4},
-  {id:"s11",cat:"outer",name:"黒のダウンジャケット",warmth:5},
-  {id:"s12",cat:"bottom",name:"ハーフパンツ",warmth:1},
-  {id:"s13",cat:"bottom",name:"白のチノパン",warmth:2},
-  {id:"s14",cat:"bottom",name:"インディゴのデニム",warmth:3},
-  {id:"s15",cat:"bottom",name:"コーデュロイパンツ",warmth:4},
-  {id:"s16",cat:"shoes",name:"サンダル",warmth:1},
-  {id:"s17",cat:"shoes",name:"白スニーカー",warmth:2},
-  {id:"s18",cat:"shoes",name:"防水スニーカー",warmth:2,rain:true},
-  {id:"s19",cat:"shoes",name:"サイドゴアブーツ",warmth:4,rain:true}
+  {id:"s1",cat:"top",name:"白Tシャツ",warmth:1,style:"basic",color:"white"},
+  {id:"s2",cat:"top",name:"ボーダーの長袖T",warmth:2,style:"basic",color:"multi"},
+  {id:"s3",cat:"top",name:"オックスフォードシャツ",warmth:2,style:"trad",color:"white"},
+  {id:"s4",cat:"top",name:"グレーのスウェット",warmth:3,style:"amekaji",color:"gray"},
+  {id:"s5",cat:"top",name:"黒のタートルネックニット",warmth:4,style:"kirei",color:"black"},
+  {id:"s6",cat:"outer",name:"紺のカーディガン",warmth:1,style:"kirei",color:"navy"},
+  {id:"s7",cat:"outer",name:"マウンテンパーカー",warmth:2,style:"outdoor",color:"khaki",rain:true},
+  {id:"s8",cat:"outer",name:"デニムジャケット",warmth:2,style:"amekaji",color:"indigo"},
+  {id:"s9",cat:"outer",name:"ベージュのトレンチコート",warmth:3,style:"trad",color:"beige",rain:true},
+  {id:"s10",cat:"outer",name:"チャコールのウールコート",warmth:4,style:"kirei",color:"charcoal"},
+  {id:"s11",cat:"outer",name:"黒のダウンジャケット",warmth:5,style:"outdoor",color:"black"},
+  {id:"s12",cat:"bottom",name:"ハーフパンツ",warmth:1,style:"basic",color:"khaki"},
+  {id:"s13",cat:"bottom",name:"白のチノパン",warmth:2,style:"trad",color:"white"},
+  {id:"s14",cat:"bottom",name:"インディゴのデニム",warmth:3,style:"amekaji",color:"indigo"},
+  {id:"s15",cat:"bottom",name:"コーデュロイパンツ",warmth:4,style:"trad",color:"brown"},
+  {id:"s20",cat:"bottom",name:"グレーのスラックス",warmth:3,style:"kirei",color:"gray"},
+  {id:"s16",cat:"shoes",name:"サンダル",warmth:1,style:"basic",color:"black"},
+  {id:"s17",cat:"shoes",name:"白スニーカー",warmth:2,style:"basic",color:"white"},
+  {id:"s18",cat:"shoes",name:"防水スニーカー",warmth:2,style:"sport",color:"gray",rain:true},
+  {id:"s19",cat:"shoes",name:"サイドゴアブーツ",warmth:4,style:"kirei",color:"black",rain:true}
+];
+
+/* ---------- 服選びの知識（「知識\服」ノートより） ---------- */
+const STYLES = {
+  kirei:"きれいめ", trad:"トラッド", euro:"ユーロワーク", mode:"モード", natural:"ナチュラル",
+  amekaji:"アメカジ", work:"ワーク", military:"ミリタリー", outdoor:"アウトドア",
+  street:"ストリート", sport:"スポーツ", rude:"ルード・バイカー", rock:"ロック", basic:"ベーシック（どれにでも合う）"
+};
+/* 「半分かぶる」近い系統（75/25ルールのずらしに使える） */
+const NEAR = {
+  kirei:["trad","euro","mode","natural"], trad:["kirei","euro","amekaji"], euro:["kirei","work","trad","natural"],
+  mode:["kirei","rock"], natural:["kirei","outdoor","euro"], amekaji:["work","military","rude","trad","outdoor"],
+  work:["amekaji","euro","military","rude"], military:["work","amekaji","outdoor"], outdoor:["military","amekaji","sport","natural"],
+  street:["sport","rock","amekaji"], sport:["street","outdoor"], rude:["amekaji","work","rock"], rock:["rude","mode","street"], basic:[]
+};
+/* 色：n=ニュートラル（ベース向き）, l=明るさ 0〜1 */
+const COLORS = {
+  white:{n:"白",neutral:true,l:.95}, ivory:{n:"生成り・アイボリー",neutral:true,l:.88}, beige:{n:"ベージュ",neutral:true,l:.78},
+  gray:{n:"グレー",neutral:true,l:.6}, charcoal:{n:"チャコール",neutral:true,l:.25}, black:{n:"黒",neutral:true,l:.05},
+  navy:{n:"ネイビー・紺",neutral:true,l:.18}, indigo:{n:"インディゴ（デニム）",neutral:true,l:.35}, brown:{n:"ブラウン・茶",neutral:true,l:.32},
+  khaki:{n:"カーキ・オリーブ",neutral:true,l:.45}, sax:{n:"サックス・水色",neutral:false,l:.78},
+  red:{n:"赤・ボルドー",neutral:false,l:.4}, blue:{n:"青（鮮やか）",neutral:false,l:.42}, green:{n:"緑",neutral:false,l:.4},
+  yellow:{n:"黄・マスタード",neutral:false,l:.78}, orange:{n:"オレンジ",neutral:false,l:.6}, pink:{n:"ピンク",neutral:false,l:.75},
+  purple:{n:"紫",neutral:false,l:.35}, multi:{n:"柄・多色",neutral:false,l:.5}
+};
+/* その系統のテーマカラーにない色（色はアイテムの属性に乗って機能する） */
+const OFF_THEME = {
+  kirei:["yellow","orange","blue"], trad:["orange","purple"], euro:["blue","pink","purple"], mode:["red","yellow","orange","pink"],
+  natural:["blue","purple","pink"], rude:["blue","sax","pink"], rock:["sax","pink"], amekaji:["pink","purple"], work:["pink","purple"]
+};
+/* 名前からの推定（属性はアイテム名だけでは決まらないので、あくまで目安） */
+const STYLE_WORDS = [
+  ["mode",["モード","変形","ドレープ"]],
+  ["rude",["ライダース","レザージャケット","スカジャン","エンジニア","ウォレット","バイカー"]],
+  ["rock",["バンド","スタッズ","スキニー","パンク"]],
+  ["military",["ミリタリー","カーゴ","MA-1","M-65","M65","フライト","ファティーグ"]],
+  ["outdoor",["マウンテン","フリース","ダウンジャケット","ダウンベスト","ダウンコート","トレッキング","アウトドア","シェル"]],
+  ["sport",["ジャージ","トラック","ジョガー","ランニング"]],
+  ["street",["パーカー","フーディ","ロゴ","グラフィック","オーバーサイズ","ワイドデニム","スケート"]],
+  ["work",["ワーク","カバーオール","ペインター","ダック","ディッキーズ","874"]],
+  ["euro",["フレンチ","モールスキン","ユーロ"]],
+  ["amekaji",["デニム","ジーンズ","ネル","スウェット","ヘビーウェイト","レッドウィング","チノ","デッキ"]],
+  ["trad",["オックスフォード","ボタンダウン","ブレザー","ローファー","チェスター","トレンチ","ステンカラー","ポロ","コーデュロイ","ツイード"]],
+  ["kirei",["スラックス","サイドゴア","テーラード","ジャケット","ニット","タートル","カーディガン","シャツ","革靴","レザースニーカー","ウールコート"]],
+  ["natural",["リネン","麻","生成り"]]
+];
+const COLOR_WORDS = [
+  ["navy",["ネイビー","紺"]],["charcoal",["チャコール"]],["black",["黒","ブラック"]],["white",["白","ホワイト"]],
+  ["ivory",["生成り","アイボリー","エクリュ","オフホワイト"]],["beige",["ベージュ","キャメル","サンド"]],["gray",["グレー","灰"]],
+  ["brown",["ブラウン","茶","モカ"]],["khaki",["カーキ","オリーブ"]],["sax",["サックス","水色","ライトブルー"]],
+  ["red",["赤","レッド","ボルドー","ワイン"]],["green",["緑","グリーン"]],["yellow",["黄","イエロー","マスタード"]],
+  ["orange",["オレンジ"]],["pink",["ピンク"]],["purple",["紫","パープル","ラベンダー"]],["multi",["ボーダー","チェック","柄","ストライプ","花柄"]],
+  ["indigo",["インディゴ","デニム","ジーンズ"]],["blue",["青","ブルー"]]
+];
+function guessStyle(name){
+  for(const [k,ws] of STYLE_WORDS) if(ws.some(w=>name.includes(w))) return k;
+  return "basic";
+}
+function guessColor(name){
+  for(const [k,ws] of COLOR_WORDS) if(ws.some(w=>name.includes(w))) return k;
+  return "";
+}
+function styleOf(i){ return (i.style && STYLES[i.style]) ? i.style : guessStyle(i.name||""); }
+function colorOf(i){ return (i.color && COLORS[i.color]) ? i.color : guessColor(i.name||""); }
+
+/* 1点ごとの系統の距離：0=同じ, 1=近い（ずらしOK）, 2=遠い */
+function styleDist(main, s){
+  if(s==="basic" || s===main) return 0;
+  if((NEAR[main]||[]).includes(s) || (NEAR[s]||[]).includes(main)) return 1;
+  return 2;
+}
+/* コーデ全体の採点（小さいほど良い）と、その理由 */
+function judgeOutfit(items, main){
+  const present = items.filter(Boolean);
+  let pen = 0; const why = []; const tips = [];
+  // 属性：75%を同じ系統、ずらしは25%（1点）まで、しかも近い系統で
+  const d = present.map(i=>styleDist(main, styleOf(i)));
+  const near = d.filter(x=>x===1).length, far = d.filter(x=>x===2).length;
+  pen += Math.max(0, near-1)*1.2 + far*2;
+  const mainName = STYLES[main];
+  if(far===0 && near<=1){
+    const sh = present.find((i,k)=>d[k]===1);
+    why.push(["属性", sh ? `${mainName}を軸に、「${sh.name}」で${STYLES[styleOf(sh)]}に少しずらした組み合わせです（75/25ルール：ずらしは1点まで、近い系統で）。` : `全体が${mainName}でそろっています。物足りなければ、顔まわりの小物で少しずらすと個性が出ます。`]);
+  } else {
+    const off = present.filter((i,k)=>d[k]>0).map(i=>`「${i.name}」（${STYLES[styleOf(i)]}）`).join("、");
+    why.push(["属性", `${off}が${mainName}から離れています。75%を同じ系統でそろえ、ずらすのは1点までにするとまとまります。`]);
+  }
+  // 色：差し色は1色まで、テーマカラーの中で
+  const cols = present.map(colorOf);
+  const chroma = [...new Set(cols.filter(c=>c && c!=="multi" && !COLORS[c].neutral))];
+  const pats = cols.filter(c=>c==="multi").length;
+  pen += Math.max(0, chroma.length-1)*0.9 + Math.max(0, pats-1)*0.9;
+  if(pats>1) tips.push(["柄", "柄物が2点以上あります。柄は色より情報量が多いので、基本は1コーデに1点。重ねるなら柄の大きさを変えて。"]);
+  const offTheme = chroma.filter(c=>(OFF_THEME[main]||[]).includes(c));
+  pen += offTheme.length*0.5;
+  if(chroma.length===0) why.push(["色", "ベースカラーだけの落ち着いた配色です。差し色を入れるなら1色、顔の近くに小さく。"]);
+  else if(chroma.length===1) why.push(["色", `差し色は${COLORS[chroma[0]].n}の1色。ほかはベースカラーでまとまっています。`]);
+  else why.push(["色", `差し色が${chroma.map(c=>COLORS[c].n).join("・")}の${chroma.length}色あります。1色に絞ると落ち着きます。`]);
+  if(offTheme.length) tips.push(["色", `${COLORS[offTheme[0]].n}は${mainName}のテーマカラーにはあまりない色です。色は単体ではなく、服の系統に乗って働きます。`]);
+  // 重心：濃い色は下に
+  const top = items[0], outer = items[1], bottom = items[2];
+  const upper = outer || top;
+  if(upper && bottom && colorOf(upper) && colorOf(bottom)){
+    const lu = COLORS[colorOf(upper)].l, lb = COLORS[colorOf(bottom)].l;
+    if(lb - lu > .35){ pen += .3; tips.push(["重心", "上より下が明るい組み合わせです。濃い色を下に置くと安定します。明るいパンツにするなら、ワイドなど存在感のある形で。"]); }
+  }
+  // 顔まわり：首元に顔より目立つ色を置かない
+  const face = outer || top;
+  if(face && colorOf(face) && !COLORS[colorOf(face)].neutral && ["red","yellow","orange","blue","multi"].includes(colorOf(face))){
+    pen += .3; tips.push(["顔まわり", "鮮やかな色が首元の近くにあります。顔より目立つと「色の人」に見えやすいので、ネックレスや黒い小物で視線の中継点を作ると顔に視線が戻ります。"]);
+  }
+  return {pen, why, tips};
+}
+
+/* 知識タブの中身 */
+const KNOWLEDGE = [
+  {h:"いちばん大事な3つ", li:[
+    "人は相手を見るとき、まず顔を見る。顔に自然に視線が集まり、安心して見られる服装が「魅力的」の土台。",
+    "75/25ルール：頭・トップス・ボトムス・くつのうち、75%を同じ系統でそろえる。ずらすのは25%（1点）まで。しかもベースに「半分かぶる」近い系統で。",
+    "色より世界観が先。そのアイテムがどのスタイルで使われるかを見て、そのスタイルにある色の中で合わせる。"
+  ]},
+  {h:"系統（属性）の見方", li:[
+    "系統はアイテム名ではなく、サイズ感・生地感・ディテールで決まる。ネルシャツもゆるく着るとストリートになる。",
+    "ポケットなど外付けの機能が多い＝ワーク／アメリカ。機能を削ぎ落とした形＝ヨーロッパ／上品。",
+    "全身を同じ系統100%にすると制服やコスプレっぽくなる。個性は顔まわり（メガネ・帽子・アクセ）のずらしで出すのがいちばん簡単。",
+    "トラッドな柄なのにつるっとした安っぽい生地など、世界観が矛盾した服は活かしにくい。",
+    "服の系統に合わせて、髪型やひげなど人の側もそろえると垢抜ける。"
+  ]},
+  {h:"色", li:[
+    "配分のめやすはベース70%・アソート25%・差し色5%。差し色は1色まで、視線を集めたい場所（顔の近く）に置く。",
+    "色を拾うなら頭・胸・くつの3か所。頭とくつだけだと、真ん中で視線が止まらない。",
+    "重ね着はインナー→シャツ→アウターで濃さを段階的に。真ん中に一番濃い色を挟まない。",
+    "トーン（明るさと鮮やかさ）をそろえると、色数が多くてもまとまる。",
+    "原色、特に黄色は子どもっぽく見えやすい。落ち着いた大人感ならモノトーン。",
+    "きれいめの青はサックスブルー。ビビッドブルーはスポーツやストリートの色。"
+  ]},
+  {h:"シルエット・重心", li:[
+    "濃い色や存在感のあるものは下に。トップスにボリュームを出したら、足元にもボリュームを出して倒れない形に。",
+    "ストレートは 1=スリム、2=レギュラー、3=ワイド で考えると選びやすい。",
+    "タックインはきれいめ・モードならへそあたり、アメカジならへそ下。タックインとロールアップは同時にしない。",
+    "男らしさが大事なスタイルは、足首でたわまず足元までストレートでどっしり。"
+  ]},
+  {h:"細部のルール", li:[
+    "ジャケットやジレ、ダブルのコートの一番下のボタンは外す。",
+    "ネクタイは結び目のくぼみ（ディンプル）をきれいに。",
+    "重ねるネックレスは長さを被らせない。首元と腕まわりのアクセのボリュームをそろえる。",
+    "腰に下げた鍵などの安っぽい小物一つで、スタイル全体が崩れる。",
+    "ウエストが合っていないパンツ、左右でそろわないロールアップは、見る人に違和感を与える。"
+  ]},
+  {h:"ほかの理論（MB・顔タイプ・骨格）", li:[
+    "MB：ドレス（スーツっぽい要素）とカジュアルを混ぜ、少しドレスに寄せる。ボトムスとくつから揃え、迷ったら下半身をドレスに。",
+    "台襟のあるシャツ＝ドレス、オープンカラー＝カジュアル。カジュアルな上着にスラックスを合わせるとドレス寄りになる。",
+    "顔タイプ：子供顔はカジュアル寄り、大人顔はきれいめ寄り。直線顔はシャープ、曲線顔は柔らかいテイストが似合う。曲線×子供顔＝プレッピー、曲線×大人顔＝クラシコイタリア系。",
+    "骨格：ストレートはハリのある生地をジャストで、ウェーブは柔らかい生地を細身で、ナチュラルは麻やデニムをゆったりと。"
+  ]},
+  {h:"自分の基準（165cm・細身・肩幅広め・薄い顔・大人顔・マッシュ）", li:[
+    "大人顔なので、きれいめ寄りが似合う。カジュアルな日もレザースニーカー、ローファー、センタープレスのパンツなど、きれいめの要素を1つ混ぜる。",
+    "軸はきれいめ。ずらすならトラッドかユーロワーク（例：ローファー、ボタンダウン、きれいな生地のカバーオール）。ルードやバイカーは属性が逆。",
+    "基本はIラインかゆるいAライン。大きいトップス×細いパンツは逆三角形が強すぎる。",
+    "トップスはお尻の半分より上の丈。パンツと靴を同系色にすると脚がつながって見える。",
+    "首元に大きなロゴ・ビビッドな色・ゴツいネックレスを置かない。メガネで顔まわりに視線を留めるのは◎。",
+    "肩幅を最優先でサイズを選び、ウエストの余りは実寸で確認する。"
+  ]}
 ];
 
 /* ---------- 保存（この端末） ---------- */
@@ -396,6 +614,7 @@ const LS = {
 };
 let closet = LS.get("kn.closet", null);
 let prefs  = LS.get("kn.prefs", {move:"walk", body:0, span:"day"});
+if(!prefs.style || !STYLES[prefs.style]) prefs.style = "kirei";
 let loc    = LS.get("kn.loc", null);          // {lat, lon, name}
 let forecast = null;                           // 取得した予報
 function usingSample(){ return !closet || closet.length === 0; }
@@ -421,7 +640,7 @@ async function loadForecast(){
   $("wxStamp").textContent = "予報を取得しています…";
   const url = "https://api.open-meteo.com/v1/forecast?latitude="+loc.lat+"&longitude="+loc.lon+
     "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max"+
-    "&hourly=wind_speed_10m&wind_speed_unit=ms&timezone=auto&forecast_days=2";
+    "&hourly=temperature_2m,wind_speed_10m&wind_speed_unit=ms&timezone=auto&forecast_days=2";
   try{
     const res = await fetch(url);
     if(!res.ok) throw new Error("http "+res.status);
@@ -440,17 +659,21 @@ function applyForecast(){
   if(!forecast || !forecast.daily) return;
   const i = dayIndex(), d = forecast.daily;
   if(!d.time || !d.time[i]) return;
-  const hi = Math.round(d.temperature_2m_max[i]), lo = Math.round(d.temperature_2m_min[i]);
+  const hi = d.temperature_2m_max[i], lo = d.temperature_2m_min[i];
   const pop = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
   const wx = wxFromCode(d.weather_code[i], pop);
-  // 日中（8〜19時）の平均風速
-  let wind = 2;
+  // 西村さん式：「朝・昼・夜」の気温（最高・最低ではなく、出かける時間の気温）
+  let am = lo + (hi-lo)*0.2, noon = hi, pm = lo + (hi-lo)*0.4, wind = 2;
   if(forecast.hourly && forecast.hourly.time){
-    const day = d.time[i], vals = [];
-    forecast.hourly.time.forEach((t,k)=>{ if(t.slice(0,10)===day){ const h = +t.slice(11,13); if(h>=8 && h<=19) vals.push(forecast.hourly.wind_speed_10m[k]); } });
-    if(vals.length) wind = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*0.7);  // 予報は高さ10mの風。人の高さではおよそ7割
+    const day = d.time[i], H = forecast.hourly, temps = {}, winds = [];
+    H.time.forEach((t,k)=>{ if(t.slice(0,10)===day){ const h = +t.slice(11,13); if(H.temperature_2m) temps[h] = H.temperature_2m[k]; if(h>=8 && h<=19) winds.push(H.wind_speed_10m[k]); } });
+    if(temps[8]!=null) am = temps[8];
+    const mid = [11,12,13,14,15].map(h=>temps[h]).filter(v=>v!=null); if(mid.length) noon = Math.max(...mid);
+    if(temps[20]!=null) pm = temps[20];
+    if(winds.length) wind = Math.round(winds.reduce((a,b)=>a+b,0)/winds.length*0.7);  // 予報は高さ10mの風。人の高さではおよそ7割
   }
-  $("hi").value = hi; $("lo").value = lo; $("wind").value = Math.min(12, wind);
+  curPop = pop;
+  $("tAm").value = Math.round(am); $("tNoon").value = Math.round(noon); $("tPm").value = Math.round(pm); $("wind").value = Math.min(12, wind);
   document.querySelector(`input[name=wx][value="${wx}"]`).checked = true;
   const dt = new Date(day0(d.time[i]));
   const when = dt.toLocaleDateString("ja-JP",{month:"numeric",day:"numeric",weekday:"short"});
@@ -506,69 +729,95 @@ document.querySelectorAll('input[name=day]').forEach(r=>r.addEventListener("chan
 /* ---------- 計算 ---------- */
 function readCond(){
   const f = $("cond");
-  let hi = parseFloat($("hi").value), lo = parseFloat($("lo").value);
-  if(!isFinite(hi)) hi = 20; if(!isFinite(lo)) lo = hi - 8;
-  const swapped = lo > hi; if(swapped){ const t = hi; hi = lo; lo = t; }
-  return { hi, lo, swapped,
+  const num = (id, d) => { const v = parseFloat($(id).value); return isFinite(v) ? v : d; };
+  const noon = num("tNoon", 20), am = num("tAm", noon - 6), pm = num("tPm", noon - 4);
+  return { am, noon, pm,
     wx: f.querySelector('input[name=wx]:checked').value,
     wind: +$("wind").value,
     span: f.querySelector('input[name=span]:checked').value,
     move: prefs.move, body: prefs.body };
 }
-function bandOf(t){ if(t>=28)return 8; if(t>=25)return 7; if(t>=21)return 6; if(t>=17)return 5; if(t>=13)return 4; if(t>=9)return 3; if(t>=5)return 2; return 1; }
 const r1 = x => Math.round(x*10)/10;
+const pickBand = (bands, t) => bands.find(b => t >= b.min) || bands[bands.length-1];
 
 function compute(s){
   const wind = s.move==="car" ? 0 : Math.min(s.wind, 12);
-  const bike = s.move==="bike" ? 2 : 0;
-  const body = s.body * 1.5;
+  const windAdj = Math.max(0, wind - 2);               // 2m/sを超える風から体感が下がる
+  const bike = s.move==="bike" ? 1.5 : 0;
+  const body = s.body * 1.5;                           // 寒がりはマイナス、暑がりはプラス
   const sky = s.wx==="sun" ? 1 : (s.wx==="rain"||s.wx==="snow") ? -1 : 0;
-  let day = s.hi + sky - wind*0.6 + body;
-  let cold = (s.span==="long" ? s.lo : s.lo + (s.hi - s.lo)*0.4) - wind - bike + body - (s.wx==="rain" ? 1 : 0);
-  if(s.move==="car") cold = (cold + day)/2;
-  cold = Math.min(cold, day);
-  day = r1(day); cold = r1(cold);
-  const gap = r1(s.hi - s.lo);
-  const db = bandOf(day), cb = bandOf(cold);
+  const wet = s.wx==="rain" ? 1 : 0;
+  // 朝・昼・夜の体感
+  const am   = s.am   + body - windAdj*0.8 - bike - wet;
+  const noon = s.noon + body - windAdj*0.5 + sky;
+  const pm   = s.pm   + body - windAdj*0.8 - bike - wet;
+  const coldest = s.span==="long" ? Math.min(am, pm) : am;
+  // アウター：朝（夜まで外にいる日は朝晩の寒いほう）と昼の平均
+  let x = (coldest + noon) / 2;
+  if(s.move==="car") x = (x + noon) / 2;
+  // トップス：朝・昼・夜の平均
+  const tx = (am + noon + pm) / 3;
+  const O = pickBand(OUTER_BANDS, x), T = pickBand(TOP_BANDS, tx);
+  const day = r1(noon), cold = r1(Math.min(coldest, noon));
+  const temps = [s.am, s.noon].concat(s.span==="long" ? [s.pm] : []);
+  const gap = r1(Math.max(...temps) - Math.min(...temps));
 
-  const topNeed = {8:1,7:1,6:2,5:2,4:3,3:3,2:4,1:4}[db];
-  let outerNeed = {8:0,7:0,6:0,5:(cold>=19?1:2),4:3,3:4,2:5,1:5}[cb];
+  let topNeed = T.need, topText = T.text, topS = T.s;
+  const heat = coldest < 6.5, scarf = coldest < 5.5;
+  if(heat){ topText = "ヒートテック＋" + topText; }
+  let outerNeed = O.need, outerText = O.text;
   let carry = false;
-  if(outerNeed===0 && (day-cold)>=7){ outerNeed = 1; carry = true; }
-  const bottomNeed = {8:1,7:2,6:2,5:2,4:3,3:3,2:4,1:4}[cb];
-  let shoesNeed = cb>=8 && s.wx!=="rain" ? 1 : cb<=2 ? 4 : 2;
-  if(s.wx==="snow") shoesNeed = 4;
+  if(outerNeed===0 && coldest < 21){ outerNeed = 1; carry = true; outerText = "薄手の羽織り（長袖シャツ・カーディガンなど）をかばんに"; }
+  const bottom = x >= 24 ? [1,"短パン・薄手のパンツ"] : x >= 15 ? [2,"チノなど薄手のパンツ"] : x >= 9 ? [3,"デニムなど厚手のパンツ"] : [4,"厚手のパンツ・タイツ併用"];
+  let shoes = (x >= 25 && !wet) ? [1,"サンダル"] : x < 8 ? [4,"ブーツ"] : x < 15 ? [3,"スニーカー・革靴"] : [2,"スニーカー"];
+  if(s.wx==="snow") shoes = [4,"滑りにくいブーツ"];
 
-  const avg = (day + cold)/2;
-  const idx = Math.max(10, Math.min(100, Math.round(((avg+3)/36*90+10)/10)*10));
+  const idx = Math.max(10, Math.min(100, Math.round(((x+3)/36*90+10)/10)*10));
 
   const notes = [];
-  if(gap >= 10) notes.push(["寒暖差", `最高と最低の差が${gap}℃あります。前を開けられる羽織りや、脱いで持てる服にしておくと調節しやすいです。`]);
-  if(carry) notes.push(["持ち歩き", "日中は羽織りなしで大丈夫ですが、朝晩は冷えます。薄手の羽織りをかばんに入れておきましょう。"]);
-  if(s.wx==="rain") notes.push(["雨", "撥水のアウターと、濡れても平気なくつを。裾が濡れやすいので長すぎるパンツは避けると快適です。傘も忘れずに。"]);
+  // 西村さん流：降水確率10%以上なら折りたたみ傘
+  if(s.wx!=="rain" && s.wx!=="snow" && curPop!=null && curPop >= 10) notes.push(["傘", `降水確率は${curPop}%。折りたたみ傘をかばんに入れておくと安心です。`]);
+  if(s.wx==="rain") notes.push(["雨予報", "傘を忘れずに。撥水のアウターと、濡れても平気なくつがおすすめです。"]);
   if(s.wx==="snow") notes.push(["雪", "滑りにくい靴底のブーツを。手袋・マフラー・帽子で首元と手先を守りましょう。"]);
-  if(s.move==="bike" && cold < 12) notes.push(["自転車", "走ると風を受けて体感が2℃ほど下がります。手袋とネックウォーマーがあると楽です。"]);
+  if(gap >= 8) notes.push(["寒暖差", `外にいる時間の気温差が${gap}℃あります。昼は脱ぎ着で調節を。`]);
+  if(carry) notes.push(["持ち歩き", "昼は半袖で大丈夫ですが、朝晩は少し冷えます。薄手の羽織りをかばんに入れておきましょう。"]);
+  if(outerNeed===0 && s.noon < 28) notes.push(["冷房対策", "冷房が苦手なら、長袖シャツなどの羽織りをかばんに入れておくと安心です。"]);
+  if(x >= 17.5 && x < 20.5) notes.push(["暑がり・寒がり", "感じ方が分かれる気温です。暑がりは羽織りを軽めに、寒がりはカーディガンを1枚足して。"]);
+  if(heat) notes.push(["ヒートテック", "朝が冷え込むので、インナーにヒートテックなどの発熱素材を。"]);
+  if(scarf) notes.push(["小物", "朝晩はマフラーや手袋で防寒を。"]);
+  if(outerNeed >= 4 && noon >= 13) notes.push(["昼の調節", "昼は暖かくなるので、中は脱ぎ着しやすいものにしておくと調節しやすいです。"]);
+  if(s.move==="bike" && cold < 12) notes.push(["自転車", "走ると風を受けて体感が下がります。手袋とネックウォーマーがあると楽です。"]);
   if(s.move==="bike" && s.wx==="rain") notes.push(["自転車", "雨の日はレインコートかポンチョを。スカートやワイドパンツは巻き込みに注意。"]);
   if(wind >= 6) notes.push(["風", `風が強め（${s.wind}m/s）です。風を通しにくいアウターを選び、フードや襟で首元を守ると体感がかなり違います。`]);
-  if(cb <= 2) notes.push(["小物", cb===1 ? "マフラー・手袋・ニット帽があると安心。インナーに発熱素材を1枚足すのもおすすめです。" : "マフラーかストールを足すと首元から温かくなります。"]);
-  if(s.wx==="sun" && s.hi >= 25) notes.push(["日差し", "帽子や日傘、日焼け止めを。汗をかくので乾きやすい素材が快適です。"]);
-  if(s.hi >= 30) notes.push(["暑さ", "熱中症に注意。飲み物を持って、風通しのよい明るい色の服を選びましょう。"]);
+  if(s.wx==="sun" && s.noon >= 25) notes.push(["日差し", "帽子や日傘、日焼け止めを。汗をかくので乾きやすい素材が快適です。"]);
+  if(s.noon >= 30) notes.push(["暑さ", "熱中症に注意。こまめに水分補給を。"]);
 
-  let verdict = SHORT_TOP[topNeed] + (outerNeed && !carry ? "＋" + SHORT_OUT[outerNeed] : "");
+  let verdict = topS + (outerNeed && !carry ? "＋" + O.s : "");
   if(carry) verdict += "。朝晩用に羽織りを1枚";
-  else verdict += cb<=1 ? "でしっかり防寒" : db>=8 ? "で涼しく" : "がちょうどいい日";
+  else verdict += outerNeed===5 ? "でしっかり防寒" : outerNeed===0 ? "で過ごせる日" : "がちょうどいい日";
 
-  return {day, cold, gap, db, cb, topNeed, outerNeed, carry, bottomNeed, shoesNeed, idx, notes, verdict, rain: s.wx==="rain"||s.wx==="snow"};
+  return {day, cold, gap, x:r1(x), topNeed, topText, outerNeed, outerText, carry,
+    bottomNeed:bottom[0], bottomText:bottom[1], shoesNeed:shoes[0], shoesText:shoes[1], idx, notes, verdict, rain: s.wx==="rain"||s.wx==="snow"};
 }
 
 let seed = 0;
-function pick(cat, need, rain){
+function cands(cat, need, rain){
   const items = activeCloset().filter(i=>i.cat===cat);
-  if(!items.length || !need) return null;
-  const score = i => Math.abs(i.warmth - need) + (rain ? (i.rain ? -0.6 : 0.6) : 0);
+  if(!items.length || !need) return [null];
+  // 寒い側に外れるのは厚手側に外れるより重く見る（寒い日に薄着を選ばないように）
+  const score = i => (i.warmth < need ? (need - i.warmth)*2.5 : (i.warmth - need)) + (rain ? (i.rain ? -0.6 : 0.6) : 0);
   const best = Math.min(...items.map(score));
-  const cands = items.filter(i => score(i) <= best + 0.5).sort((a,b)=>score(a)-score(b));
-  return cands[seed % cands.length];
+  return items.filter(i => score(i) <= best + 1).sort((a,b)=>score(a)-score(b)).slice(0,8).map(i=>({i, w:score(i)}));
+}
+function pickOutfit(r){
+  const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain)];
+  let combos = [{items:[], w:0}];
+  lists.forEach(L=>{ const next=[]; combos.forEach(c=>L.forEach(x=>next.push({items:c.items.concat(x?x.i:null), w:c.w+(x?x.w:0)}))); combos = next; });
+  combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style); c.score = c.w*1.2 + c.j.pen; });
+  combos.sort((a,b)=>a.score-b.score);
+  const best = combos[0].score;
+  const good = combos.filter(c=>c.score <= best + 0.9).slice(0,12);
+  return good[seed % good.length];
 }
 
 /* ---------- 描画 ---------- */
@@ -577,45 +826,56 @@ function dots(n){ const d = el("span","dots"); d.setAttribute("aria-label","暖�
 
 function renderToday(){
   const s = readCond(); const r = compute(s);
-  $("tempWarn").hidden = !s.swapped;
+  const outfit = pickOutfit(r);
   $("idx").textContent = r.idx;
   $("verdict").textContent = r.verdict;
   $("fDay").textContent = r.day + "℃"; $("fCold").textContent = r.cold + "℃"; $("fGap").textContent = r.gap + "℃";
   $("windOut").textContent = s.wind + " m/s";
 
-  const min = EDGES[0], max = EDGES[EDGES.length-1], span = max - min;
+  // 帯の幅（狭い帯も文字が読めるよう最低4℃分の幅にする）
+  const NB = EDGES.length - 1, labels = OUTER_BANDS.slice().reverse();
+  const W = []; for(let k=0;k<NB;k++) W.push(Math.max(4, EDGES[k+1]-EDGES[k]));
+  const total = W.reduce((a,b)=>a+b,0);
+  const pos = t => {
+    let acc = 0;
+    for(let k=0;k<NB;k++){
+      const lo = EDGES[k], hi = EDGES[k+1];
+      if(t < hi || k===NB-1){ const f = Math.max(0, Math.min(1, (t-lo)/(hi-lo))); return Math.max(2, Math.min(98, (acc + f*W[k])/total*100)); }
+      acc += W[k];
+    }
+    return 98;
+  };
   const bands = $("bands"); bands.textContent = "";
-  for(let i=0;i<8;i++){
-    const b = el("div","band", BAND_LABEL[i]);
-    b.style.flex = (EDGES[i+1]-EDGES[i]) + " 1 0";
-    b.style.background = `var(--b${i+1})`;
-    if(i<2) b.style.color = "var(--band-ink-light)";
-    if(i+1 < r.cb || i+1 > r.db) b.classList.add("dim");
+  const cur = OUTER_BANDS.indexOf(pickBand(OUTER_BANDS, r.x));
+  for(let k=0;k<NB;k++){
+    const b = el("div","band", labels[k].label);
+    b.style.flex = W[k] + " 1 0";
+    b.style.background = `var(--b${BAND_COLOR[k]})`;
+    if(k<2) b.style.color = "var(--band-ink-light)";
+    if(NB-1-k !== cur) b.classList.add("dim");
     bands.appendChild(b);
   }
   const ticks = $("ticks"); ticks.textContent = "";
-  EDGES.slice(1,-1).forEach(t=>{ const sp = el("span",null,t); sp.style.left = ((t-min)/span*100)+"%"; ticks.appendChild(sp); });
+  EDGES.slice(1,-1).forEach(t=>{ const sp = el("span",null,t); sp.style.left = pos(t)+"%"; ticks.appendChild(sp); });
   const track = $("track"); track.querySelectorAll(".mk").forEach(m=>m.remove());
-  const pos = t => Math.max(2, Math.min(98, (t-min)/span*100));
   const mk = (cls, label, t) => { const m = el("div","mk "+cls); m.style.left = pos(t)+"%"; m.appendChild(el("span","tag",label)); m.appendChild(el("span","line")); track.appendChild(m); };
-  mk("day", "日中 "+r.day+"℃", r.day);
-  mk("cold", "朝晩 "+r.cold+"℃", r.cold);
+  mk("day", "きょう "+r.x+"℃", r.x);
 
   const tags = $("tags"); tags.textContent = "";
   [
-    ["top", r.topNeed, false, ""],
-    ["outer", r.outerNeed, r.rain, r.carry ? "かばんに入れて持ち歩き" : ""],
-    ["bottom", r.bottomNeed, false, ""],
-    ["shoes", r.shoesNeed, r.rain, r.rain ? "濡れても平気なものを" : ""]
-  ].forEach(([cat, need, rain, extra])=>{
+    ["top", r.topNeed, r.topText, false, ""],
+    ["outer", r.outerNeed, r.outerText, r.rain, r.carry ? "かばんに入れて持ち歩き" : ""],
+    ["bottom", r.bottomNeed, r.bottomText, false, ""],
+    ["shoes", r.shoesNeed, r.shoesText, r.rain, r.rain ? "濡れても平気なものを" : ""]
+  ].forEach(([cat, need, text, rain, extra], k)=>{
     const g = el("div","gtag");
     const head = el("div","cat"); head.appendChild(el("span",null,CATS[cat]));
-    const p = pick(cat, need, rain);
+    const p = outfit.items[k];
     if(p){ head.appendChild(dots(p.warmth)); if(usingSample()) head.appendChild(el("span","badge","サンプル")); }
     g.appendChild(head);
-    g.appendChild(el("div","name", p ? p.name : GENERIC[cat][need]));
+    g.appendChild(el("div","name", p ? p.name : text));
     const sub = [];
-    if(p) sub.push("めやす：" + GENERIC[cat][need]);
+    if(p){ const c = colorOf(p); sub.push(STYLES[styleOf(p)].replace(/（.*）/,"") + (c ? "・" + COLORS[c].n : "")); sub.push("めやす：" + text); }
     else if(need) sub.push("クローゼットに該当する服がないので、一般的なめやすです");
     if(extra) sub.push(extra);
     if(sub.length) g.appendChild(el("div","sub", sub.join(" / ")));
@@ -624,6 +884,15 @@ function renderToday(){
 
   const notes = $("notes"); notes.textContent = "";
   r.notes.forEach(([k,t])=>{ const li = el("li"); li.appendChild(el("span","k",k)); li.appendChild(el("span",null,t)); notes.appendChild(li); });
+
+  const why = $("why"); why.textContent = "";
+  const picked = outfit.items.filter(Boolean);
+  if(picked.length){
+    outfit.j.why.concat(outfit.j.tips).forEach(([k,t])=>{ const li = el("li"); li.appendChild(el("span","k why",k)); li.appendChild(el("span",null,t)); why.appendChild(li); });
+    const unknown = picked.filter(i=>!i.style || !i.color).length;
+    if(unknown && !usingSample()){ const li = el("li"); li.appendChild(el("span","k why","メモ")); li.appendChild(el("span",null,"系統や色が登録されていない服は、名前から推定しています。クローゼットの「直す」で登録すると判定が正確になります。")); why.appendChild(li); }
+  }
+
 }
 
 function renderCloset(){
@@ -640,11 +909,24 @@ function renderCloset(){
       items.forEach(it=>{
         const li = el("li");
         const nm = el("span","nm",it.name); if(it.rain) nm.appendChild(el("span","rain","雨OK")); if(it.code) nm.appendChild(el("span","code",it.code));
+        const c0 = colorOf(it); nm.appendChild(el("span","attr", STYLES[styleOf(it)].replace(/（.*）/,"") + (c0 ? "・" + COLORS[c0].n : "") + (it.style ? "" : "（推定）")));
         li.appendChild(nm); li.appendChild(dots(it.warmth));
         if(!usingSample()){
+          const acts = el("span","acts");
+          const ed = el("button","edit","直す"); ed.type = "button"; ed.setAttribute("aria-label", it.name+"の系統と色を直す");
+          ed.addEventListener("click", ()=>{
+            if(nm.querySelector(".fix")){ nm.querySelector(".fix").remove(); return; }
+            const fx = el("span","fix");
+            const ss = el("select","text-in"); fillSelect(ss, STYLES); ss.value = styleOf(it); ss.setAttribute("aria-label","系統");
+            const cs = el("select","text-in"); fillSelect(cs, COLORS, "わからない・その他"); cs.value = colorOf(it); cs.setAttribute("aria-label","色");
+            const save = ()=>{ const t = closet.find(x=>x.id===it.id); if(!t) return; t.style = ss.value; if(cs.value) t.color = cs.value; else delete t.color; persist(); renderToday(); const a = nm.querySelector(".attr"); const c2 = colorOf(t); if(a) a.textContent = STYLES[styleOf(t)].replace(/（.*）/,"") + (c2 ? "・" + COLORS[c2].n : ""); };
+            ss.addEventListener("change", save); cs.addEventListener("change", save);
+            fx.appendChild(ss); fx.appendChild(cs); nm.appendChild(fx);
+          });
           const d = el("button","del","削除"); d.type = "button"; d.setAttribute("aria-label", it.name+"を削除");
           d.addEventListener("click", ()=>{ closet = closet.filter(x=>x.id!==it.id); persist(); renderAll(); });
-          li.appendChild(d);
+          acts.appendChild(ed); acts.appendChild(d);
+          li.appendChild(acts);
         } else li.appendChild(el("span"));
         ul.appendChild(li);
       });
@@ -652,6 +934,20 @@ function renderCloset(){
     }
     wrap.appendChild(g);
   });
+}
+function renderKnow(){
+  const box = $("know"); box.textContent = "";
+  KNOWLEDGE.forEach(sec=>{ const c = el("div","kcard"); c.appendChild(el("h3",null,sec.h)); const ul = el("ul"); sec.li.forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); box.appendChild(c); });
+}
+function fillSelect(sel, map, first){
+  sel.textContent = "";
+  if(first){ const o = el("option",null,first); o.value = ""; sel.appendChild(o); }
+  Object.keys(map).forEach(k=>{ const o = el("option",null, typeof map[k]==="string" ? map[k] : map[k].n); o.value = k; sel.appendChild(o); });
+}
+function updateGuess(){
+  const name = $("itName").value.trim();
+  if(!$("itStyle").dataset.touched) $("itStyle").value = name ? guessStyle(name) : "basic";
+  if(!$("itColor").dataset.touched) $("itColor").value = name ? guessColor(name) : "";
 }
 function renderAll(){ renderToday(); renderCloset(); }
 function updateWarmHint(){
@@ -664,13 +960,15 @@ function applyPrefs(){
   const mv = document.querySelector(`input[name=move][value="${prefs.move}"]`); if(mv) mv.checked = true;
   const sp = document.querySelector(`input[name=span][value="${prefs.span||"day"}"]`); if(sp) sp.checked = true;
   $("body").value = prefs.body; $("bodyOut").textContent = BODY[String(prefs.body)];
+  $("myStyle").value = prefs.style;
 }
 $("cond").addEventListener("input", e=>{
   if(e.target.name==="day") return;
   if(e.target.name==="move"){ prefs.move = e.target.value; persist(); }
   if(e.target.name==="span"){ prefs.span = e.target.value; persist(); }
+  if(e.target.id==="myStyle"){ prefs.style = e.target.value; persist(); renderCloset(); }
   if(e.target.id==="body"){ prefs.body = +e.target.value; $("bodyOut").textContent = BODY[e.target.value]; persist(); }
-  if(["hi","lo","wind"].includes(e.target.id) || e.target.name==="wx") $("autoNote").hidden = true;
+  if(["tAm","tNoon","tPm","wind"].includes(e.target.id) || e.target.name==="wx") $("autoNote").hidden = true;
   seed = 0; renderToday();
 });
 document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", ()=>{
@@ -680,10 +978,13 @@ $("shuffle").addEventListener("click", ()=>{ seed++; renderToday(); });
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click", ()=>{
   const v = b.dataset.view;
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", String(x===b)));
-  $("view-today").hidden = v!=="today"; $("view-closet").hidden = v!=="closet";
+  $("view-today").hidden = v!=="today"; $("view-closet").hidden = v!=="closet"; $("view-know").hidden = v!=="know";
   window.scrollTo(0,0);
 }));
 $("itCat").addEventListener("change", updateWarmHint);
+$("itName").addEventListener("input", updateGuess);
+$("itStyle").addEventListener("change", ()=>{ $("itStyle").dataset.touched = "1"; });
+$("itColor").addEventListener("change", ()=>{ $("itColor").dataset.touched = "1"; });
 $("warmSeg").addEventListener("change", updateWarmHint);
 $("addForm").addEventListener("submit", e=>{
   e.preventDefault();
@@ -691,8 +992,11 @@ $("addForm").addEventListener("submit", e=>{
   const item = {id:"i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), cat:$("itCat").value, name, warmth:+document.querySelector('input[name=warm]:checked').value};
   if($("itRain").checked) item.rain = true;
   const code = $("itCode").value.trim(); if(code) item.code = code;
+  item.style = $("itStyle").value || guessStyle(name);
+  if($("itColor").value) item.color = $("itColor").value;
   closet = (closet || []).concat(item);
   $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("itName").focus();
+  delete $("itStyle").dataset.touched; delete $("itColor").dataset.touched; updateGuess();
   persist(); renderAll();
 });
 
@@ -713,7 +1017,7 @@ $("importFile").addEventListener("change", async e=>{
   try{
     const j = JSON.parse(await f.text());
     if(!j || !Array.isArray(j.closet)) throw new Error("bad");
-    closet = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined}));
+    closet = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, color:COLORS[x.color]?x.color:undefined}));
     if(j.prefs) prefs = {...prefs, ...j.prefs};
     persist(); applyPrefs(); renderAll();
     $("backupMsg").textContent = closet.length + "着を読み込みました。";
@@ -724,7 +1028,8 @@ $("importFile").addEventListener("change", async e=>{
 /* ---------- 起動 ---------- */
 $("today").textContent = new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
 if(new Date().getHours() >= 18) $("d1").checked = true;   // 夜は明日の服を考える
-applyPrefs(); updateWarmHint(); renderAll();
+fillSelect($("myStyle"), STYLES); fillSelect($("itStyle"), STYLES); fillSelect($("itColor"), COLORS, "わからない・その他");
+applyPrefs(); updateWarmHint(); updateGuess(); renderAll(); renderKnow();
 if(loc){ $("place").textContent = loc.name || "現在地"; const c = LS.get("kn.fc", null); if(c){ forecast = c; applyForecast(); } loadForecast(); }
 if("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
