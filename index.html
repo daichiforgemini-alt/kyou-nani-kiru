@@ -589,6 +589,12 @@ function styleDist(main, s){
   return 2;
 }
 /* コーデ全体の採点（小さいほど良い）と、その理由 */
+// 目指すスタイルが「指定なし」のときは、そのコーデでいちばん多い系統を軸として見る
+function mainStyleOf(items){
+  const n = {}; items.filter(Boolean).forEach(i=>{ const st = styleOf(i); n[st] = (n[st]||0) + (st==="basic" ? 0.5 : 1); });
+  const best = Object.keys(n).sort((a,b)=>n[b]-n[a])[0];
+  return best || "basic";
+}
 function judgeOutfit(items, main){
   const present = items.filter(Boolean);
   let pen = 0; const why = []; const tips = [];
@@ -689,7 +695,7 @@ const LS = {
 };
 let closet = LS.get("kn.closet", null);
 let prefs  = LS.get("kn.prefs", {move:"walk", body:0, span:"day"});
-if(!prefs.style || !STYLES[prefs.style]) prefs.style = "kirei";
+if(!prefs.style || (prefs.style !== "any" && !STYLES[prefs.style])) prefs.style = "kirei";
 let loc    = LS.get("kn.loc", null);          // {lat, lon, name}
 let forecast = null;                           // 取得した予報
 function usingSample(){ return !closet || closet.length === 0; }
@@ -940,7 +946,7 @@ function pickOutfit(r){
   const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain)];
   let combos = [{items:[], w:0}];
   lists.forEach(L=>{ const next=[]; combos.forEach(c=>L.forEach(x=>next.push({items:c.items.concat(x?x.i:null), w:c.w+(x?x.w:0)}))); combos = next; });
-  combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style); c.score = c.w*1.2 + c.j.pen; });
+  combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style === "any" ? mainStyleOf(c.items) : prefs.style); c.score = c.w*1.2 + c.j.pen; });
   combos.sort((a,b)=>a.score-b.score);
   const best = combos[0].score;
   const good = combos.filter(c=>c.score <= best + 0.9).slice(0,12);
@@ -1338,7 +1344,7 @@ window.addEventListener("online", ()=>syncNow());
 /* ---------- 起動 ---------- */
 $("today").textContent = new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
 if(new Date().getHours() >= 18) $("d1").checked = true;   // 夜は明日の服を考える
-fillSelect($("myStyle"), STYLES); fillSelect($("itStyle"), STYLES); fillSelect($("itColor"), COLORS, "わからない・その他");
+fillSelect($("myStyle"), STYLES, "指定なし（手持ちの服に合わせる）"); $("myStyle").options[0].value = "any"; fillSelect($("itStyle"), STYLES); fillSelect($("itColor"), COLORS, "わからない・その他");
 applyPrefs(); updateWarmHint(); updateGuess(); renderAll(); renderKnow();
 if(loc){ $("place").textContent = loc.name || "現在地"; const c = LS.get("kn.fc", null); if(c){ forecast = c; applyForecast(); } loadForecast(); }
 renderSync(); syncNow(); fromShared();
