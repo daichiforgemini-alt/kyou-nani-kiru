@@ -163,7 +163,8 @@ button,input,select{font:inherit;color:inherit}
 .group h3 small{font-weight:400;color:var(--muted);font-family:var(--f-mono)}
 .items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .photo-box{display:flex;flex-direction:column;gap:10px;background:var(--sunk);border-radius:12px;padding:12px 14px}
-.photo-box .btn{align-self:flex-start;cursor:pointer}
+.photo-box .btn{cursor:pointer}
+.photo-box textarea{resize:vertical;min-height:64px}
 .photo-res{display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px;align-items:start}
 .photo-res img{width:72px;height:72px;object-fit:cover;border-radius:8px;background:var(--surface)}
 .photo-res p{margin:0;font-size:13.5px}
@@ -345,7 +346,15 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
     <form class="panel" id="addForm" autocomplete="off">
       <h2>服を登録する</h2>
       <div class="photo-box">
-        <label class="btn primary" for="photoIn">写真から登録</label>
+        <div class="field"><label for="photoHint">わかっている情報（任意）</label>
+          <textarea class="text-in" id="photoHint" rows="2" maxlength="300" placeholder="例：ユニクロ ウールブレンドチェスターコート、ウール60%、品番470067"></textarea>
+          <span class="hint">ブランド・商品名・素材・品番などを書いておくと、AIが写真と合わせて判断します。写真を選ぶ前に書いてください。</span>
+        </div>
+        <div class="btns"><label class="btn primary" for="photoIn">写真から登録</label><button type="button" class="btn" id="photoRetry" hidden>この情報で判定し直す</button></div>
+        <div class="field"><label for="pageUrl">商品ページのURLから登録</label>
+          <div class="search-row"><input class="text-in" id="pageUrl" type="url" inputmode="url" placeholder="https://… 通販サイトの商品ページ" enterkeyhint="go"><button type="button" class="btn" id="pageBtn">取り込む</button></div>
+          <span class="hint">ページの写真・商品名・素材を取り出して判定します。サイトによっては取り出せないことがあります。</span>
+        </div>
         <input type="file" id="photoIn" accept="image/*" hidden>
         <span class="hint">服を1点だけ、床に平置きするかハンガーにかけて撮ると正確です。顔や部屋が写らないようにしてください。</span>
         <div class="photo-res" id="photoRes" hidden><img id="photoImg" alt="選んだ写真"><p id="photoMsg"></p></div>
@@ -1012,28 +1021,34 @@ const AI_API = "https://kyou-nani-kiru-search.daichiforgemini.workers.dev/classi
 let photoThumb = null;
 function shrink(file, max, q){
   return new Promise((res, rej)=>{
-    const url = URL.createObjectURL(file); const img = new Image();
+    const isStr = typeof file === "string";
+    const url = isStr ? file : URL.createObjectURL(file); const img = new Image();
     img.onload = ()=>{ const k = Math.min(1, max/Math.max(img.width, img.height)); const c = document.createElement("canvas");
       c.width = Math.round(img.width*k); c.height = Math.round(img.height*k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", q)); };
-    img.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("load")); };
+      if(!isStr) URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", q)); };
+    img.onerror = ()=>{ if(!isStr) URL.revokeObjectURL(url); rej(new Error("load")); };
     img.src = url;
   });
 }
-$("photoIn").addEventListener("change", async e=>{
-  const f = e.target.files && e.target.files[0]; e.target.value = ""; if(!f) return;
-  const msg = $("photoMsg"); $("photoRes").hidden = false; msg.textContent = "写真を読み込んでいます…";
-  let big;
-  try{ big = await shrink(f, 768, .8); photoThumb = await shrink(f, 160, .7); $("photoImg").src = photoThumb; }
-  catch(err){ msg.textContent = "この写真は読み込めませんでした。別の写真を選んでください。"; photoThumb = null; return; }
-  msg.textContent = "AIが服を見ています…（数秒かかります）";
+let lastBig = null;
+async function classify(){
+  const msg = $("photoMsg");
+  const hint = $("photoHint").value.trim();
+  msg.textContent = "AIが服を見ています…（10〜20秒ほどかかります）";
+  $("photoRetry").disabled = true;
   try{
-    const r = await fetch(AI_API, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({image: big.split(",")[1], mime:"image/jpeg"})});
+    const r = await fetch(AI_API, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({image: lastBig.split(",")[1], mime:"image/jpeg", hint}), signal: AbortSignal.timeout(90000)});
     const j = await r.json().catch(()=>({}));
-    if(r.status===429){ msg.textContent = "AIが混み合っています。少し待ってからもう一度選んでください。"; return; }
+    applyAi(r, j, hint);
+  }catch(err){ msg.textContent = "AIにつながりませんでした。通信状態を確かめるか、下のフォームに手で入力してください。"; }
+  finally{ $("photoRetry").disabled = false; $("photoRetry").hidden = !lastBig; }
+}
+function applyAi(r, j, hint){
+    const msg = $("photoMsg");
+    if(r.status===429){ msg.textContent = "AIが混み合っています。少し待ってから「この情報で判定し直す」を押してください。"; return; }
     if(!r.ok || !j.item){ msg.textContent = "判定できませんでした。下のフォームに手で入力してください。"; return; }
     const it = j.item;
-    if(!it.is_clothing || it.cat==="other" || !CATS[it.cat]){ msg.textContent = "服が見つかりませんでした。服1点だけが写るように撮り直してみてください。"; photoThumb = null; return; }
+    if(!it.is_clothing || it.cat==="other" || !CATS[it.cat]){ msg.textContent = "服が見つかりませんでした。服1点だけが写るように撮り直してみてください。"; return; }
     $("itName").value = String(it.name||"").slice(0,40);
     $("itCat").value = it.cat;
     const w = Math.max(1, Math.min(5, Math.round(+it.warmth||3)));
@@ -1041,10 +1056,39 @@ $("photoIn").addEventListener("change", async e=>{
     $("itRain").checked = !!it.rain;
     if(STYLES[it.style]){ $("itStyle").value = it.style; $("itStyle").dataset.touched = "1"; }
     if(COLORS[it.color]){ $("itColor").value = it.color; $("itColor").dataset.touched = "1"; }
+    const code = (hint.match(/\b[A-Z]?\d{6,}(?:-\d+)?\b/i) || [])[0]; if(code && !$("itCode").value) $("itCode").value = code;
     updateWarmHint();
     msg.textContent = `「${$("itName").value}」と判定しました。系統は${STYLES[it.style]||"不明"}${it.reason ? "（" + it.reason + "）" : ""}。違うところだけ直して「クローゼットに追加」を押してください。`;
-  }catch(err){ msg.textContent = "AIにつながりませんでした。通信状態を確かめるか、下のフォームに手で入力してください。"; }
+}
+async function fromUrl(){
+  const url = $("pageUrl").value.trim(); if(!url) return;
+  if(!/^https?:\/\//i.test(url)){ $("photoRes").hidden = false; $("photoMsg").textContent = "https:// から始まる商品ページのURLを入れてください。"; return; }
+  const msg = $("photoMsg"); $("photoRes").hidden = false; $("photoImg").removeAttribute("src");
+  msg.textContent = "ページから写真と商品情報を取り出しています…（20秒ほどかかります）";
+  const btn = $("pageBtn"); btn.disabled = true;
+  const hint = $("photoHint").value.trim();
+  try{
+    const r = await fetch(AI_API.replace(/classify$/, "fromurl"), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({url, hint}), signal: AbortSignal.timeout(90000)});
+    const j = await r.json().catch(()=>({}));
+    if(j.imageData){ try{ lastBig = await shrink(j.imageData, 768, .8); photoThumb = await shrink(j.imageData, 160, .7); $("photoImg").src = photoThumb; }catch(e){} }
+    if(j.error==="no_image" || j.error==="page_failed" || j.error==="image_failed" || j.error==="bad_url"){
+      msg.textContent = "このページからは写真を取り出せませんでした（サイト側で読み取りを制限している可能性があります）。スクリーンショットを撮って「写真から登録」を使ってください。"; return;
+    }
+    applyAi(r, j, hint);
+    const code = (url.match(/(?:\/|=|-)([A-Z]?\d{6,})(?:[\/?&#-]|$)/i) || [])[1]; if(code && !$("itCode").value) $("itCode").value = code;
+  }catch(err){ msg.textContent = err && err.name==="TimeoutError" ? "時間がかかりすぎたので中止しました。このサイトは読み取れないようです。スクリーンショットを撮って「写真から登録」を使ってください。" : "中継サーバーにつながりませんでした。通信状態を確かめてください。"; }
+  finally{ btn.disabled = false; $("photoRetry").hidden = !lastBig; }
+}
+$("pageBtn").addEventListener("click", fromUrl);
+$("pageUrl").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); fromUrl(); } });
+$("photoIn").addEventListener("change", async e=>{
+  const f = e.target.files && e.target.files[0]; e.target.value = ""; if(!f) return;
+  const msg = $("photoMsg"); $("photoRes").hidden = false; msg.textContent = "写真を読み込んでいます…";
+  try{ lastBig = await shrink(f, 768, .8); photoThumb = await shrink(f, 160, .7); $("photoImg").src = photoThumb; }
+  catch(err){ msg.textContent = "この写真は読み込めませんでした。別の写真を選んでください。"; photoThumb = null; lastBig = null; return; }
+  classify();
 });
+$("photoRetry").addEventListener("click", ()=>{ if(lastBig) classify(); });
 
 $("addForm").addEventListener("submit", e=>{
   e.preventDefault();
@@ -1056,7 +1100,7 @@ $("addForm").addEventListener("submit", e=>{
   if($("itColor").value) item.color = $("itColor").value;
   if(photoThumb) item.img = photoThumb;
   closet = (closet || []).concat(item);
-  photoThumb = null; $("photoRes").hidden = true;
+  photoThumb = null; lastBig = null; $("photoRes").hidden = true; $("photoRetry").hidden = true; $("photoHint").value = ""; $("pageUrl").value = "";
   $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("itName").focus();
   delete $("itStyle").dataset.touched; delete $("itColor").dataset.touched; updateGuess();
   persist(); renderAll();
