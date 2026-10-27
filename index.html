@@ -1164,7 +1164,7 @@ async function classify(){
 }
 function applyAi(r, j, hint){
     const msg = $("photoMsg");
-    if(r.status===429){ msg.textContent = "AIが混み合っています。少し待ってから「この情報で判定し直す」を押してください。"; return; }
+    if(r.status===429 || (r.status===502 && j && j.error==="ai_failed")){ msg.textContent = "AIが混み合っています。少し待ってから「この情報で判定し直す」を押してください。"; return; }
     if(!r.ok || !j.item){ msg.textContent = "判定できませんでした。下のフォームに手で入力してください。"; return; }
     const it = j.item;
     if(!it.is_clothing || it.cat==="other" || !CATS[it.cat]){ msg.textContent = "服が見つかりませんでした。服1点だけが写るように撮り直してみてください。"; return; }
@@ -1218,11 +1218,26 @@ async function fromShared(){
   const code = (str(d.u).match(/(?:\/|=|-)([A-Z]?\d{6,})(?:[\/?&#-]|$)/i) || [])[1];
   if(!/^https:\/\//.test(str(d.i))){ msg.textContent = "商品ページから写真が見つかりませんでした。スクリーンショットで「写真から登録」を使ってください。"; return; }
   msg.textContent = "商品ページの写真を読み込んでいます…";
+  let okLocal = false;
   try{
-    const b = await (await fetch(str(d.i), {signal: AbortSignal.timeout(20000)})).blob();
-    lastBig = await shrink(b, 768, .8); photoThumb = await shrink(b, 160, .7); $("photoImg").src = photoThumb;
-  }catch(err){ lastBig = null; photoThumb = null; msg.textContent = "このサイトの写真は読み込めませんでした。商品写真のスクリーンショットを撮って「写真から登録」を使ってください（情報欄はそのまま使えます）。"; return; }
-  await classify();
+    const r = await fetch(str(d.i), {signal: AbortSignal.timeout(15000)});
+    if(!r.ok) throw new Error("http" + r.status);
+    const b = await r.blob();
+    lastBig = await shrink(b, 768, .8); photoThumb = await shrink(b, 160, .7); $("photoImg").src = photoThumb; okLocal = true;
+  }catch(err){ lastBig = null; photoThumb = null; }
+  if(okLocal){ await classify(); }
+  else{
+    // 端末で写真を読めなかったら、中継サーバーに読んでもらう
+    msg.textContent = "写真をサーバー経由で読み込んで、AIが判定しています…（20秒ほど）";
+    try{
+      const r = await fetch(AI_API.replace(/classify$/, "fromimage"), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({imageUrl: str(d.i), pageUrl: str(d.u), hint: info}), signal: AbortSignal.timeout(90000)});
+      const j = await r.json().catch(()=>({}));
+      if(j.imageData){ try{ lastBig = await shrink(j.imageData, 768, .8); photoThumb = await shrink(j.imageData, 160, .7); $("photoImg").src = photoThumb; }catch(e){} }
+      if(!j.imageData){ msg.textContent = "このサイトの写真は読み込めませんでした（" + (j.error || r.status) + (j.status ? " " + j.status : "") + (j.type ? " " + j.type : "") + "）。商品写真のスクリーンショットを撮って「写真から登録」を使ってください（情報欄はそのまま使えます）。"; return; }
+      applyAi(r, j, info);
+      $("photoRetry").hidden = !lastBig;
+    }catch(err){ msg.textContent = "写真を読み込めませんでした。商品写真のスクリーンショットを撮って「写真から登録」を使ってください（情報欄はそのまま使えます）。"; return; }
+  }
   if(code && !$("itCode").value) $("itCode").value = code;
   $("photoRes").scrollIntoView({block:"center"});
 }
