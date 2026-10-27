@@ -1123,10 +1123,31 @@ $("importFile").addEventListener("change", async e=>{
   try{
     const j = JSON.parse(await f.text());
     if(!j || !Array.isArray(j.closet)) throw new Error("bad");
-    closet = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined}));
-    if(j.prefs) prefs = {...prefs, ...j.prefs};
-    persist(); applyPrefs(); renderAll();
-    $("backupMsg").textContent = closet.length + "着を読み込みました。";
+    const items = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined, _u:(typeof x.imgUrl==="string")?x.imgUrl:undefined}));
+    if(j.mode === "add"){
+      // 取り込み用ファイル（ZOZOの購入履歴など）：今あるクローゼットに追加する。同じ品番・同じ名前の服は足さない
+      const have = new Set((closet||[]).map(x=>x.code ? "c:"+x.code : "n:"+x.name));
+      const ids = new Set((closet||[]).map(x=>x.id));
+      const add = items.filter(x=>{ const k = x.code ? "c:"+x.code : "n:"+x.name; if(have.has(k)) return false; have.add(k); return true; })
+                       .map(x=> ids.has(x.id) ? {...x, id:"i"+Math.random().toString(36).slice(2,9)} : x);
+      // 写真のURLがあれば取りに行って、小さな写真にして付ける
+      const need = add.filter(x=>!x.img && /^https:\/\/c\.imgz\.jp\//.test(x._u||""));
+      let done = 0;
+      for(const x of need){
+        $("backupMsg").textContent = "写真を取り込んでいます… " + (++done) + " / " + need.length;
+        try{ const b = await (await fetch(x._u, {signal: AbortSignal.timeout(15000)})).blob(); x.img = await shrink(b, 160, .7); }catch(err){}
+      }
+      add.forEach(x=>{ delete x._u; });
+      closet = (closet||[]).concat(add);
+      persist(); renderAll();
+      $("backupMsg").textContent = add.length + "着を追加しました" + (items.length>add.length ? "（すでにある" + (items.length-add.length) + "着は飛ばしました）" : "") + "。";
+    } else {
+      items.forEach(x=>{ delete x._u; });
+      closet = items;
+      if(j.prefs) prefs = {...prefs, ...j.prefs};
+      persist(); applyPrefs(); renderAll();
+      $("backupMsg").textContent = closet.length + "着を読み込みました。";
+    }
   }catch(err){ $("backupMsg").textContent = "このファイルは読み込めませんでした。書き出したバックアップ（.json）を選んでください。"; }
   e.target.value = "";
 });
