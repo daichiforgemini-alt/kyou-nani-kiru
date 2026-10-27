@@ -202,7 +202,9 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .why-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .why-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
 .notes .k.why{background:var(--accent-soft)}
-.fix{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.fix{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;grid-column:1/-1;padding-top:8px;border-top:1px dashed var(--line)}
+.fix .fix-name{flex:1 1 100%;font-size:15px}
+.fix .fix-btn{font-size:13px;padding:5px 10px;min-height:0;cursor:pointer}
 .fix select{font-size:13px;padding:5px 8px;width:auto;max-width:100%}
 .edit{border:0;background:transparent;color:var(--indigo);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px}
 .edit:hover{background:var(--sunk)}
@@ -943,15 +945,34 @@ function renderCloset(){
         li.appendChild(dots(it.warmth));
         if(!usingSample()){
           const acts = el("span","acts");
-          const ed = el("button","edit","直す"); ed.type = "button"; ed.setAttribute("aria-label", it.name+"の系統と色を直す");
+          const ed = el("button","edit","直す"); ed.type = "button"; ed.setAttribute("aria-label", it.name+"を直す");
           ed.addEventListener("click", ()=>{
-            if(nm.querySelector(".fix")){ nm.querySelector(".fix").remove(); return; }
-            const fx = el("span","fix");
-            const ss = el("select","text-in"); fillSelect(ss, STYLES); ss.value = styleOf(it); ss.setAttribute("aria-label","系統");
-            const cs = el("select","text-in"); fillSelect(cs, COLORS, "わからない・その他"); cs.value = colorOf(it); cs.setAttribute("aria-label","色");
-            const save = ()=>{ const t = closet.find(x=>x.id===it.id); if(!t) return; t.style = ss.value; if(cs.value) t.color = cs.value; else delete t.color; persist(); renderToday(); const a = nm.querySelector(".attr"); const c2 = colorOf(t); if(a) a.textContent = STYLES[styleOf(t)].replace(/（.*）/,"") + (c2 ? "・" + COLORS[c2].n : ""); };
+            const open = li.querySelector(".fix");
+            if(open){ open.remove(); ed.textContent = "直す"; return; }
+            ed.textContent = "閉じる";
+            const t = closet.find(x=>x.id===it.id); if(!t) return;
+            const fx = el("div","fix");
+            // 名前
+            const ni = el("input","text-in fix-name"); ni.type = "text"; ni.maxLength = 40; ni.value = t.name; ni.setAttribute("aria-label","名前");
+            ni.addEventListener("change", ()=>{ const v = ni.value.trim(); if(!v){ ni.value = t.name; return; } t.name = v.slice(0,40); persist(); renderToday(); nm.firstChild.nodeValue = t.name; });
+            // 写真
+            const pf = el("input"); pf.type = "file"; pf.accept = "image/*"; pf.hidden = true; pf.id = "pf-"+t.id;
+            const pl = el("label","btn fix-btn", t.img ? "写真を変える" : "写真を付ける"); pl.htmlFor = pf.id;
+            pf.addEventListener("change", async ()=>{ const f = pf.files && pf.files[0]; if(!f) return;
+              try{ t.img = await shrink(f, 160, .7); persist(); renderAll(); }catch(err){ pl.textContent = "読み込めませんでした"; } });
+            fx.appendChild(ni); fx.appendChild(pl); fx.appendChild(pf);
+            if(t.img){ const rm = el("button","btn fix-btn","写真を外す"); rm.type = "button"; rm.addEventListener("click", ()=>{ delete t.img; persist(); renderAll(); }); fx.appendChild(rm); }
+            // 種類・暖かさ・系統・色
+            const ks = el("select","text-in"); fillSelect(ks, CATS); ks.value = t.cat; ks.setAttribute("aria-label","種類");
+            ks.addEventListener("change", ()=>{ t.cat = ks.value; persist(); renderAll(); });
+            const ws = el("select","text-in"); fillSelect(ws, {1:"1 とても薄手",2:"2 薄手",3:"3 ふつう",4:"4 暖かい",5:"5 とても暖かい"}); ws.value = String(t.warmth); ws.setAttribute("aria-label","暖かさ");
+            ws.addEventListener("change", ()=>{ t.warmth = +ws.value; persist(); renderAll(); });
+            const ss = el("select","text-in"); fillSelect(ss, STYLES); ss.value = styleOf(t); ss.setAttribute("aria-label","系統");
+            const cs = el("select","text-in"); fillSelect(cs, COLORS, "わからない・その他"); cs.value = colorOf(t); cs.setAttribute("aria-label","色");
+            const save = ()=>{ t.style = ss.value; if(cs.value) t.color = cs.value; else delete t.color; persist(); renderToday(); const a = nm.querySelector(".attr"); const c2 = colorOf(t); if(a) a.textContent = STYLES[styleOf(t)].replace(/（.*）/,"") + (c2 ? "・" + COLORS[c2].n : ""); };
             ss.addEventListener("change", save); cs.addEventListener("change", save);
-            fx.appendChild(ss); fx.appendChild(cs); nm.appendChild(fx);
+            fx.appendChild(ks); fx.appendChild(ws); fx.appendChild(ss); fx.appendChild(cs);
+            li.appendChild(fx); ni.focus();
           });
           const d = el("button","del","削除"); d.type = "button"; d.setAttribute("aria-label", it.name+"を削除");
           d.addEventListener("click", ()=>{ closet = closet.filter(x=>x.id!==it.id); persist(); renderAll(); });
