@@ -197,6 +197,11 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .pill{font-size:12px;font-weight:700;border-radius:999px;padding:1px 9px;background:var(--surface);border:1px solid var(--line)}
 .auto-note{font-size:12px;color:var(--muted)}
 .backup{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bm-help{margin-top:4px}
+.bm-help summary{cursor:pointer;font-size:13px;color:var(--indigo)}
+.bm-help[open]{display:flex;flex-direction:column;gap:8px}
+.bm-steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:4px}
+.bm-code{font-family:var(--f-mono);font-size:11px;min-height:0}
 .sync-box{display:flex;flex-direction:column;gap:10px;background:var(--sunk);border-radius:12px;padding:12px 14px}
 .sync-box #syncOff,.sync-box #syncOn{display:flex;flex-direction:column;gap:10px}
 .sync-box [hidden]{display:none!important}
@@ -363,6 +368,18 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <div class="field"><label for="pageUrl">商品ページのURLから登録</label>
           <div class="search-row"><input class="text-in" id="pageUrl" type="url" inputmode="url" placeholder="https://… 通販サイトの商品ページ" enterkeyhint="go"><button type="button" class="btn" id="pageBtn">取り込む</button></div>
           <span class="hint">ページの写真・商品名・素材を取り出して判定します。サイトによっては取り出せないことがあります。</span>
+          <details class="bm-help" id="bmHelp">
+            <summary>ZOZO・HOKAなど、取り込めないサイトのとき</summary>
+            <p class="hint">一部のサイトは、このアプリのサーバーからの読み取りを断っています。その場合は、Safariで商品ページを開いたまま「服に追加」ブックマークを押すと、あなたのiPhoneが読み取ってアプリに渡します（最初に1回だけ設定が必要です）。</p>
+            <ol class="hint bm-steps">
+              <li>下の「ブックマーク用のコードをコピー」を押す</li>
+              <li>Safariで今のページ（このアプリ）を開き、共有ボタン →「ブックマークを追加」→ 名前を「服に追加」にして保存</li>
+              <li>ブックマーク一覧 →「編集」→「服に追加」を開き、アドレス欄を全部消してコピーしたコードを貼り付けて完了</li>
+              <li>使うとき：Safariで商品ページを開き、アドレス欄に「服に追加」と打って、出てきたブックマークを押す</li>
+            </ol>
+            <button type="button" class="btn" id="bmCopy">ブックマーク用のコードをコピー</button>
+            <textarea class="text-in bm-code" id="bmCode" rows="2" readonly aria-label="ブックマーク用のコード"></textarea>
+          </details>
         </div>
         <input type="file" id="photoIn" accept="image/*" hidden>
         <span class="hint">服を1点だけ、床に平置きするかハンガーにかけて撮ると正確です。顔や部屋が写らないようにしてください。</span>
@@ -1173,14 +1190,43 @@ async function fromUrl(){
     const r = await fetch(AI_API.replace(/classify$/, "fromurl"), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({url, hint}), signal: AbortSignal.timeout(90000)});
     const j = await r.json().catch(()=>({}));
     if(j.imageData){ try{ lastBig = await shrink(j.imageData, 768, .8); photoThumb = await shrink(j.imageData, 160, .7); $("photoImg").src = photoThumb; }catch(e){} }
+    if(j.error==="page_failed" && (j.status===403 || j.status===401 || j.status===429)){
+      msg.textContent = "このサイトは、アプリのサーバーからの読み取りを断っています。下の「ZOZO・HOKAなど、取り込めないサイトのとき」の方法（Safariのブックマーク）で取り込めます。"; $("bmHelp").open = true; return;
+    }
     if(j.error==="no_image" || j.error==="page_failed" || j.error==="image_failed" || j.error==="bad_url"){
-      msg.textContent = "このページからは写真を取り出せませんでした（サイト側で読み取りを制限している可能性があります）。スクリーンショットを撮って「写真から登録」を使ってください。"; return;
+      msg.textContent = "このページからは写真を取り出せませんでした。下の「取り込めないサイトのとき」の方法か、スクリーンショットで「写真から登録」を使ってください。"; $("bmHelp").open = true; return;
     }
     applyAi(r, j, hint);
     const code = (url.match(/(?:\/|=|-)([A-Z]?\d{6,})(?:[\/?&#-]|$)/i) || [])[1]; if(code && !$("itCode").value) $("itCode").value = code;
-  }catch(err){ msg.textContent = err && err.name==="TimeoutError" ? "時間がかかりすぎたので中止しました。このサイトは読み取れないようです。スクリーンショットを撮って「写真から登録」を使ってください。" : "中継サーバーにつながりませんでした。通信状態を確かめてください。"; }
-  finally{ btn.disabled = false; $("photoRetry").hidden = !lastBig; }
+  }catch(err){ msg.textContent = err && err.name==="TimeoutError" ? "時間がかかりすぎたので中止しました。下の「取り込めないサイトのとき」の方法か、スクリーンショットで「写真から登録」を使ってください。" : "中継サーバーにつながりませんでした。通信状態を確かめてください。"; }
+  finally{ btn.disabled = false; $("photoRetry").hidden = !lastBig; $("pageUrl").value = ""; }
 }
+/* Safariのブックマーク（服に追加）から渡された商品情報で登録する */
+const BOOKMARKLET = "javascript:(()=>{const m=k=>(document.querySelector('meta[property=\"'+k+'\"],meta[name=\"'+k+'\"]')||{}).content||\"\";const P=[];document.querySelectorAll('script[type=\"application/ld+json\"]').forEach(s=>{try{const j=JSON.parse(s.textContent);(Array.isArray(j)?j:(j[\"@graph\"]||[j])).forEach(x=>{const t=x&&x[\"@type\"];if(t===\"Product\"||(Array.isArray(t)&&t.includes(\"Product\")))P.push(x)})}catch(e){}});const pi=x=>{let i=x&&x.image;if(Array.isArray(i))i=i[i.length-1];if(i&&typeof i===\"object\")i=i.url;return i||\"\"};let im=m(\"og:image\")||pi(P[0]);const p=P.find(x=>pi(x)===im)||P[0]||{};try{im=new URL(im,location.href).href}catch(e){}const b=p.brand&&(p.brand.name||p.brand);const d={u:location.href,n:p.name||m(\"og:title\")||document.title,b:typeof b===\"string\"?b:\"\",c:p.color||\"\",i:im,s:String(p.description||m(\"og:description\")||\"\").replace(/<[^>]+>/g,\" \").replace(/\\s+/g,\" \").slice(0,200)};if(!d.i){alert(\"このページから写真が見つかりませんでした\");return}location.href=\"https://daichiforgemini-alt.github.io/kyou-nani-kiru/#add=\"+encodeURIComponent(JSON.stringify(d))})()";
+$("bmCode").value = BOOKMARKLET;
+$("bmCopy").addEventListener("click", async ()=>{ try{ await navigator.clipboard.writeText(BOOKMARKLET); $("bmCopy").textContent = "コピーしました"; }catch(err){ $("bmCode").focus(); $("bmCode").select(); $("bmCopy").textContent = "下の欄を全部選んでコピーしてください"; } setTimeout(()=>{ $("bmCopy").textContent = "ブックマーク用のコードをコピー"; }, 3000); });
+async function fromShared(){
+  const m = location.hash.match(/^#add=(.+)$/); if(!m) return;
+  history.replaceState(null, "", location.pathname + location.search);   // アドレスに情報を残さない
+  let d; try{ d = JSON.parse(decodeURIComponent(m[1])); }catch(err){ return; }
+  if(!d || typeof d !== "object") return;
+  document.getElementById("tab-closet").click();
+  const msg = $("photoMsg"); $("photoRes").hidden = false; $("photoImg").removeAttribute("src");
+  const str = v => String(v || "").replace(/[\u0000-\u001f]/g, " ").trim();
+  const info = [str(d.b) && "ブランド: " + str(d.b), str(d.n) && "商品名: " + str(d.n), str(d.c) && "色: " + str(d.c), str(d.s) && "説明: " + str(d.s)].filter(Boolean).join("\n").slice(0, 300);
+  $("photoHint").value = info;
+  const code = (str(d.u).match(/(?:\/|=|-)([A-Z]?\d{6,})(?:[\/?&#-]|$)/i) || [])[1];
+  if(!/^https:\/\//.test(str(d.i))){ msg.textContent = "商品ページから写真が見つかりませんでした。スクリーンショットで「写真から登録」を使ってください。"; return; }
+  msg.textContent = "商品ページの写真を読み込んでいます…";
+  try{
+    const b = await (await fetch(str(d.i), {signal: AbortSignal.timeout(20000)})).blob();
+    lastBig = await shrink(b, 768, .8); photoThumb = await shrink(b, 160, .7); $("photoImg").src = photoThumb;
+  }catch(err){ lastBig = null; photoThumb = null; msg.textContent = "このサイトの写真は読み込めませんでした。商品写真のスクリーンショットを撮って「写真から登録」を使ってください（情報欄はそのまま使えます）。"; return; }
+  await classify();
+  if(code && !$("itCode").value) $("itCode").value = code;
+  $("photoRes").scrollIntoView({block:"center"});
+}
+window.addEventListener("hashchange", fromShared);
 $("pageBtn").addEventListener("click", fromUrl);
 $("pageUrl").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); fromUrl(); } });
 $("photoIn").addEventListener("change", async e=>{
@@ -1280,7 +1326,7 @@ if(new Date().getHours() >= 18) $("d1").checked = true;   // 夜は明日の服�
 fillSelect($("myStyle"), STYLES); fillSelect($("itStyle"), STYLES); fillSelect($("itColor"), COLORS, "わからない・その他");
 applyPrefs(); updateWarmHint(); updateGuess(); renderAll(); renderKnow();
 if(loc){ $("place").textContent = loc.name || "現在地"; const c = LS.get("kn.fc", null); if(c){ forecast = c; applyForecast(); } loadForecast(); }
-renderSync(); syncNow();
+renderSync(); syncNow(); fromShared();
 if("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
 
