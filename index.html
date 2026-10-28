@@ -221,6 +221,14 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .edit{border:0;background:transparent;color:var(--indigo);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px}
 .edit:hover{background:var(--sunk)}
 .items li .acts{display:flex;gap:2px}
+.gapcard{margin-bottom:14px}
+.gapcard h4{font-size:14px;margin:14px 0 6px;color:var(--ink)}
+.gaplist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.gaplist li{display:grid;grid-template-columns:22px 1fr;gap:6px;align-items:start}
+.gaplist .gmk{font-weight:700;text-align:center}
+.gaplist .gmk.ok{color:#2e7d4f}.gaplist .gmk.ng{color:#c0392b}.gaplist .gmk.warn{color:#b8860b}
+.gaplist .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.gapsum{font-size:14px;margin:0 0 4px}
 .know{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
 .kcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-width:0}
 .kcard h3{font-size:15px;font-weight:700;color:var(--indigo);margin-bottom:8px}
@@ -472,6 +480,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
   </section>
   <!-- ===== 服の知識 ===== -->
   <section id="view-know" hidden>
+    <div class="kcard gapcard" id="gap"></div>
     <div class="know" id="know"></div>
     <p class="know-src">出典：TikTok @yuuki0210000 の動画の要約、色彩・素材の基礎知識（「知識\服」フォルダのノート）。理論は「多くの人に良く見えやすい」という目安で、最後は自分の好きを優先してOK。</p>
   </section>
@@ -1024,7 +1033,7 @@ function cands(cat, need, rain){
   // ・パンツは厚い側に+1まで自由（少し厚いパンツは問題になりにくい）
   const score = i => { const d = (cat==="top" ? Math.max(1, i.warmth) : i.warmth) - need; let base;   // タンクトップ（0）も1枚で着るときは半袖と同じ扱い
     if(cat==="top" && d < 0) base = -d*1.5;
-    else if(cat==="inner") base = Math.abs(d)*0.8 + (i.cat==="inner" ? 0 : 1.0);   // インナーは必要な厚さにきっちり。冷える日はふつうのTシャツより発熱インナーを優先
+    else if(cat==="inner") base = Math.abs(d)*0.6 + (i.cat==="inner" ? 0 : 2.5);   // インナーは必要な厚さにきっちり。冷える日はふつうのTシャツより発熱インナーを優先
     else if(cat==="bottom") base = d >= 0 && d <= 1 ? d*0.05 : d === -1 ? 0.6 : d < 0 ? 0.6 + (-d-1)*2.2 : 0.2 + (d-1)*1.6;
     else base = Math.abs(d) <= 1 ? Math.abs(d)*0.15 : d < 0 ? 0.3 + (-d-1)*2.2 : 0.3 + (d-1)*1.6;
     return base + (rain ? (i.rain ? -0.6 : 0.6) : 0); };
@@ -1043,7 +1052,9 @@ function pickOutfit(r){
   const isTee = i => !!i && (i.alsoInner || i.cat==="inner" || /Tシャツ|ティーシャツ|ロンT|タンク|カットソー/.test(i.name||""));
   const tees = activeCloset().filter(i=>i.cat==="top" && i.alsoInner && i.warmth <= 2);
   const innerList = r.innerNeed ? cands("inner", r.innerNeed, false) : [null].concat(tees.map(i=>({i, w:0})));
-  const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain), innerList];
+  const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain), innerList,
+    // かなり冷える日（極暖の日）は、ヒートテックの上にTシャツを重ねてもいい（Tシャツ以外のトップスのとき）
+    r.innerNeed >= 2 ? [null].concat(tees.filter(i=>i.warmth >= 1 && !/タンク/.test(i.name)).map(i=>({i, w:0}))) : [null]];   // ヒートテックの上はTシャツ（タンクトップは重ねない）
   let combos = [{items:[], w:0}];
   lists.forEach(L=>{ const next=[]; combos.forEach(c=>L.forEach(x=>next.push({items:c.items.concat(x?x.i:null), w:c.w+(x?x.w:0)}))); combos = next; });
   // 同じ服を2回使わない。シャツを羽織りにするときは、中はTシャツやニットなど（シャツの上にシャツは重ねない）
@@ -1054,8 +1065,11 @@ function pickOutfit(r){
     if(inn === t || inn === c.items[1]) return false;
     if(!r.innerNeed) return !!(t && t.cat==="top" && !isTee(t));   // Tシャツ以外のトップスの下にだけ
     return true; });
-  combos.forEach(c=>{ const t = c.items[0]; if(!r.innerNeed && tees.length && t && t.cat==="top" && !isTee(t) && !c.items[4]) c.w += 0.6; });   // Tシャツ以外のトップスの下にはTシャツを入れる
-  if(!combos.length) combos = [{items:[null,null,null,null,null], w:0}];
+  combos = combos.filter(c=>{ const t = c.items[0], t2 = c.items[5]; if(!t2) return true;
+    return t2 !== t && t2 !== c.items[1] && t2 !== c.items[4] && !!t && t.cat==="top" && !isTee(t) && !!c.items[4] && c.items[4].cat==="inner"; });
+  combos.forEach(c=>{ const t = c.items[0]; if(!r.innerNeed && tees.length && t && t.cat==="top" && !isTee(t) && !c.items[4]) c.w += 0.6;
+    if(r.innerNeed >= 2 && tees.length && t && t.cat==="top" && !isTee(t) && c.items[4] && c.items[4].cat==="inner" && !c.items[5]) c.w += 0.3; });   // Tシャツ以外のトップスの下にはTシャツを入れる
+  if(!combos.length) combos = [{items:[null,null,null,null,null,null], w:0}];
   combos.forEach(c=>{ const vis = c.items.slice(0,4); c.j = judgeOutfit(vis, prefs.style === "any" ? mainStyleOf(vis) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
   combos.sort((a,b)=>a.score-b.score);
   const best = combos[0].score;
@@ -1120,11 +1134,13 @@ function renderToday(){
     ["outer", r.outerNeed, r.outerText, r.rain, r.carry ? "かばんに入れて持ち歩き" : ""],
     ["bottom", r.bottomNeed, r.bottomText, false, ""],
     ["shoes", r.shoesNeed, r.shoesText, r.rain, r.rain ? "濡れても平気なものを" : ""],
-    ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : r.innerNeed ? "ヒートテックなどの発熱インナー" : "トップスの下に着るTシャツ", false, "トップスの下に"]
+    ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : r.innerNeed ? "ヒートテックなどの発熱インナー" : "トップスの下に着るTシャツ", false, "トップスの下に"],
+    ["tee2", 0, "ヒートテックの上に着るTシャツ", false, "ヒートテックの上・トップスの下に"]
   ].forEach(([cat, need, text, rain, extra], k)=>{
     if(cat==="inner" && !need && !outfit.items[4]) return;
+    if(cat==="tee2" && !outfit.items[5]) return;
     const g = el("div","gtag");
-    const head = el("div","cat"); head.appendChild(el("span",null,CATS[cat]));
+    const head = el("div","cat"); head.appendChild(el("span",null, cat==="tee2" ? "インナー（Tシャツ）" : CATS[cat]));
     const p = outfit.items[k];
     if(p && p.img){ const im = el("img","gimg"); im.src = p.img; im.alt = ""; g.appendChild(im); g.classList.add("has-img"); }
     if(p){ head.appendChild(dots(p.warmth)); if(usingSample()) head.appendChild(el("span","badge","サンプル")); }
@@ -1219,6 +1235,75 @@ function renderCloset(){
     wrap.appendChild(g);
   });
 }
+/* 手持ちの服チェック：「方向性リサーチ」の最小セットと、天気・バランスの観点で足りない服を出す */
+const ESSENTIALS = [
+  {name:"白のオックスフォードシャツ（ボタンダウン）", why:"きれいめとトラッドの両方に入る、いちばん使いやすい1枚。", cat:"top", re:/オックスフォード|ボタンダウン|BD|シャツ/, not:/Tシャツ|ロンT|タンク/, colors:["white","ivory"]},
+  {name:"サックスブルーのオックスフォードシャツ", why:"きれいめのテーマカラーにある青。顔まわりを明るく見せる。", cat:"top", re:/オックスフォード|ボタンダウン|BD|シャツ/, not:/Tシャツ|ロンT|タンク/, colors:["sax"]},
+  {name:"ネイビーのハイゲージ・クルーネックニット", why:"シャツに重ねてトラッド、1枚でモード。3つのスタイルをつなぐ軸。", cat:"top", re:/ニット|セーター/, colors:["navy"]},
+  {name:"黒のハイゲージニット（またはコシのある黒T）", why:"大人のモードの日の主役。マットな質感で靴のツヤと差をつける。", cat:"top", re:/ニット|セーター|Tシャツ|カットソー/, colors:["black"], styles:["kirei","mode","basic"]},
+  {name:"チャコールグレーのスラックス（センタープレス）", why:"3つのスタイルすべてに◎。Iラインが作りやすい。", cat:"bottom", re:/スラックス|トラウザー|パンツ/, colors:["charcoal","gray"], styles:["kirei","mode","trad"]},
+  {name:"黒のストレートスラックス", why:"きれいめとモードの土台。肩幅が広いのでテーパードよりストレート。", cat:"bottom", re:/スラックス|トラウザー/, colors:["black"]},
+  {name:"ベージュのチノ（またはコーデュロイ）", why:"英国トラッドの日のパンツ。秋冬はコーデュロイが英国らしい。", cat:"bottom", re:/チノ|コーデュロイ/, colors:["beige","brown","khaki"]},
+  {name:"ネイビーの無地ジャケット（エポレットなし）", why:"きれいめの軸の上着。肩線が肩先に合うサイズで。", cat:"outer", re:/ジャケット|テーラード|ブレザー/, not:/ダウン|マウンテン|ナイロン|アノラック|CPO|シャツ/, colors:["navy"]},
+  {name:"ネイビーかベージュのステンカラーコート（膝上）", why:"きれいめ・英国トラッド・モードに共通で使えるコート。", cat:"outer", re:/ステンカラー|バルマカーン|トレンチ|コート/, not:/ダウン/, colors:["navy","beige"]},
+  {name:"黒のローファー", why:"きれいめの基準の靴。カジュアルな日もこれ1足で大人っぽくなる。", cat:"shoes", re:/ローファー/},
+  {name:"茶のセミブローグかウイングチップ", why:"靴だけ英国に寄せる「25%のずらし」に使う。", cat:"shoes", re:/ブローグ|ウイング|ウィング|Uチップ|U チップ/, colors:["brown","beige"]},
+  {name:"黒のサイドゴアブーツ", why:"モード寄りの日の靴。冬の足元にも。", cat:"shoes", re:/サイドゴア|チェルシー|ブーツ/, colors:["black"]}
+];
+function findHave(e, list){
+  return list.find(i=> (i.cat===e.cat || (e.cat==="top" && i.cat==="inner" && i.alsoTop)) && e.re.test(i.name||"") && !(e.not && e.not.test(i.name||""))
+    && (!e.colors || e.colors.includes(colorOf(i))) && (!e.styles || e.styles.includes(styleOf(i)) || e.styles.includes(style2Of(i))));
+}
+function renderGap(){
+  const box = $("gap"); if(!box) return; box.textContent = "";
+  box.appendChild(el("h3",null,"手持ちの服チェック（足りないもの）"));
+  const list = closet || [];
+  if(!list.length){ box.appendChild(el("p","gapsum","クローゼットに服を登録すると、知識ノートの基準と照らして足りない服を出します。")); return; }
+  const mk = (ul, kind, title, why)=>{ const li = el("li"); li.appendChild(el("span","gmk " + kind, kind==="ok" ? "✓" : kind==="ng" ? "✕" : "！")); const t = el("span",null,title); if(why) t.appendChild(el("span","why",why)); li.appendChild(t); ul.appendChild(li); };
+  // 1. 最小セット
+  const have = ESSENTIALS.map(e=>({e, it:findHave(e, list)}));
+  const nOk = have.filter(x=>x.it).length;
+  box.appendChild(el("p","gapsum",`きれいめ×英国トラッド×モードの最小セット（12点）のうち、${nOk}点がそろっています。`));
+  box.appendChild(el("h4",null,"足りないもの"));
+  const ul1 = el("ul","gaplist"); have.filter(x=>!x.it).forEach(x=>mk(ul1,"ng",x.e.name,x.e.why)); if(!ul1.children.length) mk(ul1,"ok","最小セットはすべてそろっています"); box.appendChild(ul1);
+  // 2. 天気への備え
+  box.appendChild(el("h4",null,"天気への備え"));
+  const ul2 = el("ul","gaplist");
+  const outers = list.filter(i=>i.cat==="outer"), shoes = list.filter(i=>i.cat==="shoes");
+  const warm5 = outers.filter(i=>i.warmth>=5);
+  if(!warm5.length) mk(ul2,"ng","真冬用の暖かい羽織り（暖かさ5：ダウン・厚手のウールコートなど）", "朝0℃を下回る日に着るものがありません。きれいめに寄せるなら、ボリュームの小さいダウンか、厚手のステンカラー・チェスター。");
+  else mk(ul2,"ok","真冬用の暖かい羽織り：" + warm5[0].name);
+  if(!list.some(i=>i.cat==="inner" && i.warmth>=1)) mk(ul2,"ng","ヒートテックなどの発熱インナー", "朝の体感が6.5℃を下回る日に出します。Tシャツ型ならトップスとしても使えます。");
+  else if(!list.some(i=>i.cat==="inner" && i.warmth>=2)) mk(ul2,"warn","極暖（暖かさ2）のインナー", "朝2℃を下回るような日用。ふつうのヒートテックで代わりにしています。");
+  else mk(ul2,"ok","発熱インナー（ふつう・極暖）");
+  if(!outers.some(i=>i.rain) ) mk(ul2,"ng","撥水・防水の羽織り", "雨の日に提案できる上着がありません。");
+  if(!shoes.some(i=>i.rain || /ブーツ|レイン/.test(i.name||""))) mk(ul2,"warn","雨や雪で濡れても平気なくつ", "雨の日はスニーカーで代わりにしています。きれいめならラバーソールのサイドゴアブーツが両立しやすい。");
+  const thin = outers.filter(i=>i.warmth<=2).length + list.filter(i=>i.cat==="top" && i.alsoOuter).length;
+  if(thin < 2) mk(ul2,"warn","暑い日の薄手の羽織り（暖かさ1〜2）", "冷房対策や朝晩の羽織りが1着しかないので、毎回同じになります。");
+  if(!ul2.children.length) mk(ul2,"ok","天気への備えは足りています");
+  box.appendChild(ul2);
+  // 3. バランス
+  box.appendChild(el("h4",null,"バランス"));
+  const ul3 = el("ul","gaplist");
+  const main = prefs.style && prefs.style !== "any" ? prefs.style : "kirei";
+  const fit = i => itemDist(main, i) < 1;
+  ["top","bottom","outer","shoes"].forEach(cat=>{
+    const xs = list.filter(i=>i.cat===cat); if(xs.length < 2) return;
+    const r = Math.round(xs.filter(fit).length / xs.length * 100);
+    if(r < 50) mk(ul3,"warn",`${CATS[cat]}：${STYLES[main].replace(/（.*）/,"")}に合う服が${r}%（${xs.filter(fit).length}/${xs.length}着）`, cat==="bottom" ? "ボトムは全体の土台。ここが目指す系統からずれていると、何を合わせてもまとまりにくい。" : "次に買うなら、このカテゴリーで目指す系統のものを。");
+  });
+  const dress = cat => { const xs = list.filter(i=>i.cat===cat); return xs.length ? xs.reduce((a,i)=>a+dressOf(i),0)/xs.length : 0; };
+  if(dress("bottom") && dress("bottom") < 3) mk(ul3,"warn","パンツがカジュアル寄り（平均きれいめ度 " + dress("bottom").toFixed(1) + "）", "MB理論では、ボトムスとくつをドレス寄りにすると失敗しにくい。スラックスかセンタープレスのパンツを足すと大人っぽくまとまる。");
+  if(shoes.length && shoes.length <= 3) mk(ul3,"warn",`くつが${shoes.length}足`, "靴が少ないと、部屋で組んだ世界観が玄関で崩れる（同じ靴ばかりになる）。スタイル別にローファー・ブローグ・ブーツがあると組みやすい。");
+  const names = {}; list.forEach(i=>{ const k = i.cat + ":" + (colorOf(i)||"") + ":" + i.name; names[k] = (names[k]||0) + 1; });
+  const dup = Object.entries(names).filter(([,n])=>n>1).map(([k])=>k.split(":").slice(2).join(":"));
+  if(dup.length) mk(ul3,"warn","同じ名前の服が2回登録されています：" + dup.join("、"), "まちがえて2回登録したなら、クローゼットで片方を削除してください。");
+  if(!ul3.children.length) mk(ul3,"ok","バランスは良好です");
+  box.appendChild(ul3);
+  // 4. そろっているもの
+  const okList = have.filter(x=>x.it);
+  if(okList.length){ box.appendChild(el("h4",null,"そろっているもの")); const ul4 = el("ul","gaplist"); okList.forEach(x=>mk(ul4,"ok",x.e.name,"手持ち：" + x.it.name)); box.appendChild(ul4); }
+}
 function renderKnow(){
   const box = $("know"); box.textContent = "";
   KNOWLEDGE.forEach(sec=>{ const c = el("div","kcard"); c.appendChild(el("h3",null,sec.h)); const ul = el("ul"); sec.li.forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); box.appendChild(c); });
@@ -1242,7 +1327,7 @@ function updateGuess(){
   if(!$("itStyle").dataset.touched) $("itStyle").value = name ? guessStyle(name) : "basic";
   if(!$("itColor").dataset.touched) $("itColor").value = name ? guessColor(name) : "";
 }
-function renderAll(){ renderToday(); renderCloset(); }
+function renderAll(){ renderToday(); renderCloset(); renderGap(); }
 function updateWarmHint(){
   const cat = $("itCat").value;
   // 暖かさ0（タンクトップ・エアリズムなど）は、トップスとインナーだけ
