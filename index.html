@@ -411,6 +411,14 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <select class="text-in" id="itStyle"></select>
         <span class="hint">名前から推定します。違っていたら選び直してください。系統は名前より、サイズ感・生地感・ディテールで決まります。</span>
       </div>
+      <div class="field"><label for="itStyle2">もうひとつの系統（任意）</label>
+        <select class="text-in" id="itStyle2"></select>
+        <span class="hint">MA-1（ミリタリー×ストリート）のように、2つの系統にまたがる服のときだけ。</span>
+      </div>
+      <div class="field"><label for="itDress">きれいめ度</label>
+        <select class="text-in" id="itDress"></select>
+        <span class="hint">革靴・スラックスはきれいめ、スニーカー・パーカーはカジュアル。コーデ全体で「きれいめ7:カジュアル3」くらいが大人っぽく見えるめやすです。</span>
+      </div>
       <div class="field"><label for="itColor">色</label>
         <select class="text-in" id="itColor"></select>
       </div>
@@ -532,6 +540,9 @@ const NEAR = {
   work:["amekaji","euro","military","rude"], military:["work","amekaji","outdoor"], outdoor:["military","amekaji","sport","natural"],
   street:["sport","rock","amekaji"], sport:["street","outdoor"], rude:["amekaji","work","rock"], rock:["rude","mode","street"], basic:[]
 };
+/* きれいめ度（1=とてもカジュアル〜5=ドレス）。登録がない服は系統から推定する */
+const DRESS = {1:"1 とてもカジュアル", 2:"2 カジュアル寄り", 3:"3 どちらでも", 4:"4 きれいめ寄り", 5:"5 ドレス（かなりきれいめ）"};
+const STYLE_DRESS = {kirei:4, trad:4, euro:3, mode:4, natural:3, amekaji:2, work:2, military:2, outdoor:1.5, street:1.5, sport:1, rude:2, rock:2, basic:3};
 /* 色：n=ニュートラル（ベース向き）, l=明るさ 0〜1 */
 const COLORS = {
   white:{n:"白",neutral:true,l:.95}, ivory:{n:"生成り・アイボリー",neutral:true,l:.88}, beige:{n:"ベージュ",neutral:true,l:.78},
@@ -581,6 +592,11 @@ function guessColor(name){
 }
 function styleOf(i){ return (i.style && STYLES[i.style]) ? i.style : guessStyle(i.name||""); }
 function colorOf(i){ return (i.color && COLORS[i.color]) ? i.color : guessColor(i.name||""); }
+function style2Of(i){ return (i.style2 && STYLES[i.style2] && i.style2 !== styleOf(i)) ? i.style2 : null; }
+function dressOf(i){ const v = +i.dress; return (v>=1 && v<=5) ? v : (STYLE_DRESS[styleOf(i)] || 3); }
+function styleLabel(i){ const s2 = style2Of(i); return STYLES[styleOf(i)].replace(/（.*）/,"") + (s2 ? "×" + STYLES[s2].replace(/（.*）/,"") : ""); }
+/* 系統のずれ。もうひとつの系統（副）があれば、そちらで見たずれ＋0.5 と比べて小さいほう */
+function itemDist(main, i){ const a = styleDist(main, styleOf(i)); const s2 = style2Of(i); return s2 ? Math.min(a, styleDist(main, s2) + 0.5) : a; }
 
 /* 1点ごとの系統の距離：0=同じ, 1=近い（ずらしOK）, 2=遠い */
 function styleDist(main, s){
@@ -591,7 +607,7 @@ function styleDist(main, s){
 /* コーデ全体の採点（小さいほど良い）と、その理由 */
 // 目指すスタイルが「指定なし」のときは、そのコーデでいちばん多い系統を軸として見る
 function mainStyleOf(items){
-  const n = {}; items.filter(Boolean).forEach(i=>{ const st = styleOf(i); n[st] = (n[st]||0) + (st==="basic" ? 0.5 : 1); });
+  const n = {}; items.filter(Boolean).forEach(i=>{ const st = styleOf(i); n[st] = (n[st]||0) + (st==="basic" ? 0.5 : 1); const s2 = style2Of(i); if(s2) n[s2] = (n[s2]||0) + 0.5; });
   const best = Object.keys(n).sort((a,b)=>n[b]-n[a])[0];
   return best || "basic";
 }
@@ -599,15 +615,15 @@ function judgeOutfit(items, main){
   const present = items.filter(Boolean);
   let pen = 0; const why = []; const tips = [];
   // 属性：75%を同じ系統、ずらしは25%（1点）まで、しかも近い系統で
-  const d = present.map(i=>styleDist(main, styleOf(i)));
-  const near = d.filter(x=>x===1).length, far = d.filter(x=>x===2).length;
+  const d = present.map(i=>itemDist(main, i));
+  const near = d.filter(x=>x>0 && x<2).reduce((a,x)=>a+Math.min(x,1), 0), far = d.filter(x=>x>=2).length;
   pen += Math.max(0, near-1)*1.2 + far*2;
   const mainName = STYLES[main];
   if(far===0 && near<=1){
-    const sh = present.find((i,k)=>d[k]===1);
-    why.push(["属性", sh ? `${mainName}を軸に、「${sh.name}」で${STYLES[styleOf(sh)]}に少しずらした組み合わせです（75/25ルール：ずらしは1点まで、近い系統で）。` : `全体が${mainName}でそろっています。物足りなければ、顔まわりの小物で少しずらすと個性が出ます。`]);
+    const sh = present.find((i,k)=>d[k]>0 && d[k]<2);
+    why.push(["属性", sh ? `${mainName}を軸に、「${sh.name}」（${styleLabel(sh)}）で少しずらした組み合わせです（75/25ルール：ずらしは1点まで、近い系統で）。` : `全体が${mainName}でそろっています。物足りなければ、顔まわりの小物で少しずらすと個性が出ます。`]);
   } else {
-    const off = present.filter((i,k)=>d[k]>0).map(i=>`「${i.name}」（${STYLES[styleOf(i)]}）`).join("、");
+    const off = present.filter((i,k)=>d[k]>0).map(i=>`「${i.name}」（${styleLabel(i)}）`).join("、");
     why.push(["属性", `${off}が${mainName}から離れています。75%を同じ系統でそろえ、ずらすのは1点までにするとまとまります。`]);
   }
   // 色：差し色は1色まで、テーマカラーの中で
@@ -622,6 +638,15 @@ function judgeOutfit(items, main){
   else if(chroma.length===1) why.push(["色", `差し色は${COLORS[chroma[0]].n}の1色。ほかはベースカラーでまとまっています。`]);
   else why.push(["色", `差し色が${chroma.map(c=>COLORS[c].n).join("・")}の${chroma.length}色あります。1色に絞ると落ち着きます。`]);
   if(offTheme.length) tips.push(["色", `${COLORS[offTheme[0]].n}は${mainName}のテーマカラーにはあまりない色です。色は単体ではなく、服の系統に乗って働きます。`]);
+  // きれいめ:カジュアルのバランス（靴は面積が小さいので軽めに数える）
+  { let sw = 0, sum = 0; present.forEach(i=>{ const w = i.cat==="shoes" ? 0.6 : 1; sw += w; sum += w*dressOf(i); });
+    if(sw){ const r = Math.max(0, Math.min(10, Math.round(((sum/sw)-1)/4*10)));
+      const target = ["kirei","trad","mode","euro"].includes(main) ? 7 : 5;
+      const ratio = `きれいめ${r}:カジュアル${10-r}`;
+      if(r <= target-2){ pen += (target-1-r)*0.35; why.push(["きれいめ度", `${ratio}。カジュアルに寄っています。靴かパンツをきれいめにすると、大人っぽくまとまります（めやす：きれいめ${target}:カジュアル${10-target}）。`]); }
+      else if(r >= target+3){ pen += (r-target-2)*0.25; why.push(["きれいめ度", `${ratio}。少しかたい印象です。スニーカーやカジュアルなトップスで1点くずすと抜け感が出ます。`]); }
+      else why.push(["きれいめ度", `${ratio}。ちょうどいいバランスです（めやす：きれいめ${target}:カジュアル${10-target}）。`]);
+    } }
   // 重心：濃い色は下に
   const top = items[0], outer = items[1], bottom = items[2];
   const upper = outer || top;
@@ -1009,7 +1034,7 @@ function renderToday(){
     g.appendChild(head);
     g.appendChild(el("div","name", p ? p.name : text));
     const sub = [];
-    if(p){ const c = colorOf(p); sub.push(STYLES[styleOf(p)].replace(/（.*）/,"") + (c ? "・" + COLORS[c].n : "")); sub.push("めやす：" + text); }
+    if(p){ const c = colorOf(p); sub.push(styleLabel(p) + (c ? "・" + COLORS[c].n : "")); sub.push("めやす：" + text); }
     else if(need) sub.push("クローゼットに該当する服がないので、一般的なめやすです");
     if(extra) sub.push(extra);
     if(sub.length) g.appendChild(el("div","sub", sub.join(" / ")));
@@ -1043,7 +1068,7 @@ function renderCloset(){
       items.forEach(it=>{
         const li = el("li");
         const nm = el("span","nm",it.name); if(it.rain) nm.appendChild(el("span","rain","雨OK")); if(it.code) nm.appendChild(el("span","code",it.code));
-        const c0 = colorOf(it); nm.appendChild(el("span","attr", STYLES[styleOf(it)].replace(/（.*）/,"") + (c0 ? "・" + COLORS[c0].n : "") + (it.style ? "" : "（推定）")));
+        const c0 = colorOf(it); nm.appendChild(el("span","attr", styleLabel(it) + (c0 ? "・" + COLORS[c0].n : "") + (it.style ? "" : "（推定）")));
         if(it.img){ const row = el("span","nmrow"); const im = el("img","thumb"); im.src = it.img; im.alt = ""; row.appendChild(im); row.appendChild(nm); li.appendChild(row); }
         else li.appendChild(nm);
         li.appendChild(dots(it.warmth));
@@ -1072,10 +1097,12 @@ function renderCloset(){
             const ws = el("select","text-in"); fillSelect(ws, {1:"1 とても薄手",2:"2 薄手",3:"3 ふつう",4:"4 暖かい",5:"5 とても暖かい"}); ws.value = String(t.warmth); ws.setAttribute("aria-label","暖かさ");
             ws.addEventListener("change", ()=>{ t.warmth = +ws.value; persist(); renderAll(); });
             const ss = el("select","text-in"); fillSelect(ss, STYLES); ss.value = styleOf(t); ss.setAttribute("aria-label","系統");
+            const s2s = el("select","text-in"); fillSelect(s2s, STYLES, "もうひとつの系統：なし"); s2s.value = style2Of(t) || ""; s2s.setAttribute("aria-label","もうひとつの系統");
+            const ds = el("select","text-in"); fillSelect(ds, DRESS, "きれいめ度：おまかせ"); ds.value = (+t.dress>=1 && +t.dress<=5) ? String(t.dress) : ""; ds.setAttribute("aria-label","きれいめ度");
             const cs = el("select","text-in"); fillSelect(cs, COLORS, "わからない・その他"); cs.value = colorOf(t); cs.setAttribute("aria-label","色");
-            const save = ()=>{ t.style = ss.value; if(cs.value) t.color = cs.value; else delete t.color; persist(); renderToday(); const a = nm.querySelector(".attr"); const c2 = colorOf(t); if(a) a.textContent = STYLES[styleOf(t)].replace(/（.*）/,"") + (c2 ? "・" + COLORS[c2].n : ""); };
-            ss.addEventListener("change", save); cs.addEventListener("change", save);
-            fx.appendChild(ks); fx.appendChild(ws); fx.appendChild(ss); fx.appendChild(cs);
+            const save = ()=>{ t.style = ss.value; if(s2s.value && s2s.value !== t.style) t.style2 = s2s.value; else delete t.style2; if(ds.value) t.dress = +ds.value; else delete t.dress; if(cs.value) t.color = cs.value; else delete t.color; persist(); renderToday(); const a = nm.querySelector(".attr"); const c2 = colorOf(t); if(a) a.textContent = styleLabel(t) + (c2 ? "・" + COLORS[c2].n : ""); };
+            ss.addEventListener("change", save); s2s.addEventListener("change", save); ds.addEventListener("change", save); cs.addEventListener("change", save);
+            fx.appendChild(ks); fx.appendChild(ws); fx.appendChild(ss); fx.appendChild(s2s); fx.appendChild(ds); fx.appendChild(cs);
             li.appendChild(fx); ni.focus();
           });
           const d = el("button","del","削除"); d.type = "button"; d.setAttribute("aria-label", it.name+"を削除");
@@ -1181,9 +1208,11 @@ function applyAi(r, j, hint){
     $("itRain").checked = !!it.rain;
     if(STYLES[it.style]){ $("itStyle").value = it.style; $("itStyle").dataset.touched = "1"; }
     if(COLORS[it.color]){ $("itColor").value = it.color; $("itColor").dataset.touched = "1"; }
+    $("itStyle2").value = (STYLES[it.style2] && it.style2 !== it.style) ? it.style2 : "";
+    { const dv = Math.round(+it.dress); $("itDress").value = (dv>=1 && dv<=5) ? String(dv) : ""; }
     const code = (hint.match(/\b[A-Z]?\d{6,}(?:-\d+)?\b/i) || [])[0]; if(code && !$("itCode").value) $("itCode").value = code;
     updateWarmHint();
-    msg.textContent = `「${$("itName").value}」と判定しました。系統は${STYLES[it.style]||"不明"}${it.reason ? "（" + it.reason + "）" : ""}。違うところだけ直して「クローゼットに追加」を押してください。`;
+    msg.textContent = `「${$("itName").value}」と判定しました。系統は${STYLES[it.style] ? STYLES[it.style].replace(/（.*）/,"") + ($("itStyle2").value ? "×" + STYLES[$("itStyle2").value].replace(/（.*）/,"") : "") : "不明"}${it.reason ? "（" + it.reason + "）" : ""}。違うところだけ直して「クローゼットに追加」を押してください。`;
 }
 async function fromUrl(){
   const url = $("pageUrl").value.trim(); if(!url) return;
@@ -1266,11 +1295,13 @@ $("addForm").addEventListener("submit", e=>{
   if($("itRain").checked) item.rain = true;
   const code = $("itCode").value.trim(); if(code) item.code = code;
   item.style = $("itStyle").value || guessStyle(name);
+  if($("itStyle2").value && $("itStyle2").value !== item.style) item.style2 = $("itStyle2").value;
+  if($("itDress").value) item.dress = +$("itDress").value;
   if($("itColor").value) item.color = $("itColor").value;
   if(photoThumb) item.img = photoThumb;
   closet = (closet || []).concat(item);
   photoThumb = null; lastBig = null; $("photoRes").hidden = true; $("photoRetry").hidden = true; $("photoHint").value = ""; $("pageUrl").value = "";
-  $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("itName").focus();
+  $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("itStyle2").value = ""; $("itDress").value = ""; $("itName").focus();
   delete $("itStyle").dataset.touched; delete $("itColor").dataset.touched; updateGuess();
   persist(); renderAll();
 });
@@ -1292,8 +1323,22 @@ $("importFile").addEventListener("change", async e=>{
   try{
     const j = JSON.parse(await f.text());
     if(!j || !Array.isArray(j.closet)) throw new Error("bad");
-    const items = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined, _u:(typeof x.imgUrl==="string")?x.imgUrl:undefined}));
-    if(j.mode === "add"){
+    const items = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, style2:(STYLES[x.style2] && x.style2!==x.style)?x.style2:undefined, dress:(+x.dress>=1 && +x.dress<=5)?+x.dress:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined, _u:(typeof x.imgUrl==="string")?x.imgUrl:undefined}));
+    if(j.mode === "update"){
+      // 更新用ファイル：今ある服（同じid）の系統・きれいめ度などだけを書き換える。服は増えも減りもしない
+      const F = ["style","style2","dress","color","warmth","cat","name"]; let n = 0;
+      j.closet.forEach(x=>{ const t = (closet||[]).find(c=>c.id===x.id); if(!t) return;
+        let ch = false; F.forEach(k=>{ if(!(k in x)) return; const v = x[k];
+          if(k==="style2"){ if(v && STYLES[v] && v!==(x.style||t.style)){ if(t.style2!==v){ t.style2 = v; ch = true; } } else if(t.style2){ delete t.style2; ch = true; } return; }
+          if(k==="dress"){ const dv = +v; if(dv>=1 && dv<=5 && t.dress!==dv){ t.dress = dv; ch = true; } return; }
+          if(k==="style" && !STYLES[v]) return; if(k==="color" && !COLORS[v]) return; if(k==="cat" && !CATS[v]) return;
+          if(k==="warmth"){ const w = Math.max(1, Math.min(5, +v||3)); if(t.warmth!==w){ t.warmth = w; ch = true; } return; }
+          if(k==="name"){ const nn = String(v||"").slice(0,40); if(nn && t.name!==nn){ t.name = nn; ch = true; } return; }
+          if(t[k]!==v){ t[k] = v; ch = true; } });
+        if(ch) n++; });
+      persist(); renderAll();
+      $("backupMsg").textContent = n + "着の情報を更新しました。";
+    } else if(j.mode === "add"){
       // 取り込み用ファイル（ZOZOの購入履歴など）：今あるクローゼットに追加する。同じ品番・同じ名前の服は足さない
       const have = new Set((closet||[]).map(x=>x.code ? "c:"+x.code : "n:"+x.name));
       const ids = new Set((closet||[]).map(x=>x.id));
@@ -1344,7 +1389,7 @@ window.addEventListener("online", ()=>syncNow());
 /* ---------- 起動 ---------- */
 $("today").textContent = new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
 if(new Date().getHours() >= 18) $("d1").checked = true;   // 夜は明日の服を考える
-fillSelect($("myStyle"), STYLES, "指定なし（手持ちの服に合わせる）"); $("myStyle").options[0].value = "any"; fillSelect($("itStyle"), STYLES); fillSelect($("itColor"), COLORS, "わからない・その他");
+fillSelect($("myStyle"), STYLES, "指定なし（手持ちの服に合わせる）"); $("myStyle").options[0].value = "any"; fillSelect($("itStyle"), STYLES); fillSelect($("itStyle2"), STYLES, "なし"); fillSelect($("itDress"), DRESS, "おまかせ（系統から）"); fillSelect($("itColor"), COLORS, "わからない・その他");
 applyPrefs(); updateWarmHint(); updateGuess(); renderAll(); renderKnow();
 if(loc){ $("place").textContent = loc.name || "現在地"; const c = LS.get("kn.fc", null); if(c){ forecast = c; applyForecast(); } loadForecast(); }
 renderSync(); syncNow(); fromShared();
