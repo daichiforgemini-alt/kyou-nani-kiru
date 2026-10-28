@@ -400,6 +400,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
       <div class="field"><span class="lbl">暖かさ</span>
         <div class="seg" id="warmSeg">
+          <input type="radio" name="warm" id="w0" value="0"><label for="w0" id="w0lbl">0 なし</label>
           <input type="radio" name="warm" id="w1" value="1"><label for="w1">1 とても薄手</label>
           <input type="radio" name="warm" id="w2" value="2" checked><label for="w2">2 薄手</label>
           <input type="radio" name="warm" id="w3" value="3"><label for="w3">3 ふつう</label>
@@ -995,7 +996,7 @@ function cands(cat, need, rain){
   // それより外れると重くし、寒い側に外れるほうを厚手側より重く見る
   // ・トップスは薄い側には甘くしない（長袖の日に半袖、をニットの羽織りでごまかさない）
   // ・パンツは厚い側に+1まで自由（少し厚いパンツは問題になりにくい）
-  const score = i => { const d = i.warmth - need; let base;
+  const score = i => { const d = (cat==="top" ? Math.max(1, i.warmth) : i.warmth) - need; let base;   // タンクトップ（0）も1枚で着るときは半袖と同じ扱い
     if(cat==="top" && d < 0) base = -d*1.5;
     else if(cat==="inner") base = Math.abs(d)*0.8 + (i.cat==="inner" ? 0 : 1.0);   // インナーは必要な厚さにきっちり。冷える日はふつうのTシャツより発熱インナーを優先
     else if(cat==="bottom") base = d >= 0 && d <= 1 ? d*0.05 : d === -1 ? 0.6 : d < 0 ? 0.6 + (-d-1)*2.2 : 0.2 + (d-1)*1.6;
@@ -1008,7 +1009,7 @@ function cands(cat, need, rain){
 /* トップスと羽織りは、1枚ずつではなく重ねた合計の暖かさで見る（薄手のシャツ＋暖かいコート、のような組み合わせを認める） */
 function layerPen(items, r){
   const t = items[0], o = items[1]; if(!t || !o || !r.outerNeed) return 0;
-  const d = (t.warmth + o.warmth) - (r.topNeed + r.outerNeed);
+  const d = (Math.max(1, t.warmth) + o.warmth) - (r.topNeed + r.outerNeed);
   return d < -1 ? (-d-1)*1.2 : d > 2 ? (d-2)*0.6 : 0;
 }
 function pickOutfit(r){
@@ -1163,7 +1164,7 @@ function renderCloset(){
             // 種類・暖かさ・系統・色
             const ks = el("select","text-in"); fillSelect(ks, CATS); ks.value = t.cat; ks.setAttribute("aria-label","種類");
             ks.addEventListener("change", ()=>{ t.cat = ks.value; persist(); renderAll(); });
-            const ws = el("select","text-in"); fillSelect(ws, {1:"1 とても薄手",2:"2 薄手",3:"3 ふつう",4:"4 暖かい",5:"5 とても暖かい"}); ws.value = String(t.warmth); ws.setAttribute("aria-label","暖かさ");
+            const ws = el("select","text-in"); fillSelect(ws, Object.assign((t.cat==="top"||t.cat==="inner") ? {0:"0 なし（タンク・エアリズム）"} : {}, {1:"1 とても薄手",2:"2 薄手",3:"3 ふつう",4:"4 暖かい",5:"5 とても暖かい"})); ws.value = String(t.warmth); ws.setAttribute("aria-label","暖かさ");
             ws.addEventListener("change", ()=>{ t.warmth = +ws.value; persist(); renderAll(); });
             const ss = el("select","text-in"); fillSelect(ss, STYLES); ss.value = styleOf(t); ss.setAttribute("aria-label","系統");
             const s2s = el("select","text-in"); fillSelect(s2s, STYLES, "もうひとつの系統：なし"); s2s.value = style2Of(t) || ""; s2s.setAttribute("aria-label","もうひとつの系統");
@@ -1216,8 +1217,12 @@ function updateGuess(){
 }
 function renderAll(){ renderToday(); renderCloset(); }
 function updateWarmHint(){
-  const cat = $("itCat").value, w = +document.querySelector('input[name=warm]:checked').value;
-  $("warmHint").textContent = "たとえば：" + WARM_HINT[cat][w-1];
+  const cat = $("itCat").value;
+  // 暖かさ0（タンクトップ・エアリズムなど）は、トップスとインナーだけ
+  const zeroOk = cat === "top" || cat === "inner"; $("w0").hidden = $("w0lbl").hidden = !zeroOk;
+  if(!zeroOk && $("w0").checked) $("w2").checked = true;
+  const w = +document.querySelector('input[name=warm]:checked').value;
+  $("warmHint").textContent = "たとえば：" + (w === 0 ? "タンクトップ・エアリズムなど、暖かさにほぼ関係ないもの" : WARM_HINT[cat][w-1]);
 }
 
 /* ---------- 入力 ---------- */
@@ -1414,7 +1419,7 @@ $("importFile").addEventListener("change", async e=>{
   try{
     const j = JSON.parse(await f.text());
     if(!j || !Array.isArray(j.closet)) throw new Error("bad");
-    const items = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max(1,Math.min(5,+x.warmth||3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, style2:(STYLES[x.style2] && x.style2!==x.style)?x.style2:undefined, dress:(+x.dress>=1 && +x.dress<=5)?+x.dress:undefined, alsoOuter:(x.cat==="top" && x.alsoOuter)?true:undefined, alsoInner:(x.cat==="top" && x.alsoInner)?true:undefined, alsoTop:(x.cat==="inner" && x.alsoTop)?true:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined, _u:(typeof x.imgUrl==="string")?x.imgUrl:undefined}));
+    const items = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max((x.cat==="top"||x.cat==="inner") ? 0 : 1, Math.min(5, Number.isFinite(+x.warmth) && x.warmth!=="" && x.warmth!=null ? Math.round(+x.warmth) : 3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, style2:(STYLES[x.style2] && x.style2!==x.style)?x.style2:undefined, dress:(+x.dress>=1 && +x.dress<=5)?+x.dress:undefined, alsoOuter:(x.cat==="top" && x.alsoOuter)?true:undefined, alsoInner:(x.cat==="top" && x.alsoInner)?true:undefined, alsoTop:(x.cat==="inner" && x.alsoTop)?true:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined, _u:(typeof x.imgUrl==="string")?x.imgUrl:undefined}));
     if(j.mode === "update"){
       // 更新用ファイル：今ある服（同じid）の系統・きれいめ度などだけを書き換える。服は増えも減りもしない
       const F = ["style","style2","dress","alsoOuter","alsoInner","alsoTop","color","warmth","cat","name"]; let n = 0;
@@ -1424,7 +1429,7 @@ $("importFile").addEventListener("change", async e=>{
           if(k==="alsoOuter" || k==="alsoInner" || k==="alsoTop"){ const b = !!v && t.cat===(k==="alsoTop" ? "inner" : "top"); if(!!t[k] !== b){ if(b) t[k] = true; else delete t[k]; ch = true; } return; }
           if(k==="dress"){ const dv = +v; if(dv>=1 && dv<=5 && t.dress!==dv){ t.dress = dv; ch = true; } return; }
           if(k==="style" && !STYLES[v]) return; if(k==="color" && !COLORS[v]) return; if(k==="cat" && !CATS[v]) return;
-          if(k==="warmth"){ const w = Math.max(1, Math.min(5, +v||3)); if(t.warmth!==w){ t.warmth = w; ch = true; } return; }
+          if(k==="warmth"){ const w = Math.max((t.cat==="top"||t.cat==="inner") ? 0 : 1, Math.min(5, Number.isFinite(+v) ? Math.round(+v) : 3)); if(t.warmth!==w){ t.warmth = w; ch = true; } return; }
           if(k==="name"){ const nn = String(v||"").slice(0,40); if(nn && t.name!==nn){ t.name = nn; ch = true; } return; }
           if(t[k]!==v){ t[k] = v; ch = true; } });
         if(ch) n++; });
