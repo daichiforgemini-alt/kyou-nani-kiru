@@ -959,19 +959,43 @@ function compute(s){
 }
 
 let seed = 0;
+/* 毎日同じ服にならないように：最近の提案を覚えておき、続けて出た服は少し下げる */
+let hist = LS.get("kn.hist", {});              // {"2026-10-28": [服のid…]}
+function dayKey(off){ const d = new Date(); d.setDate(d.getDate() + off); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function planOffset(){ return $("d1") && $("d1").checked ? 1 : 0; }
+function recentPenalty(it){
+  if(!it || usingSample()) return 0;
+  const base = planOffset(); let p = 0;
+  for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" ? 0.15 : 0.7) * (7 - k) / 6; }
+  return p;
+}
+function dayJitter(it){   // 同じ点数の服どうしは、日によって順番を入れかえる
+  if(!it) return 0; const s = dayKey(planOffset()) + it.id; let h = 2166136261;
+  for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return (h % 1000) / 1000 * 0.35;
+}
+function rememberOutfit(outfit){
+  if(usingSample() || !outfit) return;
+  const ids = outfit.items.filter(Boolean).map(i=>i.id); const key = dayKey(planOffset());
+  if(JSON.stringify(hist[key]) === JSON.stringify(ids)) return;
+  hist[key] = ids;
+  const old = dayKey(-14); Object.keys(hist).forEach(k=>{ if(k < old) delete hist[k]; });
+  LS.set("kn.hist", hist);
+}
 function cands(cat, need, rain){
   const items = activeCloset().filter(i=>i.cat===cat);
   if(!items.length || !need) return [null];
   // 寒い側に外れるのは厚手側に外れるより重く見る（寒い日に薄着を選ばないように）
   const score = i => (i.warmth < need ? (need - i.warmth)*2.5 : (i.warmth - need)) + (rain ? (i.rain ? -0.6 : 0.6) : 0);
   const best = Math.min(...items.map(score));
-  return items.filter(i => score(i) <= best + 1).sort((a,b)=>score(a)-score(b)).slice(0,8).map(i=>({i, w:score(i)}));
+  const order = i => score(i) + recentPenalty(i) + dayJitter(i);
+  return items.filter(i => score(i) <= best + 1).sort((a,b)=>order(a)-order(b)).slice(0,10).map(i=>({i, w:score(i)}));
 }
 function pickOutfit(r){
   const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain)];
   let combos = [{items:[], w:0}];
   lists.forEach(L=>{ const next=[]; combos.forEach(c=>L.forEach(x=>next.push({items:c.items.concat(x?x.i:null), w:c.w+(x?x.w:0)}))); combos = next; });
-  combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style === "any" ? mainStyleOf(c.items) : prefs.style); c.score = c.w*1.2 + c.j.pen; });
+  combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style === "any" ? mainStyleOf(c.items) : prefs.style); c.score = c.w*1.2 + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
   combos.sort((a,b)=>a.score-b.score);
   const best = combos[0].score;
   const good = combos.filter(c=>c.score <= best + 0.9).slice(0,12);
@@ -985,6 +1009,7 @@ function dots(n){ const d = el("span","dots"); d.setAttribute("aria-label","暖�
 function renderToday(){
   const s = readCond(); const r = compute(s);
   const outfit = pickOutfit(r);
+  rememberOutfit(outfit);
   $("idx").textContent = r.idx;
   $("verdict").textContent = r.verdict;
   $("fDay").textContent = r.day + "℃"; $("fCold").textContent = r.cold + "℃"; $("fGap").textContent = r.gap + "℃";
