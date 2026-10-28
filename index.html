@@ -1039,7 +1039,8 @@ function layerPen(items, r){
   return d < -1 ? (-d-1)*1.2 : d > 2 ? (d-2)*0.6 : 0;
 }
 function pickOutfit(r){
-  // インナー：冷える日は発熱インナー（必須）。それ以外の日は、シャツを1枚で着るときだけ下にTシャツを入れる（任意）
+  // インナー：冷える日は発熱インナー（必須）。それ以外の日は、トップスがTシャツ以外（シャツ・ニット・スウェットなど）のとき下にTシャツを入れる
+  const isTee = i => !!i && (i.alsoInner || i.cat==="inner" || /Tシャツ|ティーシャツ|ロンT|タンク|カットソー/.test(i.name||""));
   const tees = activeCloset().filter(i=>i.cat==="top" && i.alsoInner && i.warmth <= 2);
   const innerList = r.innerNeed ? cands("inner", r.innerNeed, false) : [null].concat(tees.map(i=>({i, w:0})));
   const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain), innerList];
@@ -1051,9 +1052,9 @@ function pickOutfit(r){
   combos = combos.filter(c=>{ const t = c.items[0], o = c.items[1]; if(!t || !o || o.cat !== "top") return true; return t !== o && !t.alsoOuter && t.warmth <= o.warmth + 1; });   // 厚手のスウェットの上に半袖シャツ、のような重ね方はしない
   combos = combos.filter(c=>{ const t = c.items[0], inn = c.items[4]; if(!inn) return true;
     if(inn === t || inn === c.items[1]) return false;
-    if(!r.innerNeed) return !!(t && t.cat==="top" && t.alsoOuter);   // シャツをトップスとして着るときだけ
+    if(!r.innerNeed) return !!(t && t.cat==="top" && !isTee(t));   // Tシャツ以外のトップスの下にだけ
     return true; });
-  combos.forEach(c=>{ const t = c.items[0]; if(!r.innerNeed && tees.length && t && t.cat==="top" && t.alsoOuter && !c.items[4]) c.w += 0.25; });   // シャツの下にはTシャツがあるほうが自然
+  combos.forEach(c=>{ const t = c.items[0]; if(!r.innerNeed && tees.length && t && t.cat==="top" && !isTee(t) && !c.items[4]) c.w += 0.6; });   // Tシャツ以外のトップスの下にはTシャツを入れる
   if(!combos.length) combos = [{items:[null,null,null,null,null], w:0}];
   combos.forEach(c=>{ const vis = c.items.slice(0,4); c.j = judgeOutfit(vis, prefs.style === "any" ? mainStyleOf(vis) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
   combos.sort((a,b)=>a.score-b.score);
@@ -1119,7 +1120,7 @@ function renderToday(){
     ["outer", r.outerNeed, r.outerText, r.rain, r.carry ? "かばんに入れて持ち歩き" : ""],
     ["bottom", r.bottomNeed, r.bottomText, false, ""],
     ["shoes", r.shoesNeed, r.shoesText, r.rain, r.rain ? "濡れても平気なものを" : ""],
-    ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : r.innerNeed ? "ヒートテックなどの発熱インナー" : "シャツの下に着るTシャツ", false, "トップスの下に"]
+    ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : r.innerNeed ? "ヒートテックなどの発熱インナー" : "トップスの下に着るTシャツ", false, "トップスの下に"]
   ].forEach(([cat, need, text, rain, extra], k)=>{
     if(cat==="inner" && !need && !outfit.items[4]) return;
     const g = el("div","gtag");
