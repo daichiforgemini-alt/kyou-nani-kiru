@@ -989,11 +989,11 @@ function cands(cat, need, rain){
   // 暖かさは±1までなら「ほぼ合っている」として軽く見る（服の厚さだけで選ばれないように）。
   // それより外れると重くし、寒い側に外れるほうを厚手側より重く見る
   // ・トップスは薄い側には甘くしない（長袖の日に半袖、をニットの羽織りでごまかさない）
-  // ・パンツは見た目の差が小さいので、±2まで自由にする
-  const free = cat==="bottom" ? 2 : 1;
+  // ・パンツは厚い側に+1まで自由（少し厚いパンツは問題になりにくい）
   const score = i => { const d = i.warmth - need; let base;
     if(cat==="top" && d < 0) base = -d*1.5;
-    else base = Math.abs(d) <= free ? Math.abs(d)*0.15 : d < 0 ? 0.3 + (-d-free)*2.2 : 0.3 + (d-free)*1.6;
+    else if(cat==="bottom") base = d >= 0 && d <= 1 ? d*0.05 : d === -1 ? 0.6 : d < 0 ? 0.6 + (-d-1)*2.2 : 0.2 + (d-1)*1.6;
+    else base = Math.abs(d) <= 1 ? Math.abs(d)*0.15 : d < 0 ? 0.3 + (-d-1)*2.2 : 0.3 + (d-1)*1.6;
     return base + (rain ? (i.rain ? -0.6 : 0.6) : 0); };
   const best = Math.min(...items.map(score));
   const order = i => score(i) + recentPenalty(i) + dayJitter(i);
@@ -1017,7 +1017,16 @@ function pickOutfit(r){
   combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style === "any" ? mainStyleOf(c.items) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
   combos.sort((a,b)=>a.score-b.score);
   const best = combos[0].score;
-  const good = combos.filter(c=>c.score <= best + 0.9).slice(0,12);
+  // シャッフル用の候補：点の近いものから、前の候補と服がかぶらないものを優先して並べる（パンツや靴も入れかわるように）
+  const pool = combos.filter(c=>c.score <= best + 1.2).slice(0,200);
+  const good = [pool[0]];
+  while(good.length < 12 && good.length < pool.length){
+    let pick = null, ps = Infinity;
+    pool.forEach(c=>{ if(good.includes(c)) return;
+      const overlap = Math.max(...good.map(g=>c.items.filter((x,k)=>x && x===g.items[k]).length));
+      const sc = c.score + overlap*0.45; if(sc < ps){ ps = sc; pick = c; } });
+    if(!pick) break; good.push(pick);
+  }
   return good[seed % good.length];
 }
 
