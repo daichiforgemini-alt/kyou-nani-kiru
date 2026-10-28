@@ -988,7 +988,12 @@ function cands(cat, need, rain){
   if(!items.length || !need) return [null];
   // 暖かさは±1までなら「ほぼ合っている」として軽く見る（服の厚さだけで選ばれないように）。
   // それより外れると重くし、寒い側に外れるほうを厚手側より重く見る
-  const score = i => { const d = i.warmth - need; const base = Math.abs(d) <= 1 ? Math.abs(d)*0.2 : d < 0 ? 0.2 + (-d-1)*2.2 : 0.2 + (d-1)*1.6;
+  // ・トップスは薄い側には甘くしない（長袖の日に半袖、をニットの羽織りでごまかさない）
+  // ・パンツは見た目の差が小さいので、±2まで自由にする
+  const free = cat==="bottom" ? 2 : 1;
+  const score = i => { const d = i.warmth - need; let base;
+    if(cat==="top" && d < 0) base = -d*1.5;
+    else base = Math.abs(d) <= free ? Math.abs(d)*0.15 : d < 0 ? 0.3 + (-d-free)*2.2 : 0.3 + (d-free)*1.6;
     return base + (rain ? (i.rain ? -0.6 : 0.6) : 0); };
   const best = Math.min(...items.map(score));
   const order = i => score(i) + recentPenalty(i) + dayJitter(i);
@@ -1005,6 +1010,8 @@ function pickOutfit(r){
   let combos = [{items:[], w:0}];
   lists.forEach(L=>{ const next=[]; combos.forEach(c=>L.forEach(x=>next.push({items:c.items.concat(x?x.i:null), w:c.w+(x?x.w:0)}))); combos = next; });
   // 同じ服を2回使わない。シャツを羽織りにするときは、中はTシャツやニットなど（シャツの上にシャツは重ねない）
+  // 半袖（暖かさ1）の上には、ニットやコートのような厚い羽織り（3以上）を重ねない
+  combos = combos.filter(c=>{ const t = c.items[0], o = c.items[1]; return !(t && o && t.warmth <= 1 && o.warmth >= 3); });
   combos = combos.filter(c=>{ const t = c.items[0], o = c.items[1]; if(!t || !o || o.cat !== "top") return true; return t !== o && !t.alsoOuter && t.warmth <= o.warmth + 1; });   // 厚手のスウェットの上に半袖シャツ、のような重ね方はしない
   if(!combos.length) combos = [{items:[null,null,null,null], w:0}];
   combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style === "any" ? mainStyleOf(c.items) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
