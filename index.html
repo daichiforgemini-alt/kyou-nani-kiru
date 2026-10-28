@@ -395,6 +395,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
           <option value="outer">アウター・羽織り</option>
           <option value="bottom">ボトムス</option>
           <option value="shoes">くつ</option>
+          <option value="inner">インナー（ヒートテックなど）</option>
         </select>
       </div>
       <div class="field"><span class="lbl">暖かさ</span>
@@ -478,12 +479,13 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 "use strict";
 
 /* ---------- 定数 ---------- */
-const CATS = {top:"トップス", outer:"アウター・羽織り", bottom:"ボトムス", shoes:"くつ"};
+const CATS = {top:"トップス", outer:"アウター・羽織り", bottom:"ボトムス", shoes:"くつ", inner:"インナー（ヒートテックなど）"};
 const WARM_HINT = {
   top:   ["半袖T・タンクトップ","長袖T・シャツ","スウェット・薄手ニット","厚手ニット・タートル","裏起毛・極厚ニット"],
   outer: ["カーディガン・シャツ羽織り","パーカー・デニムジャケット","トレンチ・ライトジャケット","ウールコート・中綿","ダウン"],
   bottom:["ショートパンツ・薄手スカート","チノ・薄手パンツ","デニム・厚手パンツ","コーデュロイ・ウール","裏起毛パンツ"],
-  shoes: ["サンダル","スニーカー","革靴・ローファー","ブーツ","スノーブーツ"]
+  shoes: ["サンダル","スニーカー","革靴・ローファー","ブーツ","スノーブーツ"],
+  inner: ["ヒートテック・薄手の発熱インナー","極暖・厚手の発熱インナー","超極暖・裏起毛インナー","超極暖・裏起毛インナー","超極暖・裏起毛インナー"]
 };
 // コットン西村さんの衣装予報ツイート（2022〜2026年・307件）と、その日の東京の気温から作った基準。
 // アウターは「朝と昼の平均体感」、トップスは「朝・昼・夜の平均体感」で決まる（実際の投稿との一致率：アウター約7割、トップス約9割）。
@@ -956,7 +958,7 @@ function compute(s){
   else verdict += outerNeed===5 ? "でしっかり防寒" : outerNeed===0 ? "で過ごせる日" : "がちょうどいい日";
 
   return {day, cold, gap, x:r1(x), topNeed, topText, outerNeed, outerText, carry,
-    bottomNeed:bottom[0], bottomText:bottom[1], shoesNeed:shoes[0], shoesText:shoes[1], idx, notes, verdict, rain: s.wx==="rain"||s.wx==="snow"};
+    bottomNeed:bottom[0], bottomText:bottom[1], shoesNeed:shoes[0], shoesText:shoes[1], innerNeed: heat ? (coldest < 2 ? 2 : 1) : 0, idx, notes, verdict, rain: s.wx==="rain"||s.wx==="snow"};
 }
 
 let seed = 0;
@@ -967,7 +969,7 @@ function planOffset(){ return $("d1") && $("d1").checked ? 1 : 0; }
 function recentPenalty(it){
   if(!it || usingSample()) return 0;
   const base = planOffset(); let p = 0;
-  for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" ? 0.15 : 0.7) * (7 - k) / 6; }
+  for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" || it.cat==="inner" ? 0.15 : 0.7) * (7 - k) / 6; }
   return p;
 }
 function dayJitter(it){   // 同じ点数の服どうしは、日によって順番を入れかえる
@@ -992,6 +994,7 @@ function cands(cat, need, rain){
   // ・パンツは厚い側に+1まで自由（少し厚いパンツは問題になりにくい）
   const score = i => { const d = i.warmth - need; let base;
     if(cat==="top" && d < 0) base = -d*1.5;
+    else if(cat==="inner") base = Math.abs(d)*0.8;   // インナーは必要な厚さにきっちり合わせる
     else if(cat==="bottom") base = d >= 0 && d <= 1 ? d*0.05 : d === -1 ? 0.6 : d < 0 ? 0.6 + (-d-1)*2.2 : 0.2 + (d-1)*1.6;
     else base = Math.abs(d) <= 1 ? Math.abs(d)*0.15 : d < 0 ? 0.3 + (-d-1)*2.2 : 0.3 + (d-1)*1.6;
     return base + (rain ? (i.rain ? -0.6 : 0.6) : 0); };
@@ -1006,7 +1009,7 @@ function layerPen(items, r){
   return d < -1 ? (-d-1)*1.2 : d > 2 ? (d-2)*0.6 : 0;
 }
 function pickOutfit(r){
-  const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain)];
+  const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain), cands("inner", r.innerNeed, false)];
   let combos = [{items:[], w:0}];
   lists.forEach(L=>{ const next=[]; combos.forEach(c=>L.forEach(x=>next.push({items:c.items.concat(x?x.i:null), w:c.w+(x?x.w:0)}))); combos = next; });
   // 同じ服を2回使わない。シャツを羽織りにするときは、中はTシャツやニットなど（シャツの上にシャツは重ねない）
@@ -1014,7 +1017,7 @@ function pickOutfit(r){
   combos = combos.filter(c=>{ const t = c.items[0], o = c.items[1]; return !(t && o && t.warmth <= 1 && o.warmth >= 3); });
   combos = combos.filter(c=>{ const t = c.items[0], o = c.items[1]; if(!t || !o || o.cat !== "top") return true; return t !== o && !t.alsoOuter && t.warmth <= o.warmth + 1; });   // 厚手のスウェットの上に半袖シャツ、のような重ね方はしない
   if(!combos.length) combos = [{items:[null,null,null,null], w:0}];
-  combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style === "any" ? mainStyleOf(c.items) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
+  combos.forEach(c=>{ const vis = c.items.slice(0,4); c.j = judgeOutfit(vis, prefs.style === "any" ? mainStyleOf(vis) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
   combos.sort((a,b)=>a.score-b.score);
   const best = combos[0].score;
   // シャッフル用の候補：点の近いものから、前の候補と服がかぶらないものを優先して並べる（パンツや靴も入れかわるように）
@@ -1077,8 +1080,10 @@ function renderToday(){
     ["top", r.topNeed, r.topText, false, ""],
     ["outer", r.outerNeed, r.outerText, r.rain, r.carry ? "かばんに入れて持ち歩き" : ""],
     ["bottom", r.bottomNeed, r.bottomText, false, ""],
-    ["shoes", r.shoesNeed, r.shoesText, r.rain, r.rain ? "濡れても平気なものを" : ""]
+    ["shoes", r.shoesNeed, r.shoesText, r.rain, r.rain ? "濡れても平気なものを" : ""],
+    ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : "ヒートテックなどの発熱インナー", false, "トップスの下に"]
   ].forEach(([cat, need, text, rain, extra], k)=>{
+    if(cat==="inner" && !need) return;
     const g = el("div","gtag");
     const head = el("div","cat"); head.appendChild(el("span",null,CATS[cat]));
     const p = outfit.items[k];
@@ -1263,7 +1268,7 @@ function applyAi(r, j, hint){
     const it = j.item;
     if(!it.is_clothing || it.cat==="other" || !CATS[it.cat]){ msg.textContent = "服が見つかりませんでした。服1点だけが写るように撮り直してみてください。"; return; }
     $("itName").value = String(it.name||"").slice(0,40);
-    $("itCat").value = it.cat;
+    $("itCat").value = /ヒートテック|HEATTECH|発熱|インナー|肌着|アンダーシャツ/i.test(String(it.name||"") + " " + ($("photoHint").value||"")) && it.cat==="top" ? "inner" : it.cat;
     const w = Math.max(1, Math.min(5, Math.round(+it.warmth||3)));
     const wr = document.querySelector(`input[name=warm][value="${w}"]`); if(wr) wr.checked = true;
     $("itRain").checked = !!it.rain;
