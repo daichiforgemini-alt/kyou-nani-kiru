@@ -985,17 +985,25 @@ function rememberOutfit(outfit){
 function cands(cat, need, rain){
   const items = activeCloset().filter(i=>i.cat===cat);
   if(!items.length || !need) return [null];
-  // 寒い側に外れるのは厚手側に外れるより重く見る（寒い日に薄着を選ばないように）
-  const score = i => (i.warmth < need ? (need - i.warmth)*2.5 : (i.warmth - need)) + (rain ? (i.rain ? -0.6 : 0.6) : 0);
+  // 暖かさは±1までなら「ほぼ合っている」として軽く見る（服の厚さだけで選ばれないように）。
+  // それより外れると重くし、寒い側に外れるほうを厚手側より重く見る
+  const score = i => { const d = i.warmth - need; const base = Math.abs(d) <= 1 ? Math.abs(d)*0.2 : d < 0 ? 0.2 + (-d-1)*2.2 : 0.2 + (d-1)*1.6;
+    return base + (rain ? (i.rain ? -0.6 : 0.6) : 0); };
   const best = Math.min(...items.map(score));
   const order = i => score(i) + recentPenalty(i) + dayJitter(i);
-  return items.filter(i => score(i) <= best + 1).sort((a,b)=>order(a)-order(b)).slice(0,10).map(i=>({i, w:score(i)}));
+  return items.filter(i => score(i) <= best + 1.3).sort((a,b)=>order(a)-order(b)).slice(0,10).map(i=>({i, w:score(i)}));
+}
+/* トップスと羽織りは、1枚ずつではなく重ねた合計の暖かさで見る（薄手のシャツ＋暖かいコート、のような組み合わせを認める） */
+function layerPen(items, r){
+  const t = items[0], o = items[1]; if(!t || !o || !r.outerNeed) return 0;
+  const d = (t.warmth + o.warmth) - (r.topNeed + r.outerNeed);
+  return d < -1 ? (-d-1)*1.2 : d > 2 ? (d-2)*0.6 : 0;
 }
 function pickOutfit(r){
   const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain)];
   let combos = [{items:[], w:0}];
   lists.forEach(L=>{ const next=[]; combos.forEach(c=>L.forEach(x=>next.push({items:c.items.concat(x?x.i:null), w:c.w+(x?x.w:0)}))); combos = next; });
-  combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style === "any" ? mainStyleOf(c.items) : prefs.style); c.score = c.w*1.2 + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
+  combos.forEach(c=>{ c.j = judgeOutfit(c.items, prefs.style === "any" ? mainStyleOf(c.items) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
   combos.sort((a,b)=>a.score-b.score);
   const best = combos[0].score;
   const good = combos.filter(c=>c.score <= best + 0.9).slice(0,12);
