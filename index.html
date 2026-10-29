@@ -222,6 +222,11 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .edit:hover{background:var(--sunk)}
 .items li .acts{display:flex;gap:2px}
 .gapcard{margin-bottom:14px}
+.more-fields summary{cursor:pointer;font-size:13px;color:var(--indigo)}
+.more-fields[open]{display:flex;flex-direction:column;gap:8px}
+.more-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.more-grid label{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.more-grid [hidden]{display:none!important}
 .gapcard h4{font-size:14px;margin:14px 0 6px;color:var(--ink)}
 .gaplist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px}
 .gaplist li{display:grid;grid-template-columns:22px 1fr;gap:6px;align-items:start}
@@ -434,6 +439,18 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       <div class="field"><label for="itColor">色</label>
         <select class="text-in" id="itColor"></select>
       </div>
+      <details class="more-fields" id="moreFields">
+        <summary>くわしく（素材・質感・柄・サイズ感など。任意）</summary>
+        <span class="hint">写真から登録すると、AIが自動で入れます。コーデの判定（柄は1点まで、Vシルエット、生地の圧力、首元など）に使います。</span>
+        <div class="more-grid">
+          <label>素材<select class="text-in" id="itMaterial"></select></label>
+          <label>質感<select class="text-in" id="itTexture"></select></label>
+          <label>柄<select class="text-in" id="itPattern"></select></label>
+          <label id="itFitL">サイズ感<select class="text-in" id="itFit"></select></label>
+          <label id="itShapeL">パンツの形<select class="text-in" id="itShape"></select></label>
+          <label id="itNeckL">首元<select class="text-in" id="itNeck"></select></label>
+        </div>
+      </details>
       <label class="checkrow"><input type="checkbox" id="itRain"> 雨の日に強い（撥水・防水）</label>
       <label class="checkrow" id="itOuterRow"><input type="checkbox" id="itAlsoOuter"> 羽織りとしても着る（前を開けて着るシャツ・ジップパーカーなど）</label>
       <label class="checkrow" id="itInnerRow"><input type="checkbox" id="itAlsoInner"> インナーとしても着る（シャツの下のTシャツ・タンクトップなど）</label>
@@ -449,6 +466,12 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <input type="file" id="importFile" accept="application/json,.json" hidden>
       </div>
       <p class="hint" id="backupMsg" style="margin:0"></p>
+      <div class="sync-box">
+        <p class="sync-h">くわしい項目をAIでまとめて入れる</p>
+        <p class="hint" style="margin:0">写真のある服を1着ずつAIに見せて、素材・質感・柄・サイズ感・パンツの形・首元のうち、空いているところだけを埋めます（系統や色は変えません）。1着5秒ほどかかります。</p>
+        <button type="button" class="btn" id="bulkBtn">空いている項目をAIで入れる</button>
+        <p class="hint" id="bulkMsg" style="margin:0"></p>
+      </div>
       <div class="sync-box">
         <p class="sync-h">iPhone・iPadで同期</p>
         <div id="syncOff">
@@ -560,6 +583,16 @@ const NEAR = {
 /* きれいめ度（1=とてもカジュアル〜5=ドレス）。登録がない服は系統から推定する */
 const DRESS = {1:"1 とてもカジュアル", 2:"2 カジュアル寄り", 3:"3 どちらでも", 4:"4 きれいめ寄り", 5:"5 ドレス（かなりきれいめ）"};
 const STYLE_DRESS = {kirei:4, trad:4, euro:3, mode:4, natural:3, amekaji:2, work:2, military:2, outdoor:1.5, street:1.5, sport:1, rude:2, rock:2, basic:3};
+/* くわしい項目（素材・質感・柄・サイズ感・パンツの形・首元）。わからなければ空でよい */
+const MATERIALS = {cotton:"綿（コットン）", linen:"麻・リネン", wool:"ウール", cashmere:"カシミヤ", silk:"シルク", poly:"ポリエステル", nylon:"ナイロン", acrylic:"アクリル", rayon:"レーヨン（とろみ）", leather:"レザー（革）", suede:"スエード", fleece:"フリース", mix:"混紡・その他"};
+const TEXTURES = {raised:"起毛・ざっくり（ツイード・フランネル・コーデュロイ・ローゲージニット）", plain:"ふつう", smooth:"つるっと・光沢（とろみ・サテン・レザー・ナイロン）"};
+const PATTERNS = {solid:"無地", onepoint:"ワンポイント（小さいロゴ・刺繍）", stripe:"ストライプ・ボーダー", check:"チェック・ヘリンボーン・千鳥", print:"柄・プリント・ジャガード", logo:"大きなロゴ・グラフィック"};
+const FITS = {slim:"細身・ジャスト", regular:"ふつう", loose:"ゆったり", over:"オーバーサイズ"};
+const SHAPES = {slim:"スキニー・スリム", tapered:"テーパード", straight:"ストレート", wide:"ワイド", flare:"フレア"};
+const NECKS = {crew:"クルー・丸首", v:"V・Vゾーン", collar:"襟付き（台襟のあるシャツ・ポロ）", open:"開襟・オープンカラー", turtle:"タートル・ハイネック", hood:"フード", zip:"ジップ・スタンド"};
+const DETAIL_KEYS = {material:MATERIALS, texture:TEXTURES, pattern:PATTERNS, fit:FITS, shape:SHAPES, neck:NECKS};
+const DETAIL_LABEL = {material:"素材", texture:"質感", pattern:"柄", fit:"サイズ感", shape:"パンツの形", neck:"首元"};
+function detailOk(cat, k){ return k==="shape" ? cat==="bottom" : k==="neck" || k==="fit" ? (cat==="top" || cat==="outer") : true; }
 /* 色：n=ニュートラル（ベース向き）, l=明るさ 0〜1 */
 const COLORS = {
   white:{n:"白",neutral:true,l:.95}, ivory:{n:"生成り・アイボリー",neutral:true,l:.88}, beige:{n:"ベージュ",neutral:true,l:.78},
@@ -646,9 +679,25 @@ function judgeOutfit(items, main){
   // 色：差し色は1色まで、テーマカラーの中で
   const cols = present.map(colorOf);
   const chroma = [...new Set(cols.filter(c=>c && c!=="multi" && !COLORS[c].neutral))];
-  const pats = cols.filter(c=>c==="multi").length;
+  const isPat = i => i.pattern ? ["stripe","check","print","logo"].includes(i.pattern) : colorOf(i)==="multi";
+  const pats = present.filter(isPat).length;
   pen += Math.max(0, chroma.length-1)*0.9 + Math.max(0, pats-1)*0.9;
-  if(pats>1) tips.push(["柄", "柄物が2点以上あります。柄は色より情報量が多いので、基本は1コーデに1点。重ねるなら柄の大きさを変えて。"]);
+  if(pats>1) tips.push(["柄", "柄物が2点以上あります。柄は色より情報量が多いので、基本は1コーデに1点。強い柄を2つ同時に見せると、どこを見ればいいか分からなくなります。"]);
+  { const top0 = items[0], out0 = items[1], bot0 = items[2];
+    // 首元に大きなロゴ（羽織りで隠れないとき）
+    if(top0 && top0.pattern==="logo" && !(out0 && out0.cat==="outer")){ pen += .3; tips.push(["ロゴ", "首元に近い大きなロゴは、顔より目立って顔の印象を消しやすい。羽織りを重ねるか、無地のトップスに。"]); }
+    if(present.filter(i=>i.pattern==="logo").length >= 2){ pen += .4; tips.push(["ロゴ", "ロゴものが2点あります。ロゴは所属の記号なので、違うブランドのロゴは同時に使わない。"]); }
+    // Vシルエット：大きいトップス×細いパンツ（肩幅が広いと逆三角形が強すぎる）
+    const upperFit = (out0 && out0.fit) || (top0 && top0.fit);
+    if(bot0 && ["slim","tapered"].includes(bot0.shape) && ["over","loose"].includes(upperFit)){ pen += .6; tips.push(["シルエット", "大きいトップス×細いパンツで逆三角形（Vシルエット）になっています。上にボリュームを出すなら、パンツもストレートかワイドに。"]); }
+    // 生地の圧力：起毛とつるっとした光沢を、大きい面積どうしで混ぜない
+    const big = [top0, out0, bot0].filter(Boolean), tx = new Set(big.map(i=>i.texture).filter(Boolean));
+    if(tx.has("raised") && tx.has("smooth")){ pen += .3; tips.push(["生地", "起毛した生地とつるっとした光沢のある生地が並んでいます。生地の「圧力」をそろえると、世界観がまとまります。"]); }
+    // トラッドの日の首元（フード・開襟は首元の高さが崩れる）
+    if(main==="trad" && top0 && ["hood","open"].includes(top0.neck)){ pen += .4; tips.push(["首元", "トラッドの日は、フードや開襟シャツだと首元の高さのバランスが崩れます。クルーネックかシャツに。"]); }
+    // モードの日の機能ディテール・素材
+    if(main==="mode" && big.some(i=>["fleece","nylon"].includes(i.material))){ pen += .3; tips.push(["素材", "モードの日に、フリースやナイロンなど機能を感じる素材が入っています。モードは光沢・ドレープ・ウールなど「品質で見せる」素材が合います。"]); }
+  }
   const offTheme = chroma.filter(c=>(OFF_THEME[main]||[]).includes(c));
   pen += offTheme.length*0.5;
   if(chroma.length===0) why.push(["色", "ベースカラーだけの落ち着いた配色です。差し色を入れるなら1色、顔の近くに小さく。"]);
@@ -749,6 +798,15 @@ const KNOWLEDGE = [
     "上下の比率はトップス4：ボトム6。パンツはタックインならへそ〜5、6cm下、普通に履くなら8、9cm下。タックインとロールアップは同時にしない。",
     "首元に大きなロゴ・ビビッドな色・ゴツいネックレスを置かない。首が詰まりすぎると顔が大きく見えるので、第一ボタンを開けるかVゾーンを作る。メガネで顔まわりに視線を留めるのは◎。",
     "買う前に：1回あたりの値段で考える（長く着るなら高くても割安）。ジャケットのしつけ糸（ベントのバツ印、ポケットの仮縫い）は買ったら切る。"
+  ]},
+  {h:"素材と生地の見方", li:[
+    "属性はアイテム名ではなく、サイズ感・生地感・ディテールで決まる。生地感は「繊維」「織り方・編み方」「厚さ」で見る。",
+    "繊維と属性：綿＝カジュアル全般・ワーク・アメカジ、麻＝ナチュラル・夏、ウール＝クラシック・トラッド・秋冬、カシミヤ＝上品、シルクやレーヨン＝とろみ・きれいめ・エレガント、ナイロン＝スポーツ・アウトドア・ミリタリー、ポリエステル＝機能服（テカると安っぽい）。",
+    "革：羊革（ラム）は柔らかくきれいめ・モード、牛革は丈夫でバイカー・ワーク、スエードはクラシック。レザーは存在感（圧力）が大きいので置き場所に注意。合成皮革は数年で劣化しやすい。",
+    "生地の「圧力」をそろえる：デニムにはツイードや起毛したコットン、ツルッとしたレザーには同じくらい張りのある生地。起毛とつるっとした光沢を、大きい面積どうしで混ぜない。",
+    "厚さのめやす：Tシャツは4ozが薄手（インナー向き）、5〜6ozが標準、6〜7oz以上がヘビーウェイト（アメカジ・ワーク向き）。厚い生地ほどタフで男らしく、薄い生地ほど軽く上品。",
+    "良い服の見分け方：光に透かして目が詰まっている、縫い目が細かくまっすぐ、柄が縫い目でつながっている、裏の縫い代がきれい、ポケットや襟が左右でそろっている。",
+    "冬はニット・ツイード・フランネルなど「情報の立体感」がある生地で大人の余裕。見た目より軽くてペラペラな生地は安っぽく見える。"
   ]},
   {h:"こなれ感・品質の見分け方（YouTubeより）", li:[
     "こなれ感・すっきり＝識別性。アイテムどうしの境界が見分けやすいと安心感が出る（裾をロールアップして靴との境界をくっきり）。同じ場所に情報を集めない。強い柄を2つ同時に見せない。",
@@ -1228,6 +1286,11 @@ function renderCloset(){
             const save = ()=>{ t.style = ss.value; if(s2s.value && s2s.value !== t.style) t.style2 = s2s.value; else delete t.style2; if(ds.value) t.dress = +ds.value; else delete t.dress; if(cs.value) t.color = cs.value; else delete t.color; persist(); renderToday(); const a = nm.querySelector(".attr"); const c2 = colorOf(t); if(a) a.textContent = styleLabel(t) + (c2 ? "・" + COLORS[c2].n : ""); };
             ss.addEventListener("change", save); s2s.addEventListener("change", save); ds.addEventListener("change", save); cs.addEventListener("change", save);
             fx.appendChild(ks); fx.appendChild(ws); fx.appendChild(ss); fx.appendChild(s2s); fx.appendChild(ds); fx.appendChild(cs);
+            Object.keys(DETAIL_KEYS).forEach(k=>{ if(!detailOk(t.cat,k)) return;
+              const sel = el("select","text-in"); fillSelect(sel, DETAIL_KEYS[k], DETAIL_LABEL[k] + "：わからない"); sel.value = t[k] || ""; sel.setAttribute("aria-label", DETAIL_LABEL[k]);
+              [...sel.options].forEach(o=>{ if(o.value) o.textContent = DETAIL_LABEL[k] + "：" + o.textContent; });
+              sel.addEventListener("change", ()=>{ if(sel.value) t[k] = sel.value; else delete t[k]; persist(); renderToday(); renderGap(); });
+              fx.appendChild(sel); });
             const flag = (key, label)=>{ const lb = el("label","checkrow fix-check"); const cb = el("input"); cb.type = "checkbox"; cb.checked = !!t[key];
               cb.addEventListener("change", ()=>{ if(cb.checked) t[key] = true; else delete t[key]; persist(); renderAll(); });
               lb.appendChild(cb); lb.appendChild(document.createTextNode(" " + label)); fx.appendChild(lb); };
@@ -1297,7 +1360,8 @@ let adviceBusy = false;
 function knowledgeText(){ return KNOWLEDGE.map(sec=>"■" + sec.h + "\n" + sec.li.map(t=>"・" + t).join("\n")).join("\n"); }
 function closetText(){
   return (closet||[]).map(i=>{ const c = colorOf(i); const fl = [i.alsoOuter && "羽織りOK", i.alsoInner && "インナーOK", i.alsoTop && "トップスOK", i.rain && "撥水"].filter(Boolean).join("・");
-    return `- [${CATS[i.cat]||i.cat}] ${i.name}（系統:${styleLabel(i)}、色:${c ? COLORS[c].n : "不明"}、暖かさ${i.warmth}、きれいめ度${dressOf(i)}${fl ? "、" + fl : ""}）`; }).join("\n");
+    const dt = Object.keys(DETAIL_KEYS).filter(k=>i[k] && DETAIL_KEYS[k][i[k]]).map(k=>DETAIL_LABEL[k] + ":" + DETAIL_KEYS[k][i[k]].replace(/（.*）/,"")).join("、");
+    return `- [${CATS[i.cat]||i.cat}] ${i.name}（系統:${styleLabel(i)}、色:${c ? COLORS[c].n : "不明"}、暖かさ${i.warmth}、きれいめ度${dressOf(i)}${dt ? "、" + dt : ""}${fl ? "、" + fl : ""}）`; }).join("\n");
 }
 function goalText(){ return prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）"; }
 function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText(); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
@@ -1355,6 +1419,7 @@ function guessAlsoOuter(name){ return LAYER_RE.test(name) && !NOT_LAYER_RE.test(
 const INNER_RE = /Tシャツ|ティーシャツ|ロンT|タンク|カットソー|インナー|^T$/, TEE_RE = /Tシャツ|クルーネックT|VネックT|UネックT|ロンT/;
 function updateOuterRow(){
   const cat = $("itCat").value, top = cat === "top", nm = $("itName").value;
+  $("itFitL").hidden = !detailOk(cat,"fit"); $("itShapeL").hidden = !detailOk(cat,"shape"); $("itNeckL").hidden = !detailOk(cat,"neck");
   $("itOuterRow").hidden = !top; if(!top) $("itAlsoOuter").checked = false; else if(!$("itAlsoOuter").dataset.touched) $("itAlsoOuter").checked = guessAlsoOuter(nm);
   $("itInnerRow").hidden = !top; if(!top) $("itAlsoInner").checked = false; else if(!$("itAlsoInner").dataset.touched) $("itAlsoInner").checked = INNER_RE.test(nm) && !/ロゴ|グラフィック|プリント/.test(nm);
   $("itAsTopRow").hidden = cat !== "inner"; if(cat !== "inner") $("itAlsoTop").checked = false; else if(!$("itAlsoTop").dataset.touched) $("itAlsoTop").checked = TEE_RE.test(nm);
@@ -1452,6 +1517,7 @@ function applyAi(r, j, hint){
     if(STYLES[it.style]){ $("itStyle").value = it.style; $("itStyle").dataset.touched = "1"; }
     if(COLORS[it.color]){ $("itColor").value = it.color; $("itColor").dataset.touched = "1"; }
     $("itStyle2").value = (STYLES[it.style2] && it.style2 !== it.style) ? it.style2 : "";
+    Object.entries(DETAIL_IDS).forEach(([k,id])=>{ $(id).value = DETAIL_KEYS[k][it[k]] ? it[k] : ""; });
     { const dv = Math.round(+it.dress); $("itDress").value = (dv>=1 && dv<=5) ? String(dv) : ""; }
     const code = (hint.match(/\b[A-Z]?\d{6,}(?:-\d+)?\b/i) || [])[0]; if(code && !$("itCode").value) $("itCode").value = code;
     updateWarmHint();
@@ -1543,16 +1609,41 @@ $("addForm").addEventListener("submit", e=>{
   item.style = $("itStyle").value || guessStyle(name);
   if($("itStyle2").value && $("itStyle2").value !== item.style) item.style2 = $("itStyle2").value;
   if($("itDress").value) item.dress = +$("itDress").value;
+  Object.entries(DETAIL_IDS).forEach(([k,id])=>{ if($(id).value && detailOk(item.cat,k)) item[k] = $(id).value; });
   if($("itColor").value) item.color = $("itColor").value;
   if(photoThumb) item.img = photoThumb;
   closet = (closet || []).concat(item);
   photoThumb = null; lastBig = null; $("photoRes").hidden = true; $("photoRetry").hidden = true; $("photoHint").value = ""; $("pageUrl").value = "";
-  $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("itStyle2").value = ""; $("itDress").value = ""; delete $("itAlsoOuter").dataset.touched; $("itAlsoOuter").checked = false; delete $("itAlsoInner").dataset.touched; $("itAlsoInner").checked = false; delete $("itAlsoTop").dataset.touched; $("itAlsoTop").checked = false; updateOuterRow(); $("itName").focus();
+  $("itName").value = ""; $("itRain").checked = false; $("itCode").value = ""; $("itStyle2").value = ""; $("itDress").value = ""; Object.values(DETAIL_IDS).forEach(id=>{ $(id).value = ""; }); delete $("itAlsoOuter").dataset.touched; $("itAlsoOuter").checked = false; delete $("itAlsoInner").dataset.touched; $("itAlsoInner").checked = false; delete $("itAlsoTop").dataset.touched; $("itAlsoTop").checked = false; updateOuterRow(); $("itName").focus();
   delete $("itStyle").dataset.touched; delete $("itColor").dataset.touched; updateGuess();
   persist(); renderAll();
 });
 
 /* バックアップ */
+/* くわしい項目をAIでまとめて入れる（空いている項目だけ） */
+let bulkRun = false;
+$("bulkBtn").addEventListener("click", async ()=>{
+  if(bulkRun){ bulkRun = false; $("bulkBtn").textContent = "止めています…"; return; }
+  const need = i => Object.keys(DETAIL_KEYS).some(k=>detailOk(i.cat,k) && !i[k]);
+  const targets = (closet||[]).filter(i=>i.img && need(i));
+  if(!targets.length){ $("bulkMsg").textContent = "写真のある服は、すべて入っています。写真のない服は「直す」で入れてください。"; return; }
+  bulkRun = true; $("bulkBtn").textContent = "止める";
+  let n = 0, ok = 0, busy = 0;
+  for(const it of targets){
+    if(!bulkRun) break; n++;
+    $("bulkMsg").textContent = `AIが見ています… ${n} / ${targets.length}（${it.name}）`;
+    try{
+      const r = await fetch(AI_API, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({image: it.img.split(",")[1], mime:"image/jpeg", hint:"名前: " + it.name + " / 種類: " + (CATS[it.cat]||"")}), signal: AbortSignal.timeout(60000)});
+      const j = await r.json().catch(()=>({}));
+      const t = (closet||[]).find(x=>x.id===it.id);
+      if(j.item && t){ let ch = false; Object.keys(DETAIL_KEYS).forEach(k=>{ const v = j.item[k]; if(!t[k] && detailOk(t.cat,k) && DETAIL_KEYS[k][v]){ t[k] = v; ch = true; } }); if(ch){ ok++; persist(); } }
+      else if(r.status===429 || r.status===502){ busy++; await new Promise(z=>setTimeout(z, 8000)); }
+    }catch(e){}
+    await new Promise(z=>setTimeout(z, 1200));
+  }
+  bulkRun = false; $("bulkBtn").textContent = "空いている項目をAIで入れる"; renderAll();
+  $("bulkMsg").textContent = `${ok}着に入れました。` + (busy ? `AIが混んでいて${busy}着は入れられませんでした。もう一度押すと続きから入れます。` : "") + "違うところは「直す」で変えられます。";
+});
 $("exportBtn").addEventListener("click", async ()=>{
   const data = JSON.stringify({app:"kyou-nani-kiru", version:1, closet: closet||[], prefs}, null, 2);
   const name = "kyou-nani-kiru-backup-" + new Date().toISOString().slice(0,10) + ".json";
@@ -1569,14 +1660,15 @@ $("importFile").addEventListener("change", async e=>{
   try{
     const j = JSON.parse(await f.text());
     if(!j || !Array.isArray(j.closet)) throw new Error("bad");
-    const items = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max((x.cat==="top"||x.cat==="inner") ? 0 : 1, Math.min(5, Number.isFinite(+x.warmth) && x.warmth!=="" && x.warmth!=null ? Math.round(+x.warmth) : 3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, style2:(STYLES[x.style2] && x.style2!==x.style)?x.style2:undefined, dress:(+x.dress>=1 && +x.dress<=5)?+x.dress:undefined, alsoOuter:(x.cat==="top" && x.alsoOuter)?true:undefined, alsoInner:(x.cat==="top" && x.alsoInner)?true:undefined, alsoTop:(x.cat==="inner" && x.alsoTop)?true:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined, _u:(typeof x.imgUrl==="string")?x.imgUrl:undefined}));
+    const items = j.closet.filter(x=>x && x.name && CATS[x.cat]).map(x=>({id:x.id||("i"+Math.random().toString(36).slice(2,9)), cat:x.cat, name:String(x.name).slice(0,40), warmth:Math.max((x.cat==="top"||x.cat==="inner") ? 0 : 1, Math.min(5, Number.isFinite(+x.warmth) && x.warmth!=="" && x.warmth!=null ? Math.round(+x.warmth) : 3)), rain:!!x.rain||undefined, code:x.code?String(x.code).slice(0,40):undefined, style:STYLES[x.style]?x.style:undefined, style2:(STYLES[x.style2] && x.style2!==x.style)?x.style2:undefined, dress:(+x.dress>=1 && +x.dress<=5)?+x.dress:undefined, alsoOuter:(x.cat==="top" && x.alsoOuter)?true:undefined, alsoInner:(x.cat==="top" && x.alsoInner)?true:undefined, alsoTop:(x.cat==="inner" && x.alsoTop)?true:undefined, material:MATERIALS[x.material]?x.material:undefined, texture:TEXTURES[x.texture]?x.texture:undefined, pattern:PATTERNS[x.pattern]?x.pattern:undefined, fit:FITS[x.fit]?x.fit:undefined, shape:SHAPES[x.shape]?x.shape:undefined, neck:NECKS[x.neck]?x.neck:undefined, color:COLORS[x.color]?x.color:undefined, img:(typeof x.img==="string"&&x.img.startsWith("data:image/")&&x.img.length<60000)?x.img:undefined, _u:(typeof x.imgUrl==="string")?x.imgUrl:undefined}));
     if(j.mode === "update"){
       // 更新用ファイル：今ある服（同じid）の系統・きれいめ度などだけを書き換える。服は増えも減りもしない
-      const F = ["style","style2","dress","alsoOuter","alsoInner","alsoTop","color","warmth","cat","name"]; let n = 0;
+      const F = ["style","style2","dress","alsoOuter","alsoInner","alsoTop","material","texture","pattern","fit","shape","neck","color","warmth","cat","name"]; let n = 0;
       j.closet.forEach(x=>{ const t = (closet||[]).find(c=>c.id===x.id); if(!t) return;
         let ch = false; F.forEach(k=>{ if(!(k in x)) return; const v = x[k];
           if(k==="style2"){ if(v && STYLES[v] && v!==(x.style||t.style)){ if(t.style2!==v){ t.style2 = v; ch = true; } } else if(t.style2){ delete t.style2; ch = true; } return; }
           if(k==="alsoOuter" || k==="alsoInner" || k==="alsoTop"){ const b = !!v && t.cat===(k==="alsoTop" ? "inner" : "top"); if(!!t[k] !== b){ if(b) t[k] = true; else delete t[k]; ch = true; } return; }
+          if(DETAIL_KEYS[k]){ if(v && DETAIL_KEYS[k][v] && t[k]!==v){ t[k] = v; ch = true; } else if(!v && t[k]){ delete t[k]; ch = true; } return; }
           if(k==="dress"){ const dv = +v; if(dv>=1 && dv<=5 && t.dress!==dv){ t.dress = dv; ch = true; } return; }
           if(k==="style" && !STYLES[v]) return; if(k==="color" && !COLORS[v]) return; if(k==="cat" && !CATS[v]) return;
           if(k==="warmth"){ const w = Math.max((t.cat==="top"||t.cat==="inner") ? 0 : 1, Math.min(5, Number.isFinite(+v) ? Math.round(+v) : 3)); if(t.warmth!==w){ t.warmth = w; ch = true; } return; }
@@ -1636,7 +1728,9 @@ window.addEventListener("online", ()=>syncNow());
 /* ---------- 起動 ---------- */
 $("today").textContent = new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
 if(new Date().getHours() >= 18) $("d1").checked = true;   // 夜は明日の服を考える
-fillSelect($("myStyle"), STYLES, "指定なし（手持ちの服に合わせる）"); $("myStyle").options[0].value = "any"; fillSelect($("itStyle"), STYLES); fillSelect($("itStyle2"), STYLES, "なし"); fillSelect($("itDress"), DRESS, "おまかせ（系統から）"); fillSelect($("itColor"), COLORS, "わからない・その他");
+fillSelect($("myStyle"), STYLES, "指定なし（手持ちの服に合わせる）"); $("myStyle").options[0].value = "any"; fillSelect($("itStyle"), STYLES); fillSelect($("itStyle2"), STYLES, "なし");
+const DETAIL_IDS = {material:"itMaterial", texture:"itTexture", pattern:"itPattern", fit:"itFit", shape:"itShape", neck:"itNeck"};
+Object.entries(DETAIL_IDS).forEach(([k,id])=>fillSelect($(id), DETAIL_KEYS[k], "わからない")); fillSelect($("itDress"), DRESS, "おまかせ（系統から）"); fillSelect($("itColor"), COLORS, "わからない・その他");
 applyPrefs(); updateWarmHint(); updateGuess(); renderAll(); renderKnow();
 if(loc){ $("place").textContent = loc.name || "現在地"; const c = LS.get("kn.fc", null); if(c){ forecast = c; applyForecast(); } loadForecast(); }
 renderSync(); syncNow(); fromShared(); updateOuterRow();
