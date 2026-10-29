@@ -757,6 +757,7 @@ const KNOWLEDGE = [
     "ただし長袖が必要な日に半袖を着て、厚い羽織りで補うのは不自然。半袖の上にはシャツやアノラックなど薄手の羽織りまで。",
     "前を開けたシャツやジップパーカーは羽織りにもなる。中はTシャツ・タンクトップ・ヘンリーネックなど。シャツの上にシャツは重ねず、中の服を羽織りより厚くしない。",
     "シャツを1枚で着るときは、下に無地のTシャツかタンクトップを入れると首元と透けがきれいに見える。",
+    "涼しい日は、クルーネックなどのニットやスウェットの下に長袖シャツを着て、襟を出す組み方もできる（トラッドの定番）。フードやタートル、襟付きのものの下には入れない。",
     "朝の体感が6.5℃を下回る日はヒートテックなどの発熱インナーを足す（コットン西村さんの衣装予報より）。2℃を下回るなら極暖。インナーは見えないので、系統や色の判定には入れない。",
     "パンツは見た目への影響が小さいので、少し厚め（+1）までなら気にしなくていい。タンクトップやエアリズムは暖かさ0として数える。"
   ]},
@@ -1143,16 +1144,30 @@ function pickOutfit(r){
     return t2 !== t && t2 !== c.items[1] && t2 !== c.items[4] && !!t && t.cat==="top" && !isTee(t) && !!c.items[4] && c.items[4].cat==="inner"; });
   combos.forEach(c=>{ const t = c.items[0]; if(!r.innerNeed && tees.length && t && t.cat==="top" && !isTee(t) && !c.items[4]) c.w += 0.6;
     if(r.innerNeed >= 2 && tees.length && t && t.cat==="top" && !isTee(t) && c.items[4] && c.items[4].cat==="inner" && !c.items[5]) c.w += 0.3; });   // Tシャツ以外のトップスの下にはTシャツを入れる
-  if(!combos.length) combos = [{items:[null,null,null,null,null,null], w:0}];
+  // ニットの中にシャツ：涼しい日は、クルーネックなどのニット・スウェットの下に長袖シャツを着て襟を出す組み方も候補に入れる（トラッドの定番）
+  const isShirt = i => /シャツ/.test(i.name||"") && !/Tシャツ|ティーシャツ|ロンT/.test(i.name||"") && !/半袖/.test(i.name||"") && i.warmth >= 2;
+  const isPull = i => !!i && i.cat==="top" && i.warmth >= 3 && !i.alsoOuter && !isTee(i) && !isShirt(i) && !["hood","turtle","collar","open"].includes(i.neck) && !/フーディ|パーカー|タートル|ハイネック|シャツ|襟|ポロ/.test(i.name||"");
+  const mids = r.topNeed >= 3 ? activeCloset().filter(i=>i.cat==="top" && isShirt(i)) : [];
+  combos.forEach(c=>c.items.push(null));
+  if(mids.length){
+    const more = [];
+    combos.forEach(c=>{ const [t, o, , , inn, t2] = c.items; if(!isPull(t) || t2) return;
+      mids.forEach(m=>{ if(m === o || m === inn) return; more.push({items:c.items.slice(0,6).concat(m), w:c.w}); }); });
+    combos = combos.concat(more);
+  }
+  if(!combos.length) combos = [{items:[null,null,null,null,null,null,null], w:0}];
   combos.forEach(c=>{ const o = c.items[1]; if(o && o.cat==="top" && r.outerNeed <= 3 && r.topNeed >= 2) c.w -= 0.25; });   // 涼しい日は「羽織りOK」のシャツを羽織りとして使うのを少し優先（長袖T＋シャツの羽織り）
   combos.forEach(c=>{ const t = c.items[0]; if(r.outerNeed && t && !c.items[1]){ c.noOuter = true; c.w += 0.35 + Math.max(0, r.topNeed + r.outerNeed - Math.max(1, t.warmth) - 1)*0.6; } });   // 羽織りなしは、トップス1枚の厚さが足りないほど点を引く
-  combos.forEach(c=>{ const vis = c.items.slice(0,4); c.j = judgeOutfit(vis, prefs.style === "any" ? mainStyleOf(vis) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + vis.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });   // 見えない中の服（インナー）は、日替わりの点に入れない（シャツやニットの日が、中のTシャツの分だけ不利にならないように）
+  combos.forEach(c=>{ const vis = c.items.slice(0,4); c.j = judgeOutfit(vis, prefs.style === "any" ? mainStyleOf(vis) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + vis.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0);
+    const m = c.items[6]; if(m){ const st = prefs.style === "any" ? mainStyleOf(vis) : prefs.style;   // 中のシャツは襟が見えるので、日替わりの点にも入れる（平均を引いて、シャツありが不利にならないように）
+      c.score += recentPenalty(m) + dayJitter(m) - 0.175 + (["kirei","trad","euro"].includes(st) ? -0.15 : st === "mode" ? 0.05 : 0);
+      c.j = {...c.j, why: c.j.why.concat([["重ね着", "ニットの下にシャツを着て、襟を首元から出す組み方。トラッドの定番で、首元に少し情報が足されて顔まわりが引き締まります。"]])}; } });   // 見えない中の服（インナー）は、日替わりの点に入れない（シャツやニットの日が、中のTシャツの分だけ不利にならないように）
   combos.sort((a,b)=>a.score-b.score);
   const best = combos[0].score;
   // シャッフル用の候補：点の近いものから、前の候補と服がかぶらないものを優先して並べる（パンツや靴も入れかわるように）
   // 中のインナーだけが違う組み合わせは1つにまとめる（同じ見た目が候補を埋めて、シャツの羽織りなど別の着方が押し出されないように）
   const seen = new Set();
-  const pool = combos.filter(c=>{ if(c.score > best + 1.2) return false; const k = c.items.slice(0,4).map(i=>i ? i.id : "-").join("|"); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,200);
+  const pool = combos.filter(c=>{ if(c.score > best + 1.2) return false; const k = c.items.slice(0,4).concat(c.items[6]).map(i=>i ? i.id : "-").join("|"); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,200);
   const good = [pool[0]];
   while(good.length < 12 && good.length < pool.length){
     let pick = null, ps = Infinity;
@@ -1210,19 +1225,22 @@ function renderToday(){
 
   const tags = $("tags"); tags.textContent = "";
   [
-    ["top", r.topNeed, r.topText, false, ""],
+    ["top", r.topNeed, r.topText, false, "", 0],
+    ["mid", 0, "ニットの中に着るシャツ", false, "ニットの下に着て、襟を出す", 6],
     ["outer", r.outerNeed, r.outerText, r.rain, r.carry ? "かばんに入れて持ち歩き" : ""],
     ["bottom", r.bottomNeed, r.bottomText, false, ""],
     ["shoes", r.shoesNeed, r.shoesText, r.rain, r.rain ? "濡れても平気なものを" : ""],
     ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : r.innerNeed ? "ヒートテックなどの発熱インナー" : "トップスの下に着るTシャツ", false, "トップスの下に"],
     ["tee2", 0, "ヒートテックの上に着るTシャツ", false, "ヒートテックの上・トップスの下に"]
-  ].forEach(([cat, need, text, rain, extra], k)=>{
+  ].forEach(([cat, need, text, rain, extra, idx], k0)=>{
+    const k = idx != null ? idx : k0 - 1;   // 「ニットの中のシャツ」の行を足したので、それ以降は1つずれる
+    if(cat==="mid" && !outfit.items[6]) return;
     if(cat==="inner" && !need && !outfit.items[4]) return;
     if(cat==="tee2" && !outfit.items[5]) return;
     if(cat==="outer" && outfit.noOuter){ const g = el("div","gtag"); const head = el("div","cat"); head.appendChild(el("span",null,CATS.outer)); g.appendChild(head);
       g.appendChild(el("div","name","なし（トップス1枚で）")); g.appendChild(el("div","sub","めやす：" + text + (r.carry ? "" : " / 朝晩が気になるなら、薄手の羽織りをかばんに"))); tags.appendChild(g); return; }
     const g = el("div","gtag");
-    const head = el("div","cat"); head.appendChild(el("span",null, cat==="tee2" ? "インナー（Tシャツ）" : CATS[cat]));
+    const head = el("div","cat"); head.appendChild(el("span",null, cat==="tee2" ? "インナー（Tシャツ）" : cat==="mid" ? "シャツ（ニットの中に）" : CATS[cat]));
     const p = outfit.items[k];
     if(p && p.img){ const im = el("img","gimg"); im.src = p.img; im.alt = ""; g.appendChild(im); g.classList.add("has-img"); }
     if(p){ head.appendChild(dots(p.warmth)); if(usingSample()) head.appendChild(el("span","badge","サンプル")); }
