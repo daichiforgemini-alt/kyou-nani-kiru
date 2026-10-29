@@ -357,7 +357,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         </div>
         <p class="credit">めやすは、コットン西村さんの衣装予報（X @slimboy24、2022〜2026年の307日分）と、その日の東京の気温から作っています。</p>
         <a class="btn xlink" id="xToday" href="https://x.com/slimboy24" target="_blank" rel="noopener"><b>𝕏</b> きょうの西村さんの衣装予報を見る</a>
-        <p class="credit" style="margin-top:4px">西村さんの予報は東京の気温です。まだ投稿されていない時間は、何も出てきません。</p>
+        <p class="credit" style="margin-top:4px">西村さんのプロフィールが開きます。予報は東京の気温です。</p>
       </div>
 
       <div class="outfit-head">
@@ -1180,8 +1180,6 @@ function el(tag, cls, text){ const e = document.createElement(tag); if(cls) e.cl
 function dots(n){ const d = el("span","dots"); d.setAttribute("aria-label","暖かさ"+n); for(let i=1;i<=5;i++) d.appendChild(el("i", i<=n?"on":"")); return d; }
 
 function renderToday(){
-  { const d = new Date(Date.now() + 9*3600e3), ymd = x => x.toISOString().slice(0,10), n = new Date(d.getTime() + 864e5);   // 日本時間のきょう
-    $("xToday").href = "https://x.com/search?q=" + encodeURIComponent(`from:slimboy24 since:${ymd(d)}_00:00:00_JST until:${ymd(n)}_00:00:00_JST`) + "&src=typed_query&f=live"; }
   const s = readCond(); const r = compute(s);
   const outfit = pickOutfit(r);
   rememberOutfit(outfit);
