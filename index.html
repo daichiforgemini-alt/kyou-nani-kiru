@@ -1088,21 +1088,21 @@ function rememberOutfit(outfit){
 }
 function cands(cat, need, rain){
   const items = activeCloset().filter(i=>i.cat===cat || (cat==="outer" && i.cat==="top" && i.alsoOuter)
-    || (cat==="inner" && i.cat==="top" && i.alsoInner) || (cat==="top" && i.cat==="inner" && i.alsoTop));
+    || (cat==="inner" && i.cat==="top" && i.alsoInner) || (cat==="top" && i.cat==="inner" && i.alsoTop && need >= 2));   // ヒートテックTを1枚で着るのは涼しい日だけ
   if(!items.length || !need) return [null];
   // 暖かさは±1までなら「ほぼ合っている」として軽く見る（服の厚さだけで選ばれないように）。
   // それより外れると重くし、寒い側に外れるほうを厚手側より重く見る
   // ・トップスは薄い側には甘くしない（長袖の日に半袖、をニットの羽織りでごまかさない）
   // ・パンツは厚い側に+1まで自由（少し厚いパンツは問題になりにくい）
   const score = i => { const d = (cat==="top" ? Math.max(1, i.warmth) : i.warmth) - need; let base;   // タンクトップ（0）も1枚で着るときは半袖と同じ扱い
-    if(cat==="top" && d < 0) base = -d*1.5;
+    if(cat==="top" && d < 0) base = d === -1 && i.warmth >= 2 ? 0.4 : -d*1.5;   // 長袖（シャツ・ロンT）は1段薄くても上着で補える。半袖は甘くしない
     else if(cat==="inner") base = Math.abs(d)*0.6 + (i.cat==="inner" ? 0 : 2.5);   // インナーは必要な厚さにきっちり。冷える日はふつうのTシャツより発熱インナーを優先
     else if(cat==="bottom") base = d >= 0 && d <= 1 ? d*0.05 : d === -1 ? 0.6 : d < 0 ? 0.6 + (-d-1)*2.2 : 0.2 + (d-1)*1.6;
     else base = Math.abs(d) <= 1 ? Math.abs(d)*0.15 : d < 0 ? 0.3 + (-d-1)*2.2 : 0.3 + (d-1)*1.6;
     return base + (rain ? (i.rain ? -0.6 : 0.6) : 0); };
   const best = Math.min(...items.map(score));
   const order = i => score(i) + recentPenalty(i) + dayJitter(i);
-  return items.filter(i => score(i) <= best + 1.3).sort((a,b)=>order(a)-order(b)).slice(0,10).map(i=>({i, w:score(i)}));
+  return items.filter(i => score(i) <= best + 1.3).sort((a,b)=>order(a)-order(b)).slice(0, cat==="top" || cat==="outer" ? 14 : 10).map(i=>({i, w:score(i)}));   // トップス・羽織りは候補を多めに（シャツがニットやスウェットに押し出されないように）
 }
 /* トップスと羽織りは、1枚ずつではなく重ねた合計の暖かさで見る（薄手のシャツ＋暖かいコート、のような組み合わせを認める） */
 function layerPen(items, r){
@@ -1115,7 +1115,10 @@ function pickOutfit(r){
   const isTee = i => !!i && (i.alsoInner || i.cat==="inner" || /Tシャツ|ティーシャツ|ロンT|タンク|カットソー/.test(i.name||""));
   const tees = activeCloset().filter(i=>i.cat==="top" && i.alsoInner && i.warmth <= 2);
   const innerList = r.innerNeed ? cands("inner", r.innerNeed, false) : [null].concat(tees.map(i=>({i, w:0})));
-  const lists = [cands("top", r.topNeed, false), cands("outer", r.outerNeed, r.rain), cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain), innerList,
+  const outerList = cands("outer", r.outerNeed, r.rain);
+  // 羽織りが薄手でいい日（持ち歩きの日・薄手の羽織りの日）は、羽織りなし（シャツ1枚など）も選べる。下で、トップスの厚さが足りるかを見て点を引く
+  if(outerList[0] && !r.rain && (r.carry || r.outerNeed <= 2)) outerList.push({i:null, w:0});
+  const lists = [cands("top", r.topNeed, false), outerList, cands("bottom", r.bottomNeed, false), cands("shoes", r.shoesNeed, r.rain), innerList,
     // かなり冷える日（極暖の日）は、ヒートテックの上にTシャツを重ねてもいい（Tシャツ以外のトップスのとき）
     r.innerNeed >= 2 ? [null].concat(tees.filter(i=>i.warmth >= 1 && !/タンク/.test(i.name)).map(i=>({i, w:0}))) : [null]];   // ヒートテックの上はTシャツ（タンクトップは重ねない）
   let combos = [{items:[], w:0}];
@@ -1140,11 +1143,15 @@ function pickOutfit(r){
   combos.forEach(c=>{ const t = c.items[0]; if(!r.innerNeed && tees.length && t && t.cat==="top" && !isTee(t) && !c.items[4]) c.w += 0.6;
     if(r.innerNeed >= 2 && tees.length && t && t.cat==="top" && !isTee(t) && c.items[4] && c.items[4].cat==="inner" && !c.items[5]) c.w += 0.3; });   // Tシャツ以外のトップスの下にはTシャツを入れる
   if(!combos.length) combos = [{items:[null,null,null,null,null,null], w:0}];
-  combos.forEach(c=>{ const vis = c.items.slice(0,4); c.j = judgeOutfit(vis, prefs.style === "any" ? mainStyleOf(vis) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + c.items.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });
+  combos.forEach(c=>{ const o = c.items[1]; if(o && o.cat==="top" && r.outerNeed <= 3 && r.topNeed >= 2) c.w -= 0.25; });   // 涼しい日は「羽織りOK」のシャツを羽織りとして使うのを少し優先（長袖T＋シャツの羽織り）
+  combos.forEach(c=>{ const t = c.items[0]; if(r.outerNeed && t && !c.items[1]){ c.noOuter = true; c.w += 0.35 + Math.max(0, r.topNeed + r.outerNeed - Math.max(1, t.warmth) - 1)*0.6; } });   // 羽織りなしは、トップス1枚の厚さが足りないほど点を引く
+  combos.forEach(c=>{ const vis = c.items.slice(0,4); c.j = judgeOutfit(vis, prefs.style === "any" ? mainStyleOf(vis) : prefs.style); c.score = c.w + layerPen(c.items, r) + c.j.pen + vis.reduce((a,i)=>a + recentPenalty(i) + dayJitter(i), 0); });   // 見えない中の服（インナー）は、日替わりの点に入れない（シャツやニットの日が、中のTシャツの分だけ不利にならないように）
   combos.sort((a,b)=>a.score-b.score);
   const best = combos[0].score;
   // シャッフル用の候補：点の近いものから、前の候補と服がかぶらないものを優先して並べる（パンツや靴も入れかわるように）
-  const pool = combos.filter(c=>c.score <= best + 1.2).slice(0,200);
+  // 中のインナーだけが違う組み合わせは1つにまとめる（同じ見た目が候補を埋めて、シャツの羽織りなど別の着方が押し出されないように）
+  const seen = new Set();
+  const pool = combos.filter(c=>{ if(c.score > best + 1.2) return false; const k = c.items.slice(0,4).map(i=>i ? i.id : "-").join("|"); if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,200);
   const good = [pool[0]];
   while(good.length < 12 && good.length < pool.length){
     let pick = null, ps = Infinity;
@@ -1209,6 +1216,8 @@ function renderToday(){
   ].forEach(([cat, need, text, rain, extra], k)=>{
     if(cat==="inner" && !need && !outfit.items[4]) return;
     if(cat==="tee2" && !outfit.items[5]) return;
+    if(cat==="outer" && outfit.noOuter){ const g = el("div","gtag"); const head = el("div","cat"); head.appendChild(el("span",null,CATS.outer)); g.appendChild(head);
+      g.appendChild(el("div","name","なし（トップス1枚で）")); g.appendChild(el("div","sub","めやす：" + text + (r.carry ? "" : " / 朝晩が気になるなら、薄手の羽織りをかばんに"))); tags.appendChild(g); return; }
     const g = el("div","gtag");
     const head = el("div","cat"); head.appendChild(el("span",null, cat==="tee2" ? "インナー（Tシャツ）" : CATS[cat]));
     const p = outfit.items[k];
