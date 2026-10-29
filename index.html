@@ -229,6 +229,8 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .gaplist .gmk.ok{color:#2e7d4f}.gaplist .gmk.ng{color:#c0392b}.gaplist .gmk.warn{color:#b8860b}
 .gaplist .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .gapsum{font-size:14px;margin:0 0 4px}
+.aibox{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.aibox .gaplist{align-self:stretch}
 .know{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
 .kcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-width:0}
 .kcard h3{font-size:15px;font-weight:700;color:var(--indigo);margin-bottom:8px}
@@ -1245,37 +1247,16 @@ function renderCloset(){
     wrap.appendChild(g);
   });
 }
-/* 手持ちの服チェック：「方向性リサーチ」の最小セットと、天気・バランスの観点で足りない服を出す */
-const ESSENTIALS = [
-  {name:"白のオックスフォードシャツ（ボタンダウン）", why:"きれいめとトラッドの両方に入る、いちばん使いやすい1枚。", cat:"top", re:/オックスフォード|ボタンダウン|BD|シャツ/, not:/Tシャツ|ロンT|タンク/, colors:["white","ivory"]},
-  {name:"サックスブルーのオックスフォードシャツ", why:"きれいめのテーマカラーにある青。顔まわりを明るく見せる。", cat:"top", re:/オックスフォード|ボタンダウン|BD|シャツ/, not:/Tシャツ|ロンT|タンク/, colors:["sax"]},
-  {name:"ネイビーのハイゲージ・クルーネックニット", why:"シャツに重ねてトラッド、1枚でモード。3つのスタイルをつなぐ軸。", cat:"top", re:/ニット|セーター/, colors:["navy"]},
-  {name:"黒のハイゲージニット（またはコシのある黒T）", why:"大人のモードの日の主役。マットな質感で靴のツヤと差をつける。", cat:"top", re:/ニット|セーター|Tシャツ|カットソー/, colors:["black"], styles:["kirei","mode","basic"]},
-  {name:"チャコールグレーのスラックス（センタープレス）", why:"3つのスタイルすべてに◎。Iラインが作りやすい。", cat:"bottom", re:/スラックス|トラウザー|パンツ/, colors:["charcoal","gray"], styles:["kirei","mode","trad"]},
-  {name:"黒のストレートスラックス", why:"きれいめとモードの土台。肩幅が広いのでテーパードよりストレート。", cat:"bottom", re:/スラックス|トラウザー/, colors:["black"]},
-  {name:"ベージュのチノ（またはコーデュロイ）", why:"英国トラッドの日のパンツ。秋冬はコーデュロイが英国らしい。", cat:"bottom", re:/チノ|コーデュロイ/, colors:["beige","brown","khaki"]},
-  {name:"ネイビーの無地ジャケット（エポレットなし）", why:"きれいめの軸の上着。肩線が肩先に合うサイズで。", cat:"outer", re:/ジャケット|テーラード|ブレザー/, not:/ダウン|マウンテン|ナイロン|アノラック|CPO|シャツ/, colors:["navy"]},
-  {name:"ネイビーかベージュのステンカラーコート（膝上）", why:"きれいめ・英国トラッド・モードに共通で使えるコート。", cat:"outer", re:/ステンカラー|バルマカーン|トレンチ|コート/, not:/ダウン/, colors:["navy","beige"]},
-  {name:"黒のローファー", why:"きれいめの基準の靴。カジュアルな日もこれ1足で大人っぽくなる。", cat:"shoes", re:/ローファー/},
-  {name:"茶のセミブローグかウイングチップ", why:"靴だけ英国に寄せる「25%のずらし」に使う。", cat:"shoes", re:/ブローグ|ウイング|ウィング|Uチップ|U チップ/, colors:["brown","beige"]},
-  {name:"黒のサイドゴアブーツ", why:"モード寄りの日の靴。冬の足元にも。", cat:"shoes", re:/サイドゴア|チェルシー|ブーツ/, colors:["black"]}
-];
-function findHave(e, list){
-  return list.find(i=> (i.cat===e.cat || (e.cat==="top" && i.cat==="inner" && i.alsoTop)) && e.re.test(i.name||"") && !(e.not && e.not.test(i.name||""))
-    && (!e.colors || e.colors.includes(colorOf(i))) && (!e.styles || e.styles.includes(styleOf(i)) || e.styles.includes(style2Of(i))));
-}
+/* 手持ちの服チェック：AIによる足りない服と、天気・バランスの観点 */
 function renderGap(){
   const box = $("gap"); if(!box) return; box.textContent = "";
   box.appendChild(el("h3",null,"手持ちの服チェック（足りないもの）"));
   const list = closet || [];
   if(!list.length){ box.appendChild(el("p","gapsum","クローゼットに服を登録すると、知識ノートの基準と照らして足りない服を出します。")); return; }
   const mk = (ul, kind, title, why)=>{ const li = el("li"); li.appendChild(el("span","gmk " + kind, kind==="ok" ? "✓" : kind==="ng" ? "✕" : "！")); const t = el("span",null,title); if(why) t.appendChild(el("span","why",why)); li.appendChild(t); ul.appendChild(li); };
-  // 1. 最小セット
-  const have = ESSENTIALS.map(e=>({e, it:findHave(e, list)}));
-  const nOk = have.filter(x=>x.it).length;
-  box.appendChild(el("p","gapsum",`きれいめ×英国トラッド×モードの最小セット（12点）のうち、${nOk}点がそろっています。`));
-  box.appendChild(el("h4",null,"足りないもの"));
-  const ul1 = el("ul","gaplist"); have.filter(x=>!x.it).forEach(x=>mk(ul1,"ng",x.e.name,x.e.why)); if(!ul1.children.length) mk(ul1,"ok","最小セットはすべてそろっています"); box.appendChild(ul1);
+  // 1. 知識と手持ちから、AIが足りない服を考える（知識カードが変われば結果も変わる）
+  box.appendChild(el("h4",null,"知識から考えた、足りない服"));
+  const aiBox = el("div","aibox"); box.appendChild(aiBox); renderAdvice(aiBox);
   // 2. 天気への備え
   box.appendChild(el("h4",null,"天気への備え"));
   const ul2 = el("ul","gaplist");
@@ -1310,9 +1291,55 @@ function renderGap(){
   if(dup.length) mk(ul3,"warn","同じ名前の服が2回登録されています：" + dup.join("、"), "まちがえて2回登録したなら、クローゼットで片方を削除してください。");
   if(!ul3.children.length) mk(ul3,"ok","バランスは良好です");
   box.appendChild(ul3);
-  // 4. そろっているもの
-  const okList = have.filter(x=>x.it);
-  if(okList.length){ box.appendChild(el("h4",null,"そろっているもの")); const ul4 = el("ul","gaplist"); okList.forEach(x=>mk(ul4,"ok",x.e.name,"手持ち：" + x.it.name)); box.appendChild(ul4); }
+}
+/* AIのアドバイス：服の知識カード＋手持ちの一覧を中継サーバーに送る */
+let adviceBusy = false;
+function knowledgeText(){ return KNOWLEDGE.map(sec=>"■" + sec.h + "\n" + sec.li.map(t=>"・" + t).join("\n")).join("\n"); }
+function closetText(){
+  return (closet||[]).map(i=>{ const c = colorOf(i); const fl = [i.alsoOuter && "羽織りOK", i.alsoInner && "インナーOK", i.alsoTop && "トップスOK", i.rain && "撥水"].filter(Boolean).join("・");
+    return `- [${CATS[i.cat]||i.cat}] ${i.name}（系統:${styleLabel(i)}、色:${c ? COLORS[c].n : "不明"}、暖かさ${i.warmth}、きれいめ度${dressOf(i)}${fl ? "、" + fl : ""}）`; }).join("\n");
+}
+function goalText(){ return prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）"; }
+function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText(); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
+function renderAdvice(boxEl){
+  const box = boxEl || document.querySelector("#gap .aibox"); if(!box) return; box.textContent = "";
+  const cache = LS.get("kn.advice", null), fresh = cache && cache.sig === adviceSig();
+  const btn = el("button","btn fix-btn", adviceBusy ? "考えています…" : fresh ? "もう一度考える" : "知識から足りない服を出す"); btn.type = "button"; btn.disabled = adviceBusy;
+  btn.addEventListener("click", ()=>fetchAdvice(true));
+  if(cache && cache.advice){
+    const a = cache.advice;
+    if(!fresh) box.appendChild(el("p","hint","※ 服か知識が変わったので、下は前回の結果です。「知識から足りない服を出す」で考え直します。"));
+    if(a.summary) box.appendChild(el("p","gapsum", a.summary));
+    const ul = el("ul","gaplist");
+    (a.missing||[]).slice().sort((x,y)=>(x.priority||3)-(y.priority||3)).forEach(m=>{
+      const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
+      const t = el("span",null, m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : ""));
+      t.appendChild(el("span","why", (m.reason||"") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : ""))); li.appendChild(t); ul.appendChild(li); });
+    if(!ul.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"知識から見て、足りない服はありません")); ul.appendChild(li); }
+    box.appendChild(ul);
+    if((a.strengths||[]).length){ box.appendChild(el("h4",null,"軸になっている手持ち")); const u2 = el("ul","gaplist"); a.strengths.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,x)); u2.appendChild(li); }); box.appendChild(u2); }
+    if((a.letgo||[]).length){ box.appendChild(el("h4",null,"出番が少なそうな服")); const u3 = el("ul","gaplist"); a.letgo.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); li.appendChild(el("span",null,x)); u3.appendChild(li); }); box.appendChild(u3); }
+    box.appendChild(el("p","hint", new Date(cache.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " にAI（Gemini）が、服の知識タブの内容と手持ちの服から考えました。"));
+  } else if(!adviceBusy){
+    box.appendChild(el("p","hint","服の知識タブの内容と手持ちの服の一覧をAI（Gemini）に送って、足りない服を考えます。写真は送りません。"));
+  }
+  const msg = el("p","hint"); msg.id = "adviceMsg"; box.appendChild(msg);
+  box.appendChild(btn);
+}
+async function fetchAdvice(force){
+  if(adviceBusy || !(closet && closet.length)) return;
+  const cache = LS.get("kn.advice", null);
+  if(!force && cache && cache.sig === adviceSig()) return;
+  adviceBusy = true; renderAdvice();
+  let err = "";
+  try{
+    const r = await fetch(AI_API.replace(/classify$/, "advise"), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({knowledge: knowledgeText(), closet: closetText(), goal: goalText()}), signal: AbortSignal.timeout(100000)});
+    const j = await r.json().catch(()=>({}));
+    if(r.ok && j.advice) LS.set("kn.advice", {sig: adviceSig(), at: Date.now(), advice: j.advice});
+    else err = (j.error==="ai_failed" || r.status===429) ? "AIが混み合っています。少し待ってからもう一度押してください。" : "考えられませんでした（" + (j.error || r.status) + "）。";
+  }catch(e){ err = "中継サーバーにつながりませんでした。通信状態を確かめてください。"; }
+  adviceBusy = false; renderAdvice();
+  if(err){ const m = document.getElementById("adviceMsg"); if(m) m.textContent = err; }
 }
 function renderKnow(){
   const box = $("know"); box.textContent = "";
@@ -1371,6 +1398,7 @@ document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",
   const v = b.dataset.view;
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", String(x===b)));
   $("view-today").hidden = v!=="today"; $("view-closet").hidden = v!=="closet"; $("view-know").hidden = v!=="know";
+  if(v==="know") fetchAdvice(false);   // 服か知識が変わっていたら、開いたときに考え直す
   window.scrollTo(0,0);
 }));
 $("itCat").addEventListener("change", updateWarmHint);
