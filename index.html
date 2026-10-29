@@ -700,6 +700,7 @@ const KNOWLEDGE = [
     "このアプリでは、きれいめを目指す日はきれいめ7:カジュアル3、ストリートやアメカジの日は5:5くらいをめやすにしている。カジュアルに寄りすぎたら、まずくつかパンツ（全体の土台）をきれいめにする。"
   ]},
   {h:"重ね着と暖かさ", li:[
+    "外に行くほど暖かく（厚く）重ねる：インナー → トップス → 羽織り・上着。上着はトップスより厚いものを選び、ニットの上に薄いシャツ、のような逆の重ね方はしない。",
     "トップスと羽織りは、1枚ずつではなく重ねた合計の暖かさで考える。薄手のシャツに暖かいコートでも、合計が足りていればいい。",
     "ただし長袖が必要な日に半袖を着て、厚い羽織りで補うのは不自然。半袖の上にはシャツやアノラックなど薄手の羽織りまで。",
     "前を開けたシャツやジップパーカーは羽織りにもなる。中はTシャツ・タンクトップ・ヘンリーネックなど。シャツの上にシャツは重ねず、中の服を羽織りより厚くしない。",
@@ -1062,7 +1063,14 @@ function pickOutfit(r){
   // 同じ服を2回使わない。シャツを羽織りにするときは、中はTシャツやニットなど（シャツの上にシャツは重ねない）
   // 半袖（暖かさ1）の上には、ニットやコートのような厚い羽織り（3以上）を重ねない
   combos = combos.filter(c=>{ const t = c.items[0], o = c.items[1]; return !(t && o && t.warmth <= 1 && o.warmth >= 3); });
-  combos = combos.filter(c=>{ const t = c.items[0], o = c.items[1]; if(!t || !o || o.cat !== "top") return true; return t !== o && !t.alsoOuter && t.warmth <= o.warmth + 1; });   // 厚手のスウェットの上に半袖シャツ、のような重ね方はしない
+  combos = combos.filter(c=>{ const t = c.items[0], o = c.items[1]; if(!t || !o || o.cat !== "top") return true; return t !== o && !t.alsoOuter; });
+  // 外に行くほど暖かく（厚く）する：インナー ≦ トップス ≦ 羽織り。トップスより薄い羽織りは重ねない
+  const wv = i => Math.max(1, i.warmth);
+  combos = combos.filter(c=>{ const [t, o, , , inn, t2] = c.items;
+    if(t && o && (o.cat === "outer" ? wv(t) >= wv(o) : wv(t) > wv(o))) return false;   // 上着はトップスより厚いもの。シャツの羽織りは同じ厚さまで
+    if(t && t2 && wv(t2) > wv(t)) return false;
+    if(t && inn && inn.cat !== "inner" && wv(inn) > wv(t)) return false;
+    return true; });   // 厚手のスウェットの上に半袖シャツ、のような重ね方はしない
   combos = combos.filter(c=>{ const t = c.items[0], inn = c.items[4]; if(!inn) return true;
     if(inn === t || inn === c.items[1]) return false;
     if(!r.innerNeed) return !!(t && t.cat==="top" && !isTee(t));   // Tシャツ以外のトップスの下にだけ
