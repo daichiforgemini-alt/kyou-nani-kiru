@@ -1603,11 +1603,12 @@ function zozoSearch(q){
 }
 /* メルカリの絞り込み：販売中・3万円まで・状態は「新品〜目立った傷や汚れなし」（長く使えるもの）。サイズは知識タブの「自分のサイズ」から自動で選ぶ */
 const MERCARI_SIZE_KEY = "f42ae390-04ff-46ea-808b-f5d97cb45db4";
-const MERCARI_SIZE = {S:"8a58efd8-34a0-4e4a-9202-e95a08b2a4bc", shoe26:"ddbf6a6a-ef37-4c8b-8686-315ebe36b0b3", shoe265:"83ba38c5-630b-41b4-90de-95a4de1ad97f"};
+const MERCARI_SIZE = {S:"8a58efd8-34a0-4e4a-9202-e95a08b2a4bc", M:"d5dbe802-d454-4368-b988-5c14f003e507", shoe26:"ddbf6a6a-ef37-4c8b-8686-315ebe36b0b3", shoe265:"83ba38c5-630b-41b4-90de-95a4de1ad97f"};
 const LEATHER_SHOE_RE = /革靴|レザーシューズ|ローファー|ブローグ|ウイングチップ|Uチップ|ストレートチップ|プレーントゥ|ダービー|モンク|ドレスシューズ|サイドゴア|チャッカ|ブーツ/;
 function mercariSize(cat, name){
   if(cat === "shoes") return LEATHER_SHOE_RE.test(name||"") ? {id:MERCARI_SIZE.shoe26, label:"26cm"} : {id:MERCARI_SIZE.shoe265, label:"26.5cm"};   // スニーカーは26.5、革靴は26
-  if(["top","outer","bottom","inner"].includes(cat)) return {id:MERCARI_SIZE.S, label:"S"};   // 日本のMは大きい → S
+  if(cat === "bottom") return {id:MERCARI_SIZE.S + "%2C" + MERCARI_SIZE.M, label:"S・M"};   // パンツはウエストS・丈Mなので両方
+  if(["top","outer","inner"].includes(cat)) return {id:MERCARI_SIZE.S, label:"S"};   // 日本のMは大きい → S
   return null;
 }
 function mercariUrl(q, cat, name){
