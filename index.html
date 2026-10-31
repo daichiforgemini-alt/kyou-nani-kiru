@@ -1479,8 +1479,17 @@ function goalText(){ return (prefs.style && prefs.style !== "any" ? STYLES[prefs
   + "。買い物の方針：長く使える品質のものを優先。予算はメルカリの中古で1点2万円以内なので、新品が高いブランドも候補にしてよい。ブランドの price はメルカリでの中古相場の目安で書く"; }
 function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText(); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
 /* 足りない服を通販サイトで探す。ZOZOTOWNは検索語をShift_JISで送る必要があるので、フォームで開く */
+/* お店やXのページは、アプリとは別のウィンドウで開く（パソコンでは小窓、iPhone・iPadではSafariの新しいタブ） */
+const WIN_FEATURES = "popup,width=1100,height=900";
+function openWin(url){ const w = window.open(url, "_blank", WIN_FEATURES); if(w){ try{ w.opener = null; }catch(e){} } else location.href = url; }
+document.addEventListener("click", e=>{
+  const a = e.target.closest && e.target.closest('a[target="_blank"]'); if(!a || !/^https?:/.test(a.href)) return;
+  if(e.metaKey || e.ctrlKey || e.shiftKey) return;   // 修飾キーつきはブラウザに任せる
+  e.preventDefault(); openWin(a.href);
+});
 function zozoSearch(q){
-  const f = document.createElement("form"); f.action = "https://zozo.jp/search/"; f.method = "get"; f.acceptCharset = "Shift_JIS"; f.target = "_blank";
+  const name = "zozo" + Date.now(); const w = window.open("about:blank", name, WIN_FEATURES);
+  const f = document.createElement("form"); f.action = "https://zozo.jp/search/"; f.method = "get"; f.acceptCharset = "Shift_JIS"; f.target = w ? name : "_blank";
   const i = document.createElement("input"); i.type = "hidden"; i.name = "p_keyv"; i.value = q; f.appendChild(i); document.body.appendChild(f); f.submit(); f.remove();
 }
 /* メルカリの絞り込み：販売中・2万円まで・状態は「新品〜目立った傷や汚れなし」（長く使えるもの）。サイズは知識タブの「自分のサイズ」から自動で選ぶ */
