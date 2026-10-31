@@ -133,6 +133,8 @@ button,input,select{font:inherit;color:inherit}
 .outfit-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
 .outfit-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
 .btns{display:flex;flex-wrap:wrap;gap:8px}
+.rank{margin:4px 0 10px;padding-left:1.6em;font-size:13.5px;line-height:1.7}
+.rank li span.cnt{color:var(--muted);margin-left:.5em;font-size:12.5px}
 .candlist{display:grid;gap:8px;margin:10px 0 14px}
 .cand{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
 .cand.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent)}
@@ -1518,6 +1520,8 @@ function renderUnused(ub){
     if(!unusedCache.list.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"どの服も、どこかの季節のコーデ候補に出てきます")); ul.appendChild(li); }
     unusedCache.list.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); const t = el("span",null, x.name + "（" + (CATS[x.cat]||"").replace(/（.*）/,"") + "）"); t.appendChild(el("span","why", x.why)); li.appendChild(t); ul.appendChild(li); });
     ub.appendChild(ul);
+    if((unusedCache.rank||[]).length){ ub.appendChild(el("p","gapsum","出番が少ない順（候補に出てきた回数）"));
+      const ol = el("ol","rank"); unusedCache.rank.forEach(x=>{ const li = el("li"); li.appendChild(el("span",null, x.name + "（" + (CATS[x.cat]||"").replace(/（.*）/,"") + "）")); li.appendChild(el("span","cnt", x.c + "回")); ol.appendChild(li); }); ub.appendChild(ol); }
     ub.appendChild(el("p","hint","真冬から真夏、雨の日まで" + unusedCache.n + "通りの天気で、点の近いコーデの候補（それぞれ最大200通り）を作って数えました。「高かった」「思い出がある」で残さず、世界観が合わない服は、手持ちにねじ込むより手放して、合う服を買うほうがおしゃれになります。"));
   }
   const btn = el("button","btn fix-btn", unusedBusy ? "調べています…" : fresh ? "もう一度調べる" : "いらない服を調べる"); btn.type = "button"; btn.disabled = unusedBusy;
@@ -1540,7 +1544,10 @@ async function findUnused(){
     if(twin) why.push("同じ色・同じ系統の「" + twin.name + "」のほうが選ばれています。");
     if(dressOf(i) <= 2 && ["kirei","trad","mode","euro"].includes(main)) why.push("カジュアル寄り（きれいめ度" + dressOf(i) + "）。");
     return {name:i.name, cat:i.cat, why: why.join("")}; });
-  unusedCache = {sig: closetSig(), list, n: CONDS.length};
+  const total = Object.values(count).reduce((a,b)=>a+b,0) || 1;
+  const rank = (closet||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && count[i.id])
+    .map(i=>({name:i.name, cat:i.cat, c:count[i.id]})).sort((a,b)=>a.c-b.c).slice(0,10);
+  unusedCache = {sig: closetSig(), list, rank, n: CONDS.length};
   unusedBusy = false; renderToday(); renderUnused();
 }
 /* AIのアドバイス：服の知識カード＋手持ちの一覧を中継サーバーに送る */
