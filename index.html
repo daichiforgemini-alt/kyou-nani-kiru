@@ -422,7 +422,8 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
           <option value="shoes">くつ</option>
           <option value="inner">インナー（ヒートテックなど）</option>
           <option value="bag">バッグ</option>
-          <option value="acc">小物（帽子・メガネ・アクセ・ベルトなど）</option>
+          <option value="belt">ベルト</option>
+          <option value="acc">小物（帽子・メガネ・アクセなど）</option>
         </select>
       </div>
       <div class="field" id="warmField"><span class="lbl">暖かさ</span>
@@ -528,10 +529,10 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 "use strict";
 
 /* ---------- 定数 ---------- */
-const CATS = {top:"トップス", outer:"アウター・羽織り", bottom:"ボトムス", shoes:"くつ", inner:"インナー（ヒートテックなど）", bag:"バッグ", acc:"小物（帽子・メガネ・アクセ・ベルトなど）"};
-const NOWARM = {bag:1, acc:1};   // 暖かさを使わない種類
+const CATS = {top:"トップス", outer:"アウター・羽織り", bottom:"ボトムス", shoes:"くつ", inner:"インナー（ヒートテックなど）", bag:"バッグ", belt:"ベルト", acc:"小物（帽子・メガネ・アクセなど）"};
+const NOWARM = {bag:1, belt:1, acc:1};   // 暖かさを使わない種類
 const WARM_HINT = {
-  bag: ["","","","",""], acc: ["","","","",""],
+  bag: ["","","","",""], belt: ["","","","",""], acc: ["","","","",""],
   top:   ["半袖T・タンクトップ","長袖T・シャツ","スウェット・薄手ニット","厚手ニット・タートル","裏起毛・極厚ニット"],
   outer: ["カーディガン・シャツ羽織り","パーカー・デニムジャケット","トレンチ・ライトジャケット","ウールコート・中綿","ダウン"],
   bottom:["ショートパンツ・薄手スカート","チノ・薄手パンツ","デニム・厚手パンツ","コーデュロイ・ウール","裏起毛パンツ"],
@@ -872,6 +873,8 @@ const LS = {
   set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ return false; } }
 };
 let closet = LS.get("kn.closet", null);
+// 以前「小物」で登録したベルトは「ベルト」の枠へ移す
+if(Array.isArray(closet) && closet.some(i=>i && i.cat==="acc" && /ベルト/.test(i.name||""))){ closet.forEach(i=>{ if(i && i.cat==="acc" && /ベルト/.test(i.name||"")) i.cat = "belt"; }); LS.set("kn.closet", closet); }
 let prefs  = LS.get("kn.prefs", {move:"walk", body:0, span:"day"});
 if(!prefs.style || (prefs.style !== "any" && !STYLES[prefs.style])) prefs.style = "kirei";
 let loc    = LS.get("kn.loc", null);          // {lat, lon, name}
@@ -1221,8 +1224,8 @@ function pickOutfit(r){
     if(!pick) break; good.push(pick);
   }
   const pick = good[seed % good.length];
-  if(pick){ const vis = pick.items.slice(0,4), st = style0 || mainStyleOf(vis); const b = pickBag(pick, r, st), a = pickAcc(pick, r, st);
-    pick.items[7] = b.i; pick.bagWhy = b.why; pick.items[8] = a.i; pick.accWhy = a.why; }
+  if(pick){ const vis = pick.items.slice(0,4), st = style0 || mainStyleOf(vis); const b = pickBag(pick, r, st), a = pickAcc(pick, r, st), bt = pickBelt(pick, r, st);
+    pick.items[7] = b.i; pick.bagWhy = b.why; pick.items[8] = a.i; pick.accWhy = a.why; pick.items[9] = bt.i; pick.beltWhy = bt.why; }
   return pick;
 }
 /* バッグ：シルエットを見せる服（ジャケット・コート、きれいめ・トラッド・モードの日）には手持ち。ボディバッグの斜めがけは合いにくい */
@@ -1237,6 +1240,17 @@ function pickBag(c, r, st){
     if(sc < bs){ bs = sc; best = b; } });
   const why = dressy && best && HANDBAG_RE.test(best.name||"") ? "シルエットを見せる日は、崩さない手持ちのバッグ" : dressy && best && BODYBAG_RE.test(best.name||"") ? "シルエットを見せる日は、ボディバッグやリュックより手持ちのほうがシルエットを崩さない" : "";
   return {i:best, why};
+}
+/* ベルト：靴の色とそろえる（体のどこを見ても視線が顔に戻る）。黒とチャコール、茶系どうしは同じ色として見る */
+function pickBelt(c, r, st){
+  const belts = activeCloset().filter(i=>i.cat==="belt"); const shoes = c.items[3], bottom = c.items[2];
+  if(!belts.length || !bottom) return {i:null, why:""};
+  const fam = col => ["black","charcoal"].includes(col) ? "dark" : ["brown","beige","khaki"].includes(col) ? "brown" : col || "";
+  const sf = shoes ? fam(colorOf(shoes)) : "";
+  let best = null, bs = Infinity;
+  belts.forEach(b=>{ const sc = (sf && fam(colorOf(b)) === sf ? 0 : 1) + itemDist(st, b)*0.3 + dayJitter(b) + recentPenalty(b)*0.3; if(sc < bs){ bs = sc; best = b; } });
+  const match = sf && fam(colorOf(best)) === sf;
+  return {i:best, why: match ? "靴の色とそろえる（体のどこを見ても視線が顔に戻る）" : shoes ? "靴と色がそろうベルトがあると、視線が顔に戻りやすい" : ""};
 }
 /* 小物：顔も体も情報量が控えめなので、細いアクセやメガネで少し情報を足す。帽子は基本なしでよく、トラッドの日だけハットも。マフラーは寒い日だけ */
 function pickAcc(c, r, st){
@@ -1302,11 +1316,12 @@ function renderToday(){
     ["shoes", r.shoesNeed, r.shoesText, r.rain, r.rain ? "濡れても平気なものを" : ""],
     ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : "ヒートテックなどの発熱インナー", false, "いちばん内側に"],
     ["bag", 0, "バッグ", false, "", 7],
+    ["belt", 0, "ベルト", false, "", 9],
     ["acc", 0, "小物", false, "", 8]
   ].forEach(([cat, need, text, rain, extra, idx], k0)=>{
     const k = idx != null ? idx : k0 - 1;   // 「トップス（中）」の行を2番目に足したので、それ以降は1つずれる
     if(cat==="mid" && !outfit.items[6]) return;
-    if((cat==="bag" || cat==="acc") && !outfit.items[k]) return;
+    if((cat==="bag" || cat==="acc" || cat==="belt") && !outfit.items[k]) return;
     if(cat==="inner" && !need && !outfit.items[4]) return;
     if(cat==="outer" && outfit.noOuter){ const g = el("div","gtag"); const head = el("div","cat"); head.appendChild(el("span",null,CATS.outer)); g.appendChild(head);
       g.appendChild(el("div","name","なし（トップス1枚で）")); g.appendChild(el("div","sub","めやす：" + text + (r.carry ? "" : " / 朝晩が気になるなら、薄手の羽織りをかばんに"))); tags.appendChild(g); return; }
@@ -1322,6 +1337,7 @@ function renderToday(){
     else if(need) sub.push("クローゼットに該当する服がないので、一般的なめやすです");
     if(cat==="bag" && outfit.bagWhy) sub.push(outfit.bagWhy);
     if(cat==="acc" && outfit.accWhy) sub.push(outfit.accWhy);
+    if(cat==="belt" && outfit.beltWhy) sub.push(outfit.beltWhy);
     if(cat==="mid" && p) sub.push(/シャツ/.test(p.name||"") && !/Tシャツ|ロンT/.test(p.name||"") ? "外の服の下に着て、襟を首元から出す" : "外の服の下に着る");
     if(extra) sub.push(extra);
     if(sub.length) g.appendChild(el("div","sub", sub.join(" / ")));
@@ -1444,13 +1460,18 @@ function renderGap(){
   // 小物（自分用の基準シートより：バッグは手持ち、アクセは細めのシルバーとシンプルな時計、薄い顔はメガネで顔まわりに視線を留める）
   box.appendChild(el("h4",null,"バッグ・小物"));
   const ulb = el("ul","gaplist");
-  const bags = list.filter(i=>i.cat==="bag"), accs = list.filter(i=>i.cat==="acc");
+  const bags = list.filter(i=>i.cat==="bag"), accs = list.filter(i=>i.cat==="acc"), belts = list.filter(i=>i.cat==="belt");
   if(!bags.length) mk(ulb,"ng","手持ちのバッグ", "バッグが登録されていません。シルエットを見せる服には手持ちのバッグ（ボディバッグやリュックはシルエットに影響する）。");
   else if(!bags.some(b=>HANDBAG_RE.test(b.name||""))) mk(ulb,"warn","手持ちのバッグ（トート・クラッチなど）", "ボディバッグやリュックはシルエットに影響する。シルエットを見せる服（きれいめ・モードなど）には手持ちのバッグ。");
   else mk(ulb,"ok","手持ちのバッグ：" + bags.find(b=>HANDBAG_RE.test(b.name||"")).name);
   if(!accs.some(a=>/ネックレス|チェーン|リング|ブレス|時計|ウォッチ|バングル/.test(a.name||""))) mk(ulb,"warn","アクセ（細くても、シルバーなど本物の素材）", "顔も体も情報量が控えめなら、服で少し情報を足すとバランスが取れる。個性を出したいときは、顔まわり（メガネ、帽子、アクセ）でずらす。アクセはメッキより本物の素材を。");
   if(!accs.some(a=>/メガネ|眼鏡/.test(a.name||""))) mk(ulb,"warn","メガネ（黒縁、強すぎるならハーフリム）", "薄い顔は、メガネで顔まわりに視線を留めると良い。個性を出したいときのずらしにも。");
-  if(!accs.some(a=>/ベルト/.test(a.name||""))) mk(ulb,"warn","ベルト（靴の色とそろえる）", "靴とベルトの色をそろえると、体のどこを見ても視線が顔に戻る。腰に黒が入ると視線が止まって落ち着く。");
+  { const fam = col => ["black","charcoal"].includes(col) ? "dark" : ["brown","beige","khaki"].includes(col) ? "brown" : col || "";
+    const shoeF = [...new Set(shoes.map(i=>fam(colorOf(i))).filter(f=>f==="dark"||f==="brown"))], beltF = new Set(belts.map(i=>fam(colorOf(i))));
+    const lack = shoeF.filter(f=>!beltF.has(f)).map(f=>f==="dark" ? "黒" : "茶");
+    if(!belts.length) mk(ulb,"warn","ベルト（靴の色とそろえる）", "靴とベルトの色をそろえると、体のどこを見ても視線が顔に戻る。腰に黒が入ると視線が止まって落ち着く。");
+    else if(lack.length) mk(ulb,"warn",lack.join("・") + "のベルト", "手持ちの靴に" + lack.join("・") + "があるのに、同じ色のベルトがありません。靴とベルトの色をそろえると、視線が顔に戻りやすい。");
+    else mk(ulb,"ok","ベルト：靴の色とそろえられます"); }
   if(!ulb.children.length) mk(ulb,"ok","バッグ・小物はそろっています");
   box.appendChild(ulb);
   box.appendChild(el("h4",null,"バランス"));
@@ -1622,7 +1643,7 @@ function renderAll(){ renderToday(); renderCloset(); renderGap(); }
 function updateWarmHint(){
   const cat = $("itCat").value;
   // 暖かさ0（タンクトップ・エアリズムなど）は、トップスとインナーだけ
-  $("warmField").hidden = !!NOWARM[cat]; $("itRain").parentElement.hidden = cat === "acc";
+  $("warmField").hidden = !!NOWARM[cat]; $("itRain").parentElement.hidden = cat === "acc" || cat === "belt";
   const zeroOk = cat === "top" || cat === "inner"; $("w0").hidden = $("w0lbl").hidden = !zeroOk;
   if(!zeroOk && $("w0").checked) $("w2").checked = true;
   const w = +document.querySelector('input[name=warm]:checked').value;
@@ -1699,7 +1720,7 @@ function applyAi(r, j, hint){
     const it = j.item;
     if(!it.is_clothing || it.cat==="other" || !CATS[it.cat]){ msg.textContent = "服や小物が見つかりませんでした。1点だけが写るように撮り直してみてください。"; return; }
     $("itName").value = String(it.name||"").slice(0,40);
-    $("itCat").value = /ヒートテック|HEATTECH|発熱|インナー|肌着|アンダーシャツ/i.test(String(it.name||"") + " " + ($("photoHint").value||"")) && it.cat==="top" ? "inner" : it.cat;
+    $("itCat").value = /ヒートテック|HEATTECH|発熱|インナー|肌着|アンダーシャツ/i.test(String(it.name||"") + " " + ($("photoHint").value||"")) && it.cat==="top" ? "inner" : (it.cat==="acc" && /ベルト/.test(String(it.name||"")) ? "belt" : it.cat);
     const w = Math.max(1, Math.min(5, Math.round(+it.warmth||3)));
     const wr = document.querySelector(`input[name=warm][value="${w}"]`); if(wr) wr.checked = true;
     $("itRain").checked = !!it.rain;
