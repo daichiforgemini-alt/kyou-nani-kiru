@@ -133,6 +133,14 @@ button,input,select{font:inherit;color:inherit}
 .outfit-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
 .outfit-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
 .btns{display:flex;flex-wrap:wrap;gap:8px}
+.candlist{display:grid;gap:8px;margin:10px 0 14px}
+.cand{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+.cand.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent)}
+.cand .no{font-weight:700;font-size:13px;color:var(--muted);min-width:1.6em}
+.cand .thumbs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px}
+.cand .thumbs img{width:34px;height:34px;object-fit:cover;border-radius:6px}
+.cand .ln{font-size:12.5px;line-height:1.55}
+.cand .ln b{font-weight:700}
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 15px;cursor:pointer;font-weight:500;font-size:14px}
 .btn:hover{border-color:var(--indigo)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#1C1300;font-weight:700}
@@ -368,8 +376,9 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 
       <div class="outfit-head">
         <h2>きょうのコーデ</h2>
-        <div class="btns"><button type="button" class="btn" id="shuffle">ほかの組み合わせ</button></div>
+        <div class="btns"><button type="button" class="btn" id="listBtn" aria-expanded="false">一覧で見る</button><button type="button" class="btn" id="shuffle">ほかの組み合わせ</button></div>
       </div>
+      <div class="candlist" id="candList" hidden></div>
       <div class="tags" id="tags"></div>
 
       <ul class="notes" id="notes"></ul>
@@ -1114,7 +1123,7 @@ function compute(s){
     bottomNeed:bottom[0], bottomText:bottom[1], shoesNeed:shoes[0], shoesText:shoes[1], innerNeed: heat ? (coldest < 2 ? 2 : 1) : 0, idx, notes, verdict, rain: s.wx==="rain"||s.wx==="snow"};
 }
 
-let seed = 0;
+let seed = 0, lastCands = [], listOpen = false;
 /* 毎日同じ服にならないように：最近の提案を覚えておき、続けて出た服は少し下げる */
 let hist = LS.get("kn.hist", {});              // {"2026-10-28": [服のid…]}
 function dayKey(off){ const d = new Date(); d.setDate(d.getDate() + off); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
@@ -1223,6 +1232,7 @@ function pickOutfit(r){
       const sc = c.score + overlap*0.45; if(sc < ps){ ps = sc; pick = c; } });
     if(!pick) break; good.push(pick);
   }
+  lastCands = good;
   const pick = good[seed % good.length];
   if(pick){ const vis = pick.items.slice(0,4), st = style0 || mainStyleOf(vis); const b = pickBag(pick, r, st), a = pickAcc(pick, r, st), bt = pickBelt(pick, r, st);
     pick.items[7] = b.i; pick.bagWhy = b.why; pick.items[8] = a.i; pick.accWhy = a.why; pick.items[9] = bt.i; pick.beltWhy = bt.why; }
@@ -1272,6 +1282,7 @@ function dots(n){ const d = el("span","dots"); d.setAttribute("aria-label","暖�
 function renderToday(){
   const s = readCond(); const r = compute(s);
   const outfit = pickOutfit(r);
+  renderCandList();
   rememberOutfit(outfit);
   $("idx").textContent = r.idx;
   $("verdict").textContent = r.verdict;
@@ -1670,6 +1681,30 @@ document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", 
   const inp = $(b.dataset.step); inp.value = (parseFloat(inp.value)||0) + (+b.dataset.d); $("autoNote").hidden = true; seed = 0; renderToday();
 }));
 $("shuffle").addEventListener("click", ()=>{ seed++; renderToday(); });
+$("listBtn").addEventListener("click", ()=>{ listOpen = !listOpen; renderCandList(); });
+/* コーデの候補を一覧で見る。押すとその組み合わせをくわしく表示する */
+function renderCandList(){
+  const box = $("candList"), btn = $("listBtn"); if(!box) return;
+  box.hidden = !listOpen; btn.textContent = listOpen ? "一覧を閉じる" : "一覧で見る"; btn.setAttribute("aria-expanded", String(listOpen));
+  box.textContent = ""; if(!listOpen) return;
+  const n = lastCands.length; if(!n){ box.appendChild(el("p","hint","候補がありません。")); return; }
+  const cur = seed % n;
+  lastCands.forEach((c, i)=>{
+    const [t, o, bo, sh, , , mid] = c.items;
+    const b = el("button","cand" + (i === cur ? " on" : "")); b.type = "button";
+    b.appendChild(el("span","no", String(i+1)));
+    const body = el("span"); const th = el("span","thumbs");
+    [t, mid, o, bo, sh].forEach(x=>{ if(x && x.img){ const im = el("img"); im.src = x.img; im.alt = ""; th.appendChild(im); } });
+    if(th.children.length) body.appendChild(th);
+    const parts = [[mid ? "外" : "トップス", t], ["中", mid], ["上着", o], ["パンツ", bo], ["くつ", sh]].filter(([, x])=>x);
+    const ln = el("span","ln"); parts.forEach(([k, x], j)=>{ if(j) ln.appendChild(document.createTextNode(" ／ ")); ln.appendChild(el("b", null, k + "：")); ln.appendChild(document.createTextNode(x.name)); });
+    if(o === null && c.noOuter){ ln.appendChild(document.createTextNode(" ／ ")); ln.appendChild(el("b",null,"上着：")); ln.appendChild(document.createTextNode("なし")); }
+    body.appendChild(ln); b.appendChild(body);
+    b.addEventListener("click", ()=>{ seed = i; listOpen = false; renderToday(); const tg = $("tags"); if(tg) tg.scrollIntoView({behavior:"smooth", block:"start"}); });
+    box.appendChild(b);
+  });
+  box.appendChild(el("p","hint","点の高い順に最大12通り。押すと、その組み合わせをくわしく表示します。"));
+}
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click", ()=>{
   const v = b.dataset.view;
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", String(x===b)));
