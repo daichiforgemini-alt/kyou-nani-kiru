@@ -813,8 +813,12 @@ const KNOWLEDGE = [
     "上着：短い丈のブルゾンでも着丈60cm以上（Alfred Alex のブルゾン M は58.2cmで少し短かった）。身幅は中に着込む分、58〜63cm。",
     "パンツ：ボタン留めのウエストは70〜74cm（Mの80cmは大きかった）。股下はくるぶし丈のワイド・テーパードで66〜70cm、フルレングスやフレアは75cmまで（76cmは長かった）。ゴムやアジャスター付きなら、表記の幅に70〜74cmが入っていればいい。",
     "くつ：CONVERSE は 8（26.5cm相当）。",
-    "これまでの価格帯：ZOZOでは1点3,000〜7,000円台が中心（いちばん高いのはメゾンキツネのTで約2万円）。",
     "ドロップショルダー（肩の縫い目が腕側に落ちた形）のニットやスウェットは、肩幅の数字が大きく出るので無視して、身幅と着丈で比べる。ZOZOでは「同じサイズ感のアイテムを探す」も使える。"
+  ]},
+  {h:"買い物の方針", li:[
+    "長く使えるものを選ぶ。1回あたりの値段で考える（長く着るなら高くても割安）。上質な素材をラフに着ると、余裕が出る。",
+    "予算はメルカリ（中古）で1点2万円以内。新品では高いブランドも、メルカリなら手が届くことがある。",
+    "メルカリで買うときは、サイズ表記ではなく出品者が書いた実寸（身幅・着丈・ウエスト・股下）を「自分のサイズ」と比べる。"
   ]},
   {h:"素材と生地の見方", li:[
     "属性はサイズ感・生地感・ディテールで決まる。白Tでも、硬い生地＋ボックス＋詰まったネック＝男らしいアメリカのストリート、柔らかい生地＋スリム＋広めのネック＝中性的なヨーロッパ・モード。",
@@ -1447,14 +1451,15 @@ function closetText(){
     const dt = Object.keys(DETAIL_KEYS).filter(k=>i[k] && DETAIL_KEYS[k][i[k]]).map(k=>DETAIL_LABEL[k] + ":" + DETAIL_KEYS[k][i[k]].replace(/（.*）/,"")).join("、");
     return `- [${CATS[i.cat]||i.cat}] ${i.name}（系統:${styleLabel(i)}、色:${c ? COLORS[c].n : "不明"}、暖かさ${i.warmth}、きれいめ度${dressOf(i)}${dt ? "、" + dt : ""}${fl ? "、" + fl : ""}）`; }).join("\n");
 }
-function goalText(){ return prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）"; }
+function goalText(){ return (prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）")
+  + "。買い物の方針：長く使える品質のものを優先。予算はメルカリの中古で1点2万円以内なので、新品が高いブランドも候補にしてよい。ブランドの price はメルカリでの中古相場の目安で書く"; }
 function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText(); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
 /* 足りない服を通販サイトで探す。ZOZOTOWNは検索語をShift_JISで送る必要があるので、フォームで開く */
 function zozoSearch(q){
   const f = document.createElement("form"); f.action = "https://zozo.jp/search/"; f.method = "get"; f.acceptCharset = "Shift_JIS"; f.target = "_blank";
   const i = document.createElement("input"); i.type = "hidden"; i.name = "p_keyv"; i.value = q; f.appendChild(i); document.body.appendChild(f); f.submit(); f.remove();
 }
-function mercariUrl(q){ return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(q) + "&status=on_sale"; }
+function mercariUrl(q){ return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(q) + "&status=on_sale&price_max=20000"; }   // 予算：メルカリで2万円まで
 /* おすすめのブランド：ZOZOTOWNとメルカリで「ブランド名＋アイテム」を探す */
 function brandChips(brands, q){
   const words = String(q||"").split(/\s+/).filter(w=>w && w !== "メンズ"), item = words[words.length-1] || "";
@@ -1502,7 +1507,7 @@ function renderAdvice(boxEl){
         t.appendChild(el("span","why", b.why||"")); const sl = el("span","shoplinks"); const z = el("button",null,"ZOZOTOWNで見る"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(b.name + " メンズ")); sl.appendChild(z);
         const mm = el("a",null,"メルカリで見る"); mm.href = mercariUrl(b.name + " メンズ"); mm.target = "_blank"; mm.rel = "noopener"; sl.appendChild(mm); t.appendChild(sl);
         li.appendChild(t); ub.appendChild(li); });
-      box.appendChild(ub); box.appendChild(el("p","hint","ブランドと値段はAIの提案です。サイズは知識タブの「自分のサイズ」と、商品ページのサイズ表で確かめてください。")); }
+      box.appendChild(ub); box.appendChild(el("p","hint","ブランドと値段（メルカリでの中古相場の目安）はAIの提案です。メルカリのボタンは2万円以下の出品だけを出します。サイズは出品の実寸と、知識タブの「自分のサイズ」で確かめてください。")); }
     if((a.letgo||[]).length){ box.appendChild(el("h4",null,"出番が少なそうな服")); const u3 = el("ul","gaplist"); a.letgo.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); li.appendChild(el("span",null,x)); u3.appendChild(li); }); box.appendChild(u3); }
     box.appendChild(el("p","hint", new Date(cache.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " にAI（Gemini）が、服の知識タブの内容と手持ちの服から考えました。"));
   } else if(!adviceBusy){
