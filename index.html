@@ -244,6 +244,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .aibox{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .aibox .gaplist{align-self:stretch}
 .know{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
+.worldin{width:100%;min-height:72px;resize:vertical;font:inherit;box-sizing:border-box}
 .kcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;min-width:0}
 .kcard h3{font-size:15px;font-weight:700;color:var(--indigo);margin-bottom:8px}
 .kcard ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;font-size:14px}
@@ -1445,7 +1446,10 @@ function renderGap(){
 }
 /* AIのアドバイス：服の知識カード＋手持ちの一覧を中継サーバーに送る */
 let adviceBusy = false;
-function knowledgeText(){ return KNOWLEDGE.map(sec=>"■" + sec.h + "\n" + sec.li.map(t=>"・" + t).join("\n")).join("\n"); }
+function worldText(){ return String(prefs.world == null ? "ミニマル系が好き" : prefs.world).trim(); }
+function knowledgeText(){ const w = worldText();
+  return (w ? "■自分の世界観（好きなもの・暮らし。ブランドや服は、この世界観で実際に着られているものから選ぶ）\n・" + w.replace(/\n+/g,"\n・") + "\n" : "")
+    + KNOWLEDGE.map(sec=>"■" + sec.h + "\n" + sec.li.map(t=>"・" + t).join("\n")).join("\n"); }
 function closetText(){
   return (closet||[]).map(i=>{ const c = colorOf(i); const fl = [i.alsoOuter && "羽織りOK", i.alsoInner && "中に着られる", i.alsoTop && "トップスOK", i.rain && "撥水"].filter(Boolean).join("・");
     const dt = Object.keys(DETAIL_KEYS).filter(k=>i[k] && DETAIL_KEYS[k][i[k]]).map(k=>DETAIL_LABEL[k] + ":" + DETAIL_KEYS[k][i[k]].replace(/（.*）/,"")).join("、");
@@ -1533,6 +1537,15 @@ async function fetchAdvice(force){
 }
 function renderKnow(){
   const box = $("know"); box.textContent = "";
+  { // 自分の世界観：好きなもの・暮らし（足りない服やブランドをAIが考えるときに使う）
+    const c = el("div","kcard"); c.appendChild(el("h3",null,"自分の世界観（好きなもの・暮らし）"));
+    c.appendChild(el("p","hint","似合う服は「自分が生きているカルチャー」から決まる。好きな音楽・映画・趣味、よく行く場所、憧れの人や雰囲気を書いておくと、足りない服やブランドをこの世界観から選びます。"));
+    const ta = el("textarea","text-in worldin"); ta.rows = 3; ta.maxLength = 400; ta.value = worldText(); ta.setAttribute("aria-label","自分の世界観");
+    ta.placeholder = "例：ミニマル系が好き／よく行くのは美術館とカフェ／電車移動が多い";
+    const msg = el("p","hint");
+    ta.addEventListener("change", ()=>{ prefs.world = ta.value.trim().slice(0,400); persist(); msg.textContent = "保存しました。下の「足りない服」を考え直すと反映されます。"; renderAdvice(); });
+    c.appendChild(ta); c.appendChild(msg); box.appendChild(c);
+  }
   KNOWLEDGE.forEach(sec=>{ const c = el("div","kcard"); c.appendChild(el("h3",null,sec.h)); const ul = el("ul"); sec.li.forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); box.appendChild(c); });
 }
 function fillSelect(sel, map, first){
