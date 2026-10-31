@@ -81,6 +81,8 @@ button,input,select{font:inherit;color:inherit}
 .credit a{color:var(--indigo)}
 .shoplinks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .shoplinks a,.shoplinks button{font:inherit;font-size:12px;padding:4px 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink,inherit);text-decoration:none;cursor:pointer}
+.shoplinks .brandrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%}
+.shoplinks .bn{font-size:12.5px;font-weight:700;min-width:6em}
 .shoplinks .q{font-size:11.5px;color:var(--muted);width:100%}
 .xlink{display:inline-flex;align-items:center;gap:6px;margin-top:8px;text-decoration:none;color:inherit}
 .xlink b{font-weight:700}
@@ -811,6 +813,7 @@ const KNOWLEDGE = [
     "上着：短い丈のブルゾンでも着丈60cm以上（Alfred Alex のブルゾン M は58.2cmで少し短かった）。身幅は中に着込む分、58〜63cm。",
     "パンツ：ボタン留めのウエストは70〜74cm（Mの80cmは大きかった）。股下はくるぶし丈のワイド・テーパードで66〜70cm、フルレングスやフレアは75cmまで（76cmは長かった）。ゴムやアジャスター付きなら、表記の幅に70〜74cmが入っていればいい。",
     "くつ：CONVERSE は 8（26.5cm相当）。",
+    "これまでの価格帯：ZOZOでは1点3,000〜7,000円台が中心（いちばん高いのはメゾンキツネのTで約2万円）。",
     "ドロップショルダー（肩の縫い目が腕側に落ちた形）のニットやスウェットは、肩幅の数字が大きく出るので無視して、身幅と着丈で比べる。ZOZOでは「同じサイズ感のアイテムを探す」も使える。"
   ]},
   {h:"素材と生地の見方", li:[
@@ -1447,16 +1450,31 @@ function closetText(){
 function goalText(){ return prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）"; }
 function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText(); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
 /* 足りない服を通販サイトで探す。ZOZOTOWNは検索語をShift_JISで送る必要があるので、フォームで開く */
+function zozoSearch(q){
+  const f = document.createElement("form"); f.action = "https://zozo.jp/search/"; f.method = "get"; f.acceptCharset = "Shift_JIS"; f.target = "_blank";
+  const i = document.createElement("input"); i.type = "hidden"; i.name = "p_keyv"; i.value = q; f.appendChild(i); document.body.appendChild(f); f.submit(); f.remove();
+}
+function mercariUrl(q){ return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(q) + "&status=on_sale"; }
+/* おすすめのブランド：ZOZOTOWNとメルカリで「ブランド名＋アイテム」を探す */
+function brandChips(brands, q){
+  const words = String(q||"").split(/\s+/).filter(w=>w && w !== "メンズ"), item = words[words.length-1] || "";
+  const box = el("span","shoplinks"); box.appendChild(el("span","q","おすすめのブランドで探す"));
+  brands.slice(0,3).forEach(b=>{ const kw = b + " " + item;
+    const row = el("span","brandrow"); row.appendChild(el("span","bn",b));
+    const z = el("button",null,"ZOZOTOWN"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(kw)); row.appendChild(z);
+    const m = el("a",null,"メルカリ"); m.href = mercariUrl(kw); m.target = "_blank"; m.rel = "noopener"; row.appendChild(m);
+    box.appendChild(row); });
+  return box;
+}
 function shopLinks(q){
   q = String(q||"").replace(/\s+/g," ").trim().slice(0,60);
   const box = el("span","shoplinks"); box.appendChild(el("span","q","探す：" + q));
   const z = el("button",null,"ZOZOTOWN"); z.type = "button";
-  z.addEventListener("click", ()=>{ const f = document.createElement("form"); f.action = "https://zozo.jp/search/"; f.method = "get"; f.acceptCharset = "Shift_JIS"; f.target = "_blank";
-    const i = document.createElement("input"); i.type = "hidden"; i.name = "p_keyv"; i.value = q; f.appendChild(i); document.body.appendChild(f); f.submit(); f.remove(); });
+  z.addEventListener("click", ()=>zozoSearch(q));
   box.appendChild(z);
   const enc = encodeURIComponent(q);
   [["ユニクロ","https://www.uniqlo.com/jp/ja/search?q=" + enc], ["GU","https://www.gu-global.com/jp/ja/search?q=" + enc],
-   ["メルカリ","https://jp.mercari.com/search?keyword=" + enc + "&status=on_sale"]].forEach(([n,u])=>{
+   ["メルカリ",mercariUrl(q)]].forEach(([n,u])=>{
     const a = el("a",null,n); a.href = u; a.target = "_blank"; a.rel = "noopener"; box.appendChild(a); });
   return box;
 }
@@ -1474,10 +1492,17 @@ function renderAdvice(boxEl){
       const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
       const t = el("span",null, m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : ""));
       t.appendChild(el("span","why", (m.reason||"") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : "")));
-      t.appendChild(shopLinks(m.query || (m.name + " メンズ"))); li.appendChild(t); ul.appendChild(li); });
+      t.appendChild(shopLinks(m.query || (m.name + " メンズ")));
+      if((m.brands||[]).length) t.appendChild(brandChips(m.brands, m.query || m.name)); li.appendChild(t); ul.appendChild(li); });
     if(!ul.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"知識から見て、足りない服はありません")); ul.appendChild(li); }
     box.appendChild(ul);
     if((a.strengths||[]).length){ box.appendChild(el("h4",null,"軸になっている手持ち")); const u2 = el("ul","gaplist"); a.strengths.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,x)); u2.appendChild(li); }); box.appendChild(u2); }
+    if((a.brands||[]).length){ box.appendChild(el("h4",null,"合いそうなブランド")); const ub = el("ul","gaplist");
+      a.brands.forEach(b=>{ const li = el("li"); li.appendChild(el("span","gmk ok","★")); const t = el("span",null, b.name + (b.price ? "（" + b.price + "）" : ""));
+        t.appendChild(el("span","why", b.why||"")); const sl = el("span","shoplinks"); const z = el("button",null,"ZOZOTOWNで見る"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(b.name + " メンズ")); sl.appendChild(z);
+        const mm = el("a",null,"メルカリで見る"); mm.href = mercariUrl(b.name + " メンズ"); mm.target = "_blank"; mm.rel = "noopener"; sl.appendChild(mm); t.appendChild(sl);
+        li.appendChild(t); ub.appendChild(li); });
+      box.appendChild(ub); box.appendChild(el("p","hint","ブランドと値段はAIの提案です。サイズは知識タブの「自分のサイズ」と、商品ページのサイズ表で確かめてください。")); }
     if((a.letgo||[]).length){ box.appendChild(el("h4",null,"出番が少なそうな服")); const u3 = el("ul","gaplist"); a.letgo.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); li.appendChild(el("span",null,x)); u3.appendChild(li); }); box.appendChild(u3); }
     box.appendChild(el("p","hint", new Date(cache.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " にAI（Gemini）が、服の知識タブの内容と手持ちの服から考えました。"));
   } else if(!adviceBusy){
