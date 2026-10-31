@@ -135,6 +135,14 @@ button,input,select{font:inherit;color:inherit}
 .btns{display:flex;flex-wrap:wrap;gap:8px}
 .rank{margin:4px 0 10px;padding-left:1.6em;font-size:13.5px;line-height:1.7}
 .rank li span.cnt{color:var(--muted);margin-left:.5em;font-size:12.5px}
+.sizewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:4px 0 10px}
+.sizetbl{border-collapse:collapse;width:100%;font-size:13px}
+.sizetbl th,.sizetbl td{border:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:top}
+.sizetbl thead th{background:var(--sunk);font-weight:700;font-size:12px;color:var(--muted);white-space:nowrap}
+.sizetbl tbody th{font-weight:600;background:var(--surface);min-width:5.5em}
+.sizetbl td{font-variant-numeric:tabular-nums;white-space:nowrap}
+.sizetbl td.wrap{white-space:normal}
+.sizecard h4{margin:12px 0 2px;font-size:13px}
 .candlist{display:grid;gap:8px;margin:10px 0 14px}
 .cand{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
 .cand.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent)}
@@ -759,6 +767,20 @@ function judgeOutfit(items, main){
   return {pen, why, tips};
 }
 
+/* 自分のサイズ表（知識タブのいちばん上に表で出す。AIには下の「自分のサイズ」カードの文章で渡す） */
+const SIZE_TABLES = [
+  {h:"トップス・上着", cols:["","表記","身幅","着丈","肩幅"], rows:[
+    ["ふつうの形","S","52〜56","64〜68","44〜47*"],
+    ["ゆったり","S〜M","57〜60","64〜68","—"],
+    ["上着","S","58〜63","60〜","44〜47*"],
+    ["海外のT","XS〜S","50前後","65前後","43前後"]]},
+  {h:"パンツ", cols:["","表記","ウエスト","股下"], rows:[
+    ["ボタン留め","S","70〜74","—"],
+    ["くるぶし丈","S（丈はM）","70〜74","66〜70"],
+    ["フルレングス・フレア","S〜XS","70〜74","〜75"],
+    ["ゴム・アジャスター","M も可","70〜74を含む","66〜70"]]},
+  {h:"くつ", cols:["","サイズ"], rows:[["スニーカー","26.5cm（CONVERSE は 8）"],["革靴","26cm"]]}
+];
 /* 知識タブの中身（出典は知識フォルダの「服の知識_yuuki0210000.md」と「自分用_基準シート.md」だけ） */
 const KNOWLEDGE = [
   {h:"いちばん大事な3つ", li:[
@@ -836,7 +858,7 @@ const KNOWLEDGE = [
     "小物：バッグは、シルエットを見せる服には手持ち（ボディバッグやリュックはシルエットに影響する）。アクセはメッキより、細くてもシルバーやプラチナなど本物の素材。紋章やメダルなど勲章系はトラッドに合う。トラッドの日はハット（決めすぎるならキャスケット、クラウンが高めだとエレガンス）。ロングブリムのハットはアメカジ・ルード寄り。バッグのバックルがプラスチックかレザーかで雰囲気が変わる（プラスチックはテック、レザーは武骨・クラシック）。認知度の高いブランドロゴを1つのコーデに複数入れない。",
     "買う前に：店の鏡や店員の「お似合いです」だけで決めない。1回あたりの値段で考える（長く着るなら高くても割安）。ジャケットのしつけ糸は買ったら切る。"
   ]},
-  {h:"自分のサイズ（ZOZOの購入履歴と着た感想から・2026年10月）", li:[
+  {h:"自分のサイズ（ZOZOの購入履歴と着た感想から・2026年10月）", size:true, li:[
     "日本のブランドの M は全体的に大きい。トップス・上着は S が基準、パンツはウエスト S・丈は M くらい。海外ブランドのTは S（メゾンキツネ S が身幅50.5・肩幅43・着丈65.5cm）。",
     "トップス：身幅はふつうの形で52〜56cm、ゆったり着るなら57〜60cmまで（大きかったMは63〜67cm）。着丈は64〜68cm。肩に縫い目がある服の肩幅は44〜47cm（推測。肩がちょうどいい服を1着測ると確かになる）。",
     "上着：短い丈のブルゾンでも着丈60cm以上（Alfred Alex のブルゾン M は58.2cmで少し短かった）。身幅は中に着込む分、58〜63cm。",
@@ -1667,6 +1689,16 @@ async function fetchAdvice(force){
 }
 function renderKnow(){
   const box = $("know"); box.textContent = "";
+  { // 自分のサイズ表（いちばん上）
+    const c = el("div","kcard sizecard"); c.appendChild(el("h3",null,"自分のサイズ表（cm）"));
+    c.appendChild(el("p","hint","ZOZOの購入履歴と着た感想から（2026年10月）。日本のブランドの M は全体的に大きいので、トップス・上着は S が基準。表記より、この実寸と商品のサイズ表を比べる。* 肩幅は推測（肩がちょうどいい服を1着測ると確かになる）。上着の着丈は、短い丈のブルゾンでも60以上。"));
+    SIZE_TABLES.forEach(t=>{ c.appendChild(el("h4",null,t.h)); const wrap = el("div","sizewrap"); const tb = el("table","sizetbl");
+      const hr = el("tr"); t.cols.forEach(x=>hr.appendChild(el("th",null,x))); const th = el("thead"); th.appendChild(hr); tb.appendChild(th);
+      const bd = el("tbody"); t.rows.forEach(r=>{ const tr = el("tr"); r.forEach((x,j)=>tr.appendChild(el(j ? "td" + "" : "th", j && x.length > 7 ? "wrap" : null, x))); bd.appendChild(tr); }); tb.appendChild(bd);
+      wrap.appendChild(tb); c.appendChild(wrap); });
+    const sz = KNOWLEDGE.find(k=>k.size); if(sz){ const ul = el("ul"); sz.li.slice(5).forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); }
+    box.appendChild(c);
+  }
   { // 自分の世界観：好きなもの・暮らし（足りない服やブランドをAIが考えるときに使う）
     const c = el("div","kcard"); c.appendChild(el("h3",null,"自分の世界観（好きなもの・暮らし）"));
     c.appendChild(el("p","hint","似合う服は「自分が生きているカルチャー」から決まる。好きな音楽・映画・趣味、よく行く場所、憧れの人や雰囲気を書いておくと、足りない服やブランドをこの世界観から選びます。"));
@@ -1676,7 +1708,7 @@ function renderKnow(){
     ta.addEventListener("change", ()=>{ prefs.world = ta.value.trim().slice(0,400); persist(); msg.textContent = "保存しました。下の「足りない服」を考え直すと反映されます。"; renderAdvice(); });
     c.appendChild(ta); c.appendChild(msg); box.appendChild(c);
   }
-  KNOWLEDGE.forEach(sec=>{ const c = el("div","kcard"); c.appendChild(el("h3",null,sec.h)); const ul = el("ul"); sec.li.forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); box.appendChild(c); });
+  KNOWLEDGE.forEach(sec=>{ if(sec.size) return; const c = el("div","kcard"); c.appendChild(el("h3",null,sec.h)); const ul = el("ul"); sec.li.forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); box.appendChild(c); });
 }
 function fillSelect(sel, map, first){
   sel.textContent = "";
