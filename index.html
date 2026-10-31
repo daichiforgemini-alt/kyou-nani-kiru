@@ -79,6 +79,9 @@ button,input,select{font:inherit;color:inherit}
 .temps .stepper .unit{display:none}
 .credit{font-size:12px;color:var(--muted);margin:6px 0 0}
 .credit a{color:var(--indigo)}
+.shoplinks{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.shoplinks a,.shoplinks button{font:inherit;font-size:12px;padding:4px 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink,inherit);text-decoration:none;cursor:pointer}
+.shoplinks .q{font-size:11.5px;color:var(--muted);width:100%}
 .xlink{display:inline-flex;align-items:center;gap:6px;margin-top:8px;text-decoration:none;color:inherit}
 .xlink b{font-weight:700}
 
@@ -415,9 +418,11 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
           <option value="bottom">ボトムス</option>
           <option value="shoes">くつ</option>
           <option value="inner">インナー（ヒートテックなど）</option>
+          <option value="bag">バッグ</option>
+          <option value="acc">小物（帽子・メガネ・アクセ・ベルトなど）</option>
         </select>
       </div>
-      <div class="field"><span class="lbl">暖かさ</span>
+      <div class="field" id="warmField"><span class="lbl">暖かさ</span>
         <div class="seg" id="warmSeg">
           <input type="radio" name="warm" id="w0" value="0"><label for="w0" id="w0lbl">0 なし</label>
           <input type="radio" name="warm" id="w1" value="1"><label for="w1">1 とても薄手</label>
@@ -434,11 +439,11 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
       <div class="field"><label for="itStyle2">もうひとつの系統（任意）</label>
         <select class="text-in" id="itStyle2"></select>
-        <span class="hint">MA-1（ミリタリー×ストリート）のように、2つの系統にまたがる服のときだけ。</span>
+        <span class="hint">ハット（エレガンス・紳士が主、ワークが副）のように、2つの系統にまたがる服のときだけ。</span>
       </div>
       <div class="field"><label for="itDress">きれいめ度</label>
         <select class="text-in" id="itDress"></select>
-        <span class="hint">革靴・スラックスはきれいめ、スニーカー・パーカーはカジュアル。コーデ全体で「きれいめ7:カジュアル3」くらいが大人っぽく見えるめやすです。</span>
+        <span class="hint">革靴・スラックスはきれいめ、スニーカー・パーカーはカジュアル。きれいめの日は、カジュアル寄りの服（2以下）を1点までにすると75/25ルールに合います。</span>
       </div>
       <div class="field"><label for="itColor">色</label>
         <select class="text-in" id="itColor"></select>
@@ -520,8 +525,10 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 "use strict";
 
 /* ---------- 定数 ---------- */
-const CATS = {top:"トップス", outer:"アウター・羽織り", bottom:"ボトムス", shoes:"くつ", inner:"インナー（ヒートテックなど）"};
+const CATS = {top:"トップス", outer:"アウター・羽織り", bottom:"ボトムス", shoes:"くつ", inner:"インナー（ヒートテックなど）", bag:"バッグ", acc:"小物（帽子・メガネ・アクセ・ベルトなど）"};
+const NOWARM = {bag:1, acc:1};   // 暖かさを使わない種類
 const WARM_HINT = {
+  bag: ["","","","",""], acc: ["","","","",""],
   top:   ["半袖T・タンクトップ","長袖T・シャツ","スウェット・薄手ニット","厚手ニット・タートル","裏起毛・極厚ニット"],
   outer: ["カーディガン・シャツ羽織り","パーカー・デニムジャケット","トレンチ・ライトジャケット","ウールコート・中綿","ダウン"],
   bottom:["ショートパンツ・薄手スカート","チノ・薄手パンツ","デニム・厚手パンツ","コーデュロイ・ウール","裏起毛パンツ"],
@@ -795,6 +802,7 @@ const KNOWLEDGE = [
     "基本はIラインかゆるいAライン。大きいトップス×細いパンツは逆三角形（Vシルエット）で不安定。肩幅が広いので、パンツはテーパードよりストレートか少しフレア。エポレット付きの上着は避ける。ジャストで着る前提の服はサイズを上げない。",
     "上下の比率はトップス4：ボトム6。パンツはタックインならへそ〜5、6cm下、普通に履くなら8、9cm下。タックインとロールアップは同時にしない。",
     "首元に大きなロゴ・ビビッドな色・ゴツいネックレスを置かない。首が詰まりすぎると顔が大きく見えるので、第一ボタンを開けるかVゾーンを作る。メガネで顔まわりに視線を留めるのは◎。違うブランドのロゴを同時に2つ見せない。",
+    "小物：バッグはシルエットを崩さない手持ち（ジャケットの日のボディバッグ斜めがけは合わない）。アクセは細めのシルバーとシンプルな時計（ゴツいシルバーやスカルは合わない）。帽子は基本なしでよく、トラッドの日はハットも可。",
     "買う前に：肩幅を最優先で合わせる。手持ちの服とその場で3通り以上組めるか。1回あたりの値段で考える（長く着るなら高くても割安）。ジャケットのしつけ糸は買ったら切る。"
   ]},
   {h:"素材と生地の見方", li:[
@@ -1068,7 +1076,7 @@ function planOffset(){ return $("d1") && $("d1").checked ? 1 : 0; }
 function recentPenalty(it){
   if(!it || usingSample()) return 0;
   const base = planOffset(); let p = 0;
-  for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" || it.cat==="inner" ? 0.15 : 0.7) * (7 - k) / 6; }
+  for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" || it.cat==="inner" || it.cat==="bag" || it.cat==="acc" ? 0.15 : 0.7) * (7 - k) / 6; }
   return p;
 }
 function dayJitter(it){   // 同じ点数の服どうしは、日によって順番を入れかえる
@@ -1169,7 +1177,35 @@ function pickOutfit(r){
       const sc = c.score + overlap*0.45; if(sc < ps){ ps = sc; pick = c; } });
     if(!pick) break; good.push(pick);
   }
-  return good[seed % good.length];
+  const pick = good[seed % good.length];
+  if(pick){ const vis = pick.items.slice(0,4), st = style0 || mainStyleOf(vis); const b = pickBag(pick, r, st), a = pickAcc(pick, r, st);
+    pick.items[7] = b.i; pick.bagWhy = b.why; pick.items[8] = a.i; pick.accWhy = a.why; }
+  return pick;
+}
+/* バッグ：シルエットを見せる服（ジャケット・コート、きれいめ・トラッド・モードの日）には手持ち。ボディバッグの斜めがけは合いにくい */
+const BODYBAG_RE = /ボディ|ウエスト|サコッシュ|ショルダー|斜めがけ|メッセンジャー/, HANDBAG_RE = /トート|クラッチ|ハンド|ブリーフ|手持ち|ボストン/;
+function pickBag(c, r, st){
+  const bags = activeCloset().filter(i=>i.cat==="bag"); if(!bags.length) return {i:null, why:""};
+  const o = c.items[1], dressy = (o && /ジャケット|テーラード|チェスター|コート/.test(o.name||"")) || ["kirei","trad","mode"].includes(st);
+  let best = null, bs = Infinity;
+  bags.forEach(b=>{ let sc = itemDist(st, b)*0.5 + dayJitter(b) + recentPenalty(b)*0.5;
+    if(dressy && BODYBAG_RE.test(b.name||"")) sc += 0.6; if(dressy && HANDBAG_RE.test(b.name||"")) sc -= 0.2;
+    if(r.rain) sc += b.rain ? -0.3 : 0.3;
+    if(sc < bs){ bs = sc; best = b; } });
+  const why = dressy && best && HANDBAG_RE.test(best.name||"") ? "シルエットを見せる日は、崩さない手持ちのバッグ" : dressy && best && BODYBAG_RE.test(best.name||"") ? "きれいめの日は、斜めがけより手持ちのほうがシルエットを崩さない" : "";
+  return {i:best, why};
+}
+/* 小物：顔も体も情報量が控えめなので、細いアクセやメガネで少し情報を足す。帽子は基本なしでよく、トラッドの日だけハットも。マフラーは寒い日だけ */
+function pickAcc(c, r, st){
+  const accs = activeCloset().filter(i=>i.cat==="acc" && !/ベルト/.test(i.name||"")
+    && (!/ハット|キャップ|帽子|ビーニー|キャスケット|ベレー/.test(i.name||"") || st === "trad" || /ビーニー|バケット/.test(i.name||""))
+    && (!/マフラー|ストール|手袋|グローブ/.test(i.name||"") || r.outerNeed >= 4));
+  if(!accs.length) return {i:null, why:""};
+  const loud = c.items.slice(0,2).some(i=>i && ["logo","print"].includes(i.pattern));   // 首元に強い柄やロゴがある日は足さない
+  if(loud) return {i:null, why:""};
+  let best = null, bs = Infinity;
+  accs.forEach(a=>{ const sc = itemDist(st, a)*0.5 + dayJitter(a) + recentPenalty(a)*0.5; if(sc < bs){ bs = sc; best = a; } });
+  return {i:best, why: /メガネ|眼鏡|サングラス/.test(best.name||"") ? "顔まわりに視線を留める" : /マフラー|ストール/.test(best.name||"") ? "寒い日の首元に" : "顔まわりに少し情報を足す（細いもので）"};
 }
 
 /* ---------- 描画 ---------- */
@@ -1221,23 +1257,28 @@ function renderToday(){
     ["outer", r.outerNeed, r.outerText, r.rain, r.carry ? "かばんに入れて持ち歩き" : ""],
     ["bottom", r.bottomNeed, r.bottomText, false, ""],
     ["shoes", r.shoesNeed, r.shoesText, r.rain, r.rain ? "濡れても平気なものを" : ""],
-    ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : "ヒートテックなどの発熱インナー", false, "いちばん内側に"]
+    ["inner", r.innerNeed, r.innerNeed >= 2 ? "厚手の発熱インナー（極暖など）" : "ヒートテックなどの発熱インナー", false, "いちばん内側に"],
+    ["bag", 0, "バッグ", false, "", 7],
+    ["acc", 0, "小物", false, "", 8]
   ].forEach(([cat, need, text, rain, extra, idx], k0)=>{
     const k = idx != null ? idx : k0 - 1;   // 「トップス（中）」の行を2番目に足したので、それ以降は1つずれる
     if(cat==="mid" && !outfit.items[6]) return;
+    if((cat==="bag" || cat==="acc") && !outfit.items[k]) return;
     if(cat==="inner" && !need && !outfit.items[4]) return;
     if(cat==="outer" && outfit.noOuter){ const g = el("div","gtag"); const head = el("div","cat"); head.appendChild(el("span",null,CATS.outer)); g.appendChild(head);
       g.appendChild(el("div","name","なし（トップス1枚で）")); g.appendChild(el("div","sub","めやす：" + text + (r.carry ? "" : " / 朝晩が気になるなら、薄手の羽織りをかばんに"))); tags.appendChild(g); return; }
     const g = el("div","gtag");
-    const head = el("div","cat"); head.appendChild(el("span",null, cat==="top" && outfit.items[6] ? "トップス（外）" : cat==="mid" ? "トップス（中）" : CATS[cat]));
+    const head = el("div","cat"); head.appendChild(el("span",null, cat==="top" && outfit.items[6] ? "トップス（外）" : cat==="mid" ? "トップス（中）" : cat==="acc" ? "小物" : CATS[cat]));
     const p = outfit.items[k];
     if(p && p.img){ const im = el("img","gimg"); im.src = p.img; im.alt = ""; g.appendChild(im); g.classList.add("has-img"); }
-    if(p){ head.appendChild(dots(p.warmth)); if(usingSample()) head.appendChild(el("span","badge","サンプル")); }
+    if(p){ if(!NOWARM[p.cat]) head.appendChild(dots(p.warmth)); if(usingSample()) head.appendChild(el("span","badge","サンプル")); }
     g.appendChild(head);
     g.appendChild(el("div","name", p ? p.name : text));
     const sub = [];
-    if(p){ const c = colorOf(p); sub.push(styleLabel(p) + (c ? "・" + COLORS[c].n : "")); if(cat !== "mid") sub.push("めやす：" + text); }
+    if(p){ const c = colorOf(p); sub.push(styleLabel(p) + (c ? "・" + COLORS[c].n : "")); if(cat !== "mid" && !NOWARM[cat]) sub.push("めやす：" + text); }
     else if(need) sub.push("クローゼットに該当する服がないので、一般的なめやすです");
+    if(cat==="bag" && outfit.bagWhy) sub.push(outfit.bagWhy);
+    if(cat==="acc" && outfit.accWhy) sub.push(outfit.accWhy);
     if(cat==="mid" && p) sub.push(/シャツ/.test(p.name||"") && !/Tシャツ|ロンT/.test(p.name||"") ? "外の服の下に着て、襟を首元から出す" : "外の服の下に着る");
     if(extra) sub.push(extra);
     if(sub.length) g.appendChild(el("div","sub", sub.join(" / ")));
@@ -1264,7 +1305,7 @@ function renderCloset(){
   Object.keys(CATS).forEach(cat=>{
     const items = list.filter(i=>i.cat===cat).sort((a,b)=>a.warmth-b.warmth);
     const g = el("div","group");
-    const h = el("h3",null,CATS[cat]); h.appendChild(el("small",null,items.length+"着")); g.appendChild(h);
+    const h = el("h3",null,CATS[cat]); h.appendChild(el("small",null,items.length+(NOWARM[cat] ? "点" : "着"))); g.appendChild(h);
     if(!items.length){ g.appendChild(el("p","empty","まだ登録がありません。")); }
     else{
       const ul = el("ul","items");
@@ -1274,7 +1315,7 @@ function renderCloset(){
         const c0 = colorOf(it); nm.appendChild(el("span","attr", styleLabel(it) + (c0 ? "・" + COLORS[c0].n : "") + (it.style ? "" : "（推定）")));
         if(it.img){ const row = el("span","nmrow"); const im = el("img","thumb"); im.src = it.img; im.alt = ""; row.appendChild(im); row.appendChild(nm); li.appendChild(row); }
         else li.appendChild(nm);
-        li.appendChild(dots(it.warmth));
+        if(!NOWARM[it.cat]) li.appendChild(dots(it.warmth));
         if(!usingSample()){
           const acts = el("span","acts");
           const ed = el("button","edit","直す"); ed.type = "button"; ed.setAttribute("aria-label", it.name+"を直す");
@@ -1357,6 +1398,18 @@ function renderGap(){
   if(!ul2.children.length) mk(ul2,"ok","天気への備えは足りています");
   box.appendChild(ul2);
   // 3. バランス
+  // 小物（自分用の基準シートより：バッグは手持ち、アクセは細めのシルバーとシンプルな時計、薄い顔はメガネで顔まわりに視線を留める）
+  box.appendChild(el("h4",null,"バッグ・小物"));
+  const ulb = el("ul","gaplist");
+  const bags = list.filter(i=>i.cat==="bag"), accs = list.filter(i=>i.cat==="acc");
+  if(!bags.length) mk(ulb,"ng","手持ちのバッグ（レザーのトートなど）", "バッグが登録されていません。きれいめ・トラッド・モードは、シルエットを崩さない手持ちのバッグが合います。");
+  else if(!bags.some(b=>HANDBAG_RE.test(b.name||""))) mk(ulb,"warn","手持ちのバッグ（トート・クラッチなど）", "ジャケットの日にボディバッグの斜めがけは合いにくい。シルエットを見せる服には手持ちのバッグ。");
+  else mk(ulb,"ok","手持ちのバッグ：" + bags.find(b=>HANDBAG_RE.test(b.name||"")).name);
+  if(!accs.some(a=>/ネックレス|チェーン|リング|ブレス|時計|ウォッチ|バングル/.test(a.name||""))) mk(ulb,"warn","細めのシルバーのアクセか、シンプルな時計", "顔も体も情報量が控えめなので、細いアクセで少しだけ情報を足すとバランスが取れる。ゴツいシルバーやスカルは合わない。");
+  if(!accs.some(a=>/メガネ|眼鏡/.test(a.name||""))) mk(ulb,"warn","メガネ（黒縁、強すぎるならハーフリム）", "薄い顔は、メガネで顔まわりに視線を留めると良い。個性を出したいときのずらしにも。");
+  if(!accs.some(a=>/ベルト/.test(a.name||""))) mk(ulb,"warn","ベルト（靴の色とそろえる）", "靴とベルトの色をそろえると、体のどこを見ても視線が顔に戻る。腰に黒が入ると視線が止まって落ち着く。");
+  if(!ulb.children.length) mk(ulb,"ok","バッグ・小物はそろっています");
+  box.appendChild(ulb);
   box.appendChild(el("h4",null,"バランス"));
   const ul3 = el("ul","gaplist");
   const main = prefs.style && prefs.style !== "any" ? prefs.style : "kirei";
@@ -1385,6 +1438,20 @@ function closetText(){
 }
 function goalText(){ return prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）"; }
 function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText(); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
+/* 足りない服を通販サイトで探す。ZOZOTOWNは検索語をShift_JISで送る必要があるので、フォームで開く */
+function shopLinks(q){
+  q = String(q||"").replace(/\s+/g," ").trim().slice(0,60);
+  const box = el("span","shoplinks"); box.appendChild(el("span","q","探す：" + q));
+  const z = el("button",null,"ZOZOTOWN"); z.type = "button";
+  z.addEventListener("click", ()=>{ const f = document.createElement("form"); f.action = "https://zozo.jp/search/"; f.method = "get"; f.acceptCharset = "Shift_JIS"; f.target = "_blank";
+    const i = document.createElement("input"); i.type = "hidden"; i.name = "p_keyv"; i.value = q; f.appendChild(i); document.body.appendChild(f); f.submit(); f.remove(); });
+  box.appendChild(z);
+  const enc = encodeURIComponent(q);
+  [["ユニクロ","https://www.uniqlo.com/jp/ja/search?q=" + enc], ["GU","https://www.gu-global.com/jp/ja/search?q=" + enc],
+   ["メルカリ","https://jp.mercari.com/search?keyword=" + enc + "&status=on_sale"]].forEach(([n,u])=>{
+    const a = el("a",null,n); a.href = u; a.target = "_blank"; a.rel = "noopener"; box.appendChild(a); });
+  return box;
+}
 function renderAdvice(boxEl){
   const box = boxEl || document.querySelector("#gap .aibox"); if(!box) return; box.textContent = "";
   const cache = LS.get("kn.advice", null), fresh = cache && cache.sig === adviceSig();
@@ -1398,7 +1465,8 @@ function renderAdvice(boxEl){
     (a.missing||[]).slice().sort((x,y)=>(x.priority||3)-(y.priority||3)).forEach(m=>{
       const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
       const t = el("span",null, m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : ""));
-      t.appendChild(el("span","why", (m.reason||"") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : ""))); li.appendChild(t); ul.appendChild(li); });
+      t.appendChild(el("span","why", (m.reason||"") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : "")));
+      t.appendChild(shopLinks(m.query || (m.name + " メンズ"))); li.appendChild(t); ul.appendChild(li); });
     if(!ul.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"知識から見て、足りない服はありません")); ul.appendChild(li); }
     box.appendChild(ul);
     if((a.strengths||[]).length){ box.appendChild(el("h4",null,"軸になっている手持ち")); const u2 = el("ul","gaplist"); a.strengths.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,x)); u2.appendChild(li); }); box.appendChild(u2); }
@@ -1453,10 +1521,11 @@ function renderAll(){ renderToday(); renderCloset(); renderGap(); }
 function updateWarmHint(){
   const cat = $("itCat").value;
   // 暖かさ0（タンクトップ・エアリズムなど）は、トップスとインナーだけ
+  $("warmField").hidden = !!NOWARM[cat]; $("itRain").parentElement.hidden = cat === "acc";
   const zeroOk = cat === "top" || cat === "inner"; $("w0").hidden = $("w0lbl").hidden = !zeroOk;
   if(!zeroOk && $("w0").checked) $("w2").checked = true;
   const w = +document.querySelector('input[name=warm]:checked').value;
-  $("warmHint").textContent = "たとえば：" + (w === 0 ? "タンクトップ・エアリズムなど、暖かさにほぼ関係ないもの" : WARM_HINT[cat][w-1]);
+  $("warmHint").textContent = NOWARM[cat] ? "" : "たとえば：" + (w === 0 ? "タンクトップ・エアリズムなど、暖かさにほぼ関係ないもの" : WARM_HINT[cat][w-1]);
 }
 
 /* ---------- 入力 ---------- */
@@ -1527,7 +1596,7 @@ function applyAi(r, j, hint){
     if(r.status===429 || (r.status===502 && j && j.error==="ai_failed")){ msg.textContent = "AIが混み合っています。少し待ってから「この情報で判定し直す」を押してください。"; return; }
     if(!r.ok || !j.item){ msg.textContent = "判定できませんでした。下のフォームに手で入力してください。"; return; }
     const it = j.item;
-    if(!it.is_clothing || it.cat==="other" || !CATS[it.cat]){ msg.textContent = "服が見つかりませんでした。服1点だけが写るように撮り直してみてください。"; return; }
+    if(!it.is_clothing || it.cat==="other" || !CATS[it.cat]){ msg.textContent = "服や小物が見つかりませんでした。1点だけが写るように撮り直してみてください。"; return; }
     $("itName").value = String(it.name||"").slice(0,40);
     $("itCat").value = /ヒートテック|HEATTECH|発熱|インナー|肌着|アンダーシャツ/i.test(String(it.name||"") + " " + ($("photoHint").value||"")) && it.cat==="top" ? "inner" : it.cat;
     const w = Math.max(1, Math.min(5, Math.round(+it.warmth||3)));
@@ -1620,7 +1689,7 @@ $("photoRetry").addEventListener("click", ()=>{ if(lastBig) classify(); });
 $("addForm").addEventListener("submit", e=>{
   e.preventDefault();
   const name = $("itName").value.trim(); if(!name) return;
-  const item = {id:"i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), cat:$("itCat").value, name, warmth:+document.querySelector('input[name=warm]:checked').value};
+  const item = {id:"i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6), cat:$("itCat").value, name, warmth:NOWARM[$("itCat").value] ? 1 : +document.querySelector('input[name=warm]:checked').value};
   if($("itRain").checked) item.rain = true;
   if(item.cat === "top" && $("itAlsoOuter").checked) item.alsoOuter = true;
   if(item.cat === "top" && $("itAlsoInner").checked) item.alsoInner = true;
