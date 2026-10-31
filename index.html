@@ -1611,11 +1611,37 @@ function mercariSize(cat, name){
   if(["top","outer","inner"].includes(cat)) return {id:MERCARI_SIZE.S, label:"S"};   // 日本のMは大きい → S
   return null;
 }
+/* 色はメルカリの「色」で絞り込む（キーワードからは外す）。素材はメルカリに絞り込みがないので、キーワードに残す */
+const MERCARI_COLOR_KEY = "7bd3eacc-ae45-4d73-bc57-a611c9432014";
+const MERCARI_COLORS = [
+  ["ブラック", /ブラック|黒/, "340258ac-e220-4722-8c35-7f73b7382831"],
+  ["ネイビー", /ネイビー|紺|ダークネイビー/, "56796a66-842c-4146-bfd5-bcb5ff537716"],
+  ["グレー", /グレー|グレイ|チャコール|杢/, "42010c0a-2748-459e-ac7c-491c9c750dd6"],
+  ["ホワイト", /ホワイト|白|オフホワイト|アイボリー|生成り|エクリュ/, "a167b2a8-e153-43c8-a597-5f858b932df1"],
+  ["ベージュ", /ベージュ|キャメル|サンド|トープ|グレージュ/, "0c0d6107-db0e-43fb-b3fb-9f485dd68737"],
+  ["ブラウン", /ブラウン|茶|こげ茶|モカ|チョコ/, "1d70e6e9-12ff-4566-908a-3e88c3a05134"],
+  ["カーキ", /カーキ|オリーブ/, "28e7a3db-8388-447f-bc78-ae615551d123"],
+  ["グリーン", /グリーン|緑|フォレスト/, "83e45d47-73c8-48fb-9bff-8d7784f61e3e"],
+  ["ブルー", /サックス|ブルー|青|インディゴ|水色/, "27678b0c-32a1-4841-89ae-bc884616f66a"],
+  ["レッド", /レッド|赤|ボルドー|ワイン|バーガンディ/, "7644a226-3ed0-48ed-a3bc-ac92bc4e64ac"],
+  ["ピンク", /ピンク/, "a0fa61af-a305-45e9-8148-0d4866b800ad"],
+  ["パープル", /パープル|紫/, "71e163c8-7888-441a-b675-7110026a24fb"],
+  ["イエロー", /イエロー|黄|マスタード/, "334e8bb0-2270-4fd2-8f10-94581bd7cf0c"],
+  ["オレンジ", /オレンジ/, "10f63ced-1960-4fd5-8d76-edb40095a0f5"],
+  ["シルバー", /シルバー|銀/, "4cfca06c-f3b7-4032-898a-6de626c6150b"],
+  ["ゴールド", /ゴールド|金色/, "58a3773c-34f7-48fe-9d7c-552a339a3f4f"]
+];
+const MATERIAL_RE = /ウール|メリノ|カシミヤ|カシミア|コットン|綿|リネン|麻|シルク|レザー|革|スエード|ナイロン|ポリエステル|レーヨン|コーデュロイ|ツイード|フランネル|デニム|メルトン|モヘア|アルパカ|キャンバス|オックスフォード|ギャバジン/;
+function mercariColor(text){ const words = String(text||"").split(/\s+/);
+  for(const [label, re, id] of MERCARI_COLORS){ const w = words.find(x=>re.test(x) && !MATERIAL_RE.test(x)); if(w) return {label, id, word:w}; } return null; }
 function mercariUrl(q, cat, name){
-  const sz = mercariSize(cat, name || q);
-  return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(q) + "&status=on_sale&price_max=30000&item_condition_id=1%2C2%2C3" + (sz ? "&" + MERCARI_SIZE_KEY + "=" + sz.id : "");
+  const sz = mercariSize(cat, name || q), col = mercariColor(name || q);
+  const kw = col ? String(q).split(/\s+/).filter(w=>w !== col.word).join(" ") : q;
+  return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(kw) + "&status=on_sale&price_max=30000&item_condition_id=1%2C2%2C3"
+    + (sz ? "&" + MERCARI_SIZE_KEY + "=" + sz.id : "") + (col ? "&" + MERCARI_COLOR_KEY + "=" + col.id : "");
 }
-function mercariNote(cat, name){ const sz = mercariSize(cat, name); return "メルカリは3万円以下・状態の良いもの" + (sz ? "・サイズ" + sz.label : "") + "で絞り込みます"; }
+function mercariNote(cat, name){ const sz = mercariSize(cat, name), col = mercariColor(name), mat = (String(name||"").match(MATERIAL_RE)||[])[0];
+  return "メルカリは3万円以下・状態の良いもの" + (sz ? "・サイズ" + sz.label : "") + (col ? "・色" + col.label : "") + "で絞り込み" + (mat ? "、素材（" + mat + "）はキーワードで探します" : "ます"); }
 /* おすすめのブランド：ZOZOTOWNとメルカリで「ブランド名＋アイテム」を探す */
 function brandChips(brands, q, cat){
   const words = String(q||"").split(/\s+/).filter(w=>w && w !== "メンズ"), item = words[words.length-1] || "";
