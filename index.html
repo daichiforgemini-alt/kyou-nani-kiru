@@ -813,7 +813,7 @@ const KNOWLEDGE = [
     "トップス：身幅はふつうの形で52〜56cm、ゆったり着るなら57〜60cmまで（大きかったMは63〜67cm）。着丈は64〜68cm。肩に縫い目がある服の肩幅は44〜47cm（推測。肩がちょうどいい服を1着測ると確かになる）。",
     "上着：短い丈のブルゾンでも着丈60cm以上（Alfred Alex のブルゾン M は58.2cmで少し短かった）。身幅は中に着込む分、58〜63cm。",
     "パンツ：ボタン留めのウエストは70〜74cm（Mの80cmは大きかった）。股下はくるぶし丈のワイド・テーパードで66〜70cm、フルレングスやフレアは75cmまで（76cmは長かった）。ゴムやアジャスター付きなら、表記の幅に70〜74cmが入っていればいい。",
-    "くつ：CONVERSE は 8（26.5cm相当）。",
+    "くつ：スニーカーは26.5cm（CONVERSE は 8）、革靴は26cm。",
     "ドロップショルダー（肩の縫い目が腕側に落ちた形）のニットやスウェットは、肩幅の数字が大きく出るので無視して、身幅と着丈で比べる。ZOZOでは「同じサイズ感のアイテムを探す」も使える。"
   ]},
   {h:"買い物の方針", li:[
@@ -1463,19 +1463,32 @@ function zozoSearch(q){
   const f = document.createElement("form"); f.action = "https://zozo.jp/search/"; f.method = "get"; f.acceptCharset = "Shift_JIS"; f.target = "_blank";
   const i = document.createElement("input"); i.type = "hidden"; i.name = "p_keyv"; i.value = q; f.appendChild(i); document.body.appendChild(f); f.submit(); f.remove();
 }
-function mercariUrl(q){ return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(q) + "&status=on_sale&price_max=20000"; }   // 予算：メルカリで2万円まで
+/* メルカリの絞り込み：販売中・2万円まで・状態は「新品〜目立った傷や汚れなし」（長く使えるもの）。サイズは知識タブの「自分のサイズ」から自動で選ぶ */
+const MERCARI_SIZE_KEY = "f42ae390-04ff-46ea-808b-f5d97cb45db4";
+const MERCARI_SIZE = {S:"8a58efd8-34a0-4e4a-9202-e95a08b2a4bc", shoe26:"ddbf6a6a-ef37-4c8b-8686-315ebe36b0b3", shoe265:"83ba38c5-630b-41b4-90de-95a4de1ad97f"};
+const LEATHER_SHOE_RE = /革靴|レザーシューズ|ローファー|ブローグ|ウイングチップ|Uチップ|ストレートチップ|プレーントゥ|ダービー|モンク|ドレスシューズ|サイドゴア|チャッカ|ブーツ/;
+function mercariSize(cat, name){
+  if(cat === "shoes") return LEATHER_SHOE_RE.test(name||"") ? {id:MERCARI_SIZE.shoe26, label:"26cm"} : {id:MERCARI_SIZE.shoe265, label:"26.5cm"};   // スニーカーは26.5、革靴は26
+  if(["top","outer","bottom","inner"].includes(cat)) return {id:MERCARI_SIZE.S, label:"S"};   // 日本のMは大きい → S
+  return null;
+}
+function mercariUrl(q, cat, name){
+  const sz = mercariSize(cat, name || q);
+  return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(q) + "&status=on_sale&price_max=20000&item_condition_id=1%2C2%2C3" + (sz ? "&" + MERCARI_SIZE_KEY + "=" + sz.id : "");
+}
+function mercariNote(cat, name){ const sz = mercariSize(cat, name); return "メルカリは2万円以下・状態の良いもの" + (sz ? "・サイズ" + sz.label : "") + "で絞り込みます"; }
 /* おすすめのブランド：ZOZOTOWNとメルカリで「ブランド名＋アイテム」を探す */
-function brandChips(brands, q){
+function brandChips(brands, q, cat){
   const words = String(q||"").split(/\s+/).filter(w=>w && w !== "メンズ"), item = words[words.length-1] || "";
   const box = el("span","shoplinks"); box.appendChild(el("span","q","おすすめのブランドで探す"));
   brands.slice(0,3).forEach(b=>{ const kw = b + " " + item;
     const row = el("span","brandrow"); row.appendChild(el("span","bn",b));
     const z = el("button",null,"ZOZOTOWN"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(kw)); row.appendChild(z);
-    const m = el("a",null,"メルカリ"); m.href = mercariUrl(kw); m.target = "_blank"; m.rel = "noopener"; row.appendChild(m);
+    const m = el("a",null,"メルカリ"); m.href = mercariUrl(kw, cat, q); m.target = "_blank"; m.rel = "noopener"; row.appendChild(m);
     box.appendChild(row); });
   return box;
 }
-function shopLinks(q){
+function shopLinks(q, cat){
   q = String(q||"").replace(/\s+/g," ").trim().slice(0,60);
   const box = el("span","shoplinks"); box.appendChild(el("span","q","探す：" + q));
   const z = el("button",null,"ZOZOTOWN"); z.type = "button";
@@ -1483,7 +1496,7 @@ function shopLinks(q){
   box.appendChild(z);
   const enc = encodeURIComponent(q);
   [["ユニクロ","https://www.uniqlo.com/jp/ja/search?q=" + enc], ["GU","https://www.gu-global.com/jp/ja/search?q=" + enc],
-   ["メルカリ",mercariUrl(q)]].forEach(([n,u])=>{
+   ["メルカリ",mercariUrl(q, cat)]].forEach(([n,u])=>{
     const a = el("a",null,n); a.href = u; a.target = "_blank"; a.rel = "noopener"; box.appendChild(a); });
   return box;
 }
@@ -1501,8 +1514,9 @@ function renderAdvice(boxEl){
       const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
       const t = el("span",null, m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : ""));
       t.appendChild(el("span","why", (m.reason||"") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : "")));
-      t.appendChild(shopLinks(m.query || (m.name + " メンズ")));
-      if((m.brands||[]).length) t.appendChild(brandChips(m.brands, m.query || m.name)); li.appendChild(t); ul.appendChild(li); });
+      t.appendChild(shopLinks(m.query || (m.name + " メンズ"), m.cat));
+      if((m.brands||[]).length) t.appendChild(brandChips(m.brands, m.query || m.name, m.cat));
+      t.appendChild(el("span","why", mercariNote(m.cat, m.query || m.name))); li.appendChild(t); ul.appendChild(li); });
     if(!ul.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"知識から見て、足りない服はありません")); ul.appendChild(li); }
     box.appendChild(ul);
     if((a.strengths||[]).length){ box.appendChild(el("h4",null,"軸になっている手持ち")); const u2 = el("ul","gaplist"); a.strengths.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,x)); u2.appendChild(li); }); box.appendChild(u2); }
