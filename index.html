@@ -143,6 +143,15 @@ button,input,select{font:inherit;color:inherit}
 .sizetbl td{font-variant-numeric:tabular-nums;white-space:nowrap}
 .sizetbl td.wrap{white-space:normal}
 .sizecard h4{margin:12px 0 2px;font-size:13px}
+.adopt{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.adopt h4{margin:0 0 4px;font-size:13px}
+.adopt-h{margin:10px 0 4px;font-size:12px;font-weight:700;color:var(--muted)}
+.adopt-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.adopt-list li{display:grid;grid-template-columns:minmax(0,1fr) 72px 38px;gap:8px;align-items:center;font-size:12.5px}
+.adopt-list .an{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adopt-list .ab{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.adopt-list .ab i{display:block;height:100%;background:var(--accent)}
+.adopt-list .ap{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
 .candlist{display:grid;gap:8px;margin:10px 0 14px}
 .cand{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
 .cand.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent)}
@@ -1815,6 +1824,20 @@ function renderCandList(){
     box.appendChild(b);
   });
   box.appendChild(el("p","hint","点の高い順に最大12通り。押すと、その組み合わせをくわしく表示します。"));
+  // きょうの採用率：点の近い候補ぜんぶ（最大200通り）の中で、それぞれの服が何％の組み合わせに入っているか
+  const pool = lastPool && lastPool.length ? lastPool : lastCands, P = pool.length;
+  const card = el("div","adopt"); card.appendChild(el("h4",null,"きょうの採用率（点の近い候補 " + P + "通りの中で）"));
+  [["トップス（外）",0],["トップス（中）",6],["上着",1],["パンツ",2],["くつ",3]].forEach(([label, k])=>{
+    const cnt = new Map(); pool.forEach(c=>{ const it = c.items[k]; if(it) cnt.set(it, (cnt.get(it)||0) + 1); });
+    if(!cnt.size) return;
+    const none = P - [...cnt.values()].reduce((a,b)=>a+b,0);
+    card.appendChild(el("p","adopt-h", label));
+    const ul = el("ul","adopt-list");
+    [...cnt.entries()].sort((a,b)=>b[1]-a[1]).forEach(([it, n])=>{ const pct = Math.round(n / P * 100);
+      const li = el("li"); li.appendChild(el("span","an", it.name)); const bar = el("span","ab"); const fill = el("i"); fill.style.width = pct + "%"; bar.appendChild(fill); li.appendChild(bar); li.appendChild(el("span","ap", pct + "%")); ul.appendChild(li); });
+    if(none > 0 && (k === 6 || k === 1)){ const pct = Math.round(none / P * 100); const li = el("li"); li.appendChild(el("span","an", k === 6 ? "（中に着ない）" : "（上着なし）")); const bar = el("span","ab"); const fill = el("i"); fill.style.width = pct + "%"; bar.appendChild(fill); li.appendChild(bar); li.appendChild(el("span","ap", pct + "%")); ul.appendChild(li); }
+    card.appendChild(ul); });
+  box.appendChild(card);
 }
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click", ()=>{
   const v = b.dataset.view;
