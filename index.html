@@ -256,6 +256,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .edit:hover{background:var(--sunk)}
 .items li .acts{display:flex;gap:2px}
 .gapcard{margin-bottom:14px}
+#sizeBox .kcard{margin-bottom:14px}
 .more-fields summary{cursor:pointer;font-size:13px;color:var(--indigo)}
 .more-fields[open]{display:flex;flex-direction:column;gap:8px}
 .more-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
@@ -546,6 +547,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
   </section>
   <!-- ===== 服の知識 ===== -->
   <section id="view-know" hidden>
+    <div id="sizeBox"></div>
     <div class="kcard gapcard" id="gap"></div>
     <div class="know" id="know"></div>
     <p class="know-src">出典：yuuki0210000（TikTok・YouTube「Gain tip design」）の理論の要約と、色彩・素材の基礎知識（「知識\服」フォルダのノート）。理論は「多くの人に良く見えやすい」という目安で、最後は自分の好きを優先してOK。</p>
@@ -1729,7 +1731,8 @@ async function fetchAdvice(force){
 }
 function renderKnow(){
   const box = $("know"); box.textContent = "";
-  { // 自分のサイズ表（いちばん上）
+  { // 自分のサイズ表（服の知識タブのいちばん上。手持ちの服チェックより上に置く）
+    const sb = $("sizeBox"); if(sb) sb.textContent = "";
     const c = el("div","kcard sizecard"); c.appendChild(el("h3",null,"自分のサイズ表（cm）"));
     c.appendChild(el("p","hint","ZOZOの購入履歴と着た感想から（2026年10月）。日本のブランドの M は全体的に大きいので、トップス・上着は S が基準。表記より、この実寸と商品のサイズ表を比べる。* 肩幅は推測（肩がちょうどいい服を1着測ると確かになる）。上着の着丈は、短い丈のブルゾンでも60以上。"));
     SIZE_TABLES.forEach(t=>{ c.appendChild(el("h4",null,t.h)); const wrap = el("div","sizewrap"); const tb = el("table","sizetbl");
@@ -1737,7 +1740,7 @@ function renderKnow(){
       const bd = el("tbody"); t.rows.forEach(r=>{ const tr = el("tr"); r.forEach((x,j)=>tr.appendChild(el(j ? "td" + "" : "th", j && x.length > 7 ? "wrap" : null, x))); bd.appendChild(tr); }); tb.appendChild(bd);
       wrap.appendChild(tb); c.appendChild(wrap); });
     const sz = KNOWLEDGE.find(k=>k.size); if(sz){ const ul = el("ul"); sz.li.slice(5).forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); }
-    box.appendChild(c);
+    (sb || box).appendChild(c);
   }
   { // 自分の世界観：好きなもの・暮らし（足りない服やブランドをAIが考えるときに使う）
     const c = el("div","kcard"); c.appendChild(el("h3",null,"自分の世界観（好きなもの・暮らし）"));
