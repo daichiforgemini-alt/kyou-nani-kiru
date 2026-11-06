@@ -152,6 +152,10 @@ button,input,select{font:inherit;color:inherit}
 .adopt-list .ab{height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
 .adopt-list .ab i{display:block;height:100%;background:var(--accent)}
 .adopt-list .ap{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.restyle-list{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
+.restyle-list label{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.55}
+.restyle-list input{margin-top:3px;flex:none}
+.restyle-list .why{display:block;color:var(--muted);font-size:12px}
 .candlist{display:grid;gap:8px;margin:10px 0 14px}
 .cand{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
 .cand.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent)}
@@ -513,6 +517,13 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <p class="hint" style="margin:0">写真のある服を1着ずつAIに見せて、素材・質感・柄・サイズ感・パンツの形・首元のうち、空いているところだけを埋めます（系統や色は変えません）。1着5秒ほどかかります。</p>
         <button type="button" class="btn" id="bulkBtn">空いている項目をAIで入れる</button>
         <p class="hint" id="bulkMsg" style="margin:0"></p>
+      </div>
+      <div class="sync-box">
+        <p class="sync-h">系統をブランドも見て見直す</p>
+        <p class="hint" style="margin:0">写真のある服を1着ずつAIに見せて、写真の見た目に加えて、名前の先頭のブランドの世界観（どんな系統の服を作るブランドか）からも、系統ときれいめ度を判定し直します。変わる服だけを一覧にするので、確かめてから反映してください。1着5秒ほどかかります。</p>
+        <button type="button" class="btn" id="restyleBtn">ブランドも見て系統を見直す</button>
+        <p class="hint" id="restyleMsg" style="margin:0"></p>
+        <div id="restyleBox"></div>
       </div>
       <div class="sync-box">
         <p class="sync-h">iPhone・iPadで同期</p>
@@ -2027,6 +2038,51 @@ $("bulkBtn").addEventListener("click", async ()=>{
   bulkRun = false; $("bulkBtn").textContent = "空いている項目をAIで入れる"; renderAll();
   $("bulkMsg").textContent = `${ok}着に入れました。` + (busy ? `AIが混んでいて${busy}着は入れられませんでした。もう一度押すと続きから入れます。` : "") + "違うところは「直す」で変えられます。";
 });
+/* 系統をブランドも見て見直す：写真＋名前（ブランド）からAIに判定し直してもらい、変わるものだけ一覧にして選んで反映 */
+let restyleRun = false, restyleProps = [];
+const styleTxt = (s, s2) => (STYLES[s] ? STYLES[s].replace(/（.*）/,"") : "未設定") + (s2 && STYLES[s2] ? "×" + STYLES[s2].replace(/（.*）/,"") : "");
+$("restyleBtn").addEventListener("click", async ()=>{
+  if(restyleRun){ restyleRun = false; $("restyleBtn").textContent = "止めています…"; return; }
+  const targets = (closet||[]).filter(i=>i.img && i.cat !== "inner");
+  if(!targets.length){ $("restyleMsg").textContent = "写真のある服がありません。"; return; }
+  restyleRun = true; restyleProps = []; $("restyleBox").textContent = ""; $("restyleBtn").textContent = "止める";
+  let n = 0, busy = 0;
+  for(const it of targets){
+    if(!restyleRun) break; n++;
+    $("restyleMsg").textContent = `AIが見ています… ${n} / ${targets.length}（${it.name}）`;
+    const hint = ("名前: " + it.name + "（先頭にブランド名があれば、そのブランドの世界観・得意な系統も系統ときれいめ度の判断材料にする。同じブランドでもアイテムで系統は違うので、写真の見た目と合わせて決める）/ 種類: " + (CATS[it.cat]||"").replace(/（.*）/,"") + " / いまの登録: " + styleTxt(it.style, it.style2) + "、きれいめ度" + (it.dress||"未設定")).slice(0, 300);
+    try{
+      const r = await fetch(AI_API, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({image: it.img.split(",")[1], mime:"image/jpeg", hint}), signal: AbortSignal.timeout(60000)});
+      const j = await r.json().catch(()=>({}));
+      if(j.item && j.item.is_clothing !== false && STYLES[j.item.style]){
+        const ns = j.item.style, ns2 = (j.item.style2 && STYLES[j.item.style2] && j.item.style2 !== ns) ? j.item.style2 : undefined, nd = (+j.item.dress >= 1 && +j.item.dress <= 5) ? +j.item.dress : it.dress;
+        if(ns !== it.style || (ns2||"") !== (it.style2||"") || nd !== it.dress) restyleProps.push({id:it.id, name:it.name, os:it.style, os2:it.style2, od:it.dress, ns, ns2, nd, why:j.item.reason||""});
+      } else if(r.status===429 || r.status===502){ busy++; await new Promise(z=>setTimeout(z, 8000)); }
+    }catch(e){}
+    await new Promise(z=>setTimeout(z, 1200));
+  }
+  restyleRun = false; $("restyleBtn").textContent = "ブランドも見て系統を見直す";
+  $("restyleMsg").textContent = `${n}着を見ました。` + (restyleProps.length ? `${restyleProps.length}着で、系統かきれいめ度が変わります。` : "変わる服はありませんでした。") + (busy ? `AIが混んでいて${busy}着は見られませんでした。` : "");
+  renderRestyle();
+});
+function renderRestyle(){
+  const box = $("restyleBox"); box.textContent = ""; if(!restyleProps.length) return;
+  const ul = el("ul","restyle-list");
+  restyleProps.forEach(p=>{ const li = el("li"); const lab = el("label");
+    const cb = el("input"); cb.type = "checkbox"; cb.checked = true; cb.dataset.id = p.id; lab.appendChild(cb);
+    const t = el("span"); t.appendChild(el("b",null,p.name)); t.appendChild(el("br"));
+    t.appendChild(document.createTextNode("系統：" + styleTxt(p.os, p.os2) + " → " + styleTxt(p.ns, p.ns2)));
+    if(p.od !== p.nd) t.appendChild(document.createTextNode(" ／ きれいめ度：" + (p.od||"未設定") + " → " + p.nd));
+    if(p.why) t.appendChild(el("span","why", p.why));
+    lab.appendChild(t); li.appendChild(lab); ul.appendChild(li); });
+  box.appendChild(ul);
+  const row = el("div","btns"); const ap = el("button","btn primary","チェックしたものを反映"); ap.type = "button"; const no = el("button","btn","やめる"); no.type = "button";
+  ap.addEventListener("click", ()=>{ let k = 0; box.querySelectorAll('input[type=checkbox]').forEach(cb=>{ if(!cb.checked) return; const p = restyleProps.find(x=>x.id===cb.dataset.id), t = (closet||[]).find(x=>x.id===cb.dataset.id); if(!p || !t) return;
+      t.style = p.ns; if(p.ns2) t.style2 = p.ns2; else delete t.style2; if(p.nd) t.dress = p.nd; k++; });
+    restyleProps = []; persist(); renderAll(); $("restyleBox").textContent = ""; $("restyleMsg").textContent = `${k}着の系統ときれいめ度を直しました。`; });
+  no.addEventListener("click", ()=>{ restyleProps = []; $("restyleBox").textContent = ""; $("restyleMsg").textContent = "見直しをやめました。今の登録のままです。"; });
+  row.appendChild(ap); row.appendChild(no); box.appendChild(row);
+}
 $("exportBtn").addEventListener("click", async ()=>{
   const data = JSON.stringify({app:"kyou-nani-kiru", version:1, closet: closet||[], prefs}, null, 2);
   const name = "kyou-nani-kiru-backup-" + new Date().toISOString().slice(0,10) + ".json";
