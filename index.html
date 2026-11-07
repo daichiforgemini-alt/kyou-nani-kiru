@@ -1640,8 +1640,7 @@ const MERCARI_SIZE = {S:"8a58efd8-34a0-4e4a-9202-e95a08b2a4bc", M:"d5dbe802-d454
 const LEATHER_SHOE_RE = /革靴|レザーシューズ|ローファー|ブローグ|ウイングチップ|Uチップ|ストレートチップ|プレーントゥ|ダービー|モンク|ドレスシューズ|サイドゴア|チャッカ|ブーツ/;
 function mercariSize(cat, name){
   if(cat === "shoes") return LEATHER_SHOE_RE.test(name||"") ? {id:MERCARI_SIZE.shoe26, label:"26cm"} : {id:MERCARI_SIZE.shoe265, label:"26.5cm"};   // スニーカーは26.5、革靴は26
-  if(cat === "bottom") return {id:MERCARI_SIZE.S + "%2C" + MERCARI_SIZE.M, label:"S・M"};   // パンツはウエストS・丈Mなので両方
-  if(["top","outer","inner"].includes(cat)) return {id:MERCARI_SIZE.S, label:"S"};   // 日本のMは大きい → S
+  if(["top","outer","inner","bottom"].includes(cat)) return {id:MERCARI_SIZE.S + "%2C" + MERCARI_SIZE.M, label:"S・M"};   // 服はSとMの両方で探す
   return null;
 }
 /* 色はメルカリの「色」で絞り込む（キーワードからは外す）。素材はメルカリに絞り込みがないので、キーワードに残す */
