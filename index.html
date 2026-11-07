@@ -280,6 +280,8 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .gaplist .gmk.ok{color:#2e7d4f}.gaplist .gmk.ng{color:#c0392b}.gaplist .gmk.warn{color:#b8860b}
 .gaplist .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .gapsum{font-size:14px;margin:0 0 4px}
+.gaplist .when{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:1px;border:1px solid currentColor}
+.gaplist .when.now{color:#c0392b}.gaplist .when.any{color:var(--muted)}.gaplist .when.next{color:var(--indigo)}
 .gapwhy{align-self:stretch;border:1px solid var(--line, #ddd);border-radius:10px;padding:8px 10px;font-size:13px}
 .gapwhy summary{cursor:pointer;color:var(--indigo);font-size:13px}
 .gapwhy .gaplist{margin-top:8px;font-size:13px}
@@ -1615,6 +1617,13 @@ async function findUnused(){
    ① アプリが10通りの天気で手持ちから実際にコーデを組んでみて、困ったところ（厚さが合わない・雨に弱い・1着に頼りすぎ・よく出る注意）
    ② 知識の「方向性ごとに必要なもの」が手持ちにあるか */
 const GAP_CONDS = [["真冬",-2,5,1,"sun"],["冬",3,10,6,"sun"],["晩秋・早春",8,15,11,"sun"],["秋・春",12,19,14,"sun"],["初夏・初秋",15,22,18,"sun"],["春夏の境目",19,27,22,"sun"],["夏",24,31,27,"sun"],["真夏",27,34,29,"sun"],["涼しい雨の日",10,16,13,"rain"],["暖かい雨の日",20,26,23,"rain"]];
+/* それぞれの天気が多い月（本州の平地のめやす）。「今シーズン」＝今月から3か月 */
+const GAP_MONTHS = {"真冬":[12,1,2], "冬":[11,12,1,2,3], "晩秋・早春":[11,12,3,4], "秋・春":[4,5,10,11], "初夏・初秋":[5,6,9,10], "春夏の境目":[5,6,9], "夏":[6,7,8,9], "真夏":[7,8], "涼しい雨の日":[3,4,10,11], "暖かい雨の日":[5,6,7,9]};
+function seasonMonths(){ const m = new Date().getMonth() + 1; return [m, m % 12 + 1, (m + 1) % 12 + 1]; }
+function seasonTag(conds){ const now = seasonMonths(), ms = [...new Set(conds.flatMap(c=>GAP_MONTHS[c]||[]))];
+  if(ms.some(x=>now.includes(x))) return "【今シーズン】";
+  const order = ms.sort((a,b)=>((a - now[0] + 12) % 12) - ((b - now[0] + 12) % 12));
+  return order.length ? "【来シーズン以降：" + order[0] + "月ごろから】" : ""; }
 const isKnitName = i => /ニット|セーター|カーディガン/.test(i.name||"");
 const KNOW_CHECK = [
   {st:"きれいめ（メイン）", need:"きれいめの革靴（ローファー・Uチップ・プレーントゥなど）", ok:i=>i.cat==="shoes" && LEATHER_SHOE_RE.test(i.name||"") && dressOf(i) >= 4},
@@ -1674,14 +1683,16 @@ async function outfitGaps(){
   seed = seed0; lastCands = keepC; lastPool = keepP;
   const catName = i => (CATS[i.cat]||"").replace(/（.*）/,"");
   const trouble = [];
-  issues.forEach((v, k)=>trouble.push(k + "：" + v.conds.join("、") + (v.ex ? "（" + v.ex + "）" : "")));
-  depend.forEach((v, i)=>{ if(v.length >= 3) trouble.push(`1着に頼りすぎ：「${i.name}」（${catName(i)}）が${v.length}通りの天気で、上位の候補のほとんどに出る（替えになる${catName(i)}が少ない）`); });
-  tips.forEach((v, k)=>{ if(v.length >= 2) trouble.push(`よく出る注意「${k}」：${v.length}通りの天気で（${v.join("、")}）`); });
+  issues.forEach((v, k)=>trouble.push(seasonTag(v.conds) + k + "：" + v.conds.join("、") + (v.ex ? "（" + v.ex + "）" : "")));
+  depend.forEach((v, i)=>{ if(v.length >= 3) trouble.push(seasonTag(v) + `1着に頼りすぎ：「${i.name}」（${catName(i)}）が${v.length}通りの天気で、上位の候補のほとんどに出る（替えになる${catName(i)}が少ない。${v.join("、")}）`); });
+  tips.forEach((v, k)=>{ if(v.length >= 2) trouble.push(seasonTag(v) + `よく出る注意「${k}」：${v.length}通りの天気で（${v.join("、")}）`); });
   const unused = (activeCloset()||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && !used.has(i.id)).map(i=>i.name);
   if(unused.length) trouble.push("どの天気でも出番がない服：" + unused.slice(0,8).map(x=>"「" + x + "」").join(""));
   const check = knowCheck();
   const groups = [...new Set(check.map(c=>c.st))];
-  const text = "■コーデを組んでみて分かった困りごと（真冬〜真夏・雨の" + n + "通りの天気で、アプリが手持ちから組んだいちばん良いコーデと上位の候補を見た結果。天気のめやす：真冬＝朝-2℃・昼5℃、冬＝3〜10℃、晩秋・早春＝8〜15℃、秋・春＝12〜19℃、初夏・初秋＝15〜22℃、春夏の境目＝19〜27℃、夏＝24〜31℃、真夏＝27〜34℃）\n"
+  const sm = seasonMonths();
+  const text = "■今の時期：" + sm[0] + "月。今シーズン＝" + sm.join("・") + "月（" + GAP_CONDS.map(c=>c[0]).filter(c=>(GAP_MONTHS[c]||[]).some(x=>sm.includes(x))).join("、") + "の天気）。困りごとの頭の【今シーズン】【来シーズン以降】は、その天気が多い時期\n"
+    + "■コーデを組んでみて分かった困りごと（真冬〜真夏・雨の" + n + "通りの天気で、アプリが手持ちから組んだいちばん良いコーデと上位の候補を見た結果。天気のめやす：真冬＝朝-2℃・昼5℃、冬＝3〜10℃、晩秋・早春＝8〜15℃、秋・春＝12〜19℃、初夏・初秋＝15〜22℃、春夏の境目＝19〜27℃、夏＝24〜31℃、真夏＝27〜34℃）\n"
     + (trouble.length ? trouble.map(x=>"・" + x).join("\n") : "・大きな困りごとはなし")
     + "\n■知識の方向性から見た手持ちのチェック（ない＝手持ちにない）\n"
     + groups.map(g=>"・" + g + "：" + check.filter(c=>c.st===g).map(c=>c.has.length ? c.need + "＝ある（「" + c.has[0] + "」" + (c.has.length > 1 ? "など" + c.has.length + "着" : "") + "）" : c.need + "＝ない").join("／")).join("\n");
@@ -1700,7 +1711,7 @@ function closetText(){
 }
 function goalText(){ return (prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）")
   + "。方針：長く使える品質を優先。picks は、そのアイテムの定番ブランド・定番モデル（元祖・名作で知られる作り手）を最優先。ドメブラと国内外のファクトリーブランドも可、量販店は最後。予算はメルカリ中古で3万円まで。price はメルカリの中古相場"; }
-function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText(); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
+function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText() + "|m" + (new Date().getMonth() + 1); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
 /* 足りない服を通販サイトで探す。ZOZOTOWNは検索語をShift_JISで送る必要があるので、フォームで開く */
 /* お店やXのページは、アプリとは別のウィンドウで開く（パソコンでは小窓、iPhone・iPadではSafariの新しいタブ） */
 const WIN_FEATURES = "popup,width=1100,height=900";
@@ -1816,9 +1827,11 @@ function renderAdvice(boxEl){
         const t = el("span",null, c.st + "：" + c.need); t.appendChild(el("span","why", ok ? c.has.slice(0,2).join("、") + (c.has.length > 2 ? " など" + c.has.length + "着" : "") : "手持ちにない")); li.appendChild(t); u1.appendChild(li); });
       d.appendChild(u1); box.appendChild(d); }
     const ul = el("ul","gaplist");
-    (a.missing||[]).slice().sort((x,y)=>(x.priority||3)-(y.priority||3)).forEach(m=>{
+    const WHEN = {now:["今シーズン","now",0], any:["通年","any",1], next:["来シーズン","next",2]};   // 今の時期に要るものを先に
+    (a.missing||[]).slice().sort((x,y)=>((WHEN[x.when]||WHEN.any)[2] - (WHEN[y.when]||WHEN.any)[2]) || (x.priority||3)-(y.priority||3)).forEach(m=>{
       const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
-      const t = el("span",null, m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : ""));
+      const t = el("span",null, ""); if(WHEN[m.when]){ t.appendChild(el("span","when " + WHEN[m.when][1], WHEN[m.when][0])); }
+      t.appendChild(document.createTextNode(m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : "")));
       t.appendChild(el("span","why", (m.reason||"") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : "")));
       t.appendChild(shopLinks(m.query || (m.name + " メンズ"), m.cat));
       if((m.picks||[]).length) t.appendChild(pickTiers(m.picks, m.query || m.name, m.cat));
