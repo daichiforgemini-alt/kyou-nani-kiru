@@ -282,6 +282,11 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .gapsum{font-size:14px;margin:0 0 4px}
 .gaplist .when{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:1px;border:1px solid currentColor}
 .gaplist .when.now{color:#c0392b}.gaplist .when.any{color:var(--muted)}.gaplist .when.next{color:var(--indigo)}
+.rplist{display:flex;flex-direction:column;gap:4px;margin:4px 0 6px}
+.rpitem{display:flex;align-items:center;gap:6px;font-size:13px}
+.rpitem input{margin:0}
+.rptag{font-size:11px;color:#b8860b;border:1px solid currentColor;border-radius:6px;padding:0 5px}
+.rpnote{width:100%;box-sizing:border-box;margin-top:8px;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px}
 .gapwhy{align-self:stretch;border:1px solid var(--line, #ddd);border-radius:10px;padding:8px 10px;font-size:13px}
 .gapwhy summary{cursor:pointer;color:var(--indigo);font-size:13px}
 .gapwhy .gaplist{margin-top:8px;font-size:13px}
@@ -1570,6 +1575,9 @@ function renderGap(){
   // 4. もういらない服（季節と天気を変えてコーデの候補を作り、どこにも出てこない服を探す）
   box.appendChild(el("h4",null,"もう出番がなさそうな服"));
   const ub = el("div"); ub.id = "unusedBox"; box.appendChild(ub); renderUnused(ub);
+  // 5. 買い換えたい服（クローゼットから選んで、替え先をAIに考えてもらう）
+  box.appendChild(el("h4",null,"買い換えたい服と、替え先"));
+  const rb = el("div","aibox"); rb.id = "replaceBox"; box.appendChild(rb); renderReplace(rb);
 }
 /* もういらない服：真冬〜真夏・雨の日の、点の近いコーデ候補（各最大200通り）を作り、一度も出てこない服を挙げる */
 let unusedCache = null, unusedBusy = false;
@@ -1650,12 +1658,12 @@ async function outfitGaps(){
   const base = readCond(), seed0 = seed, keepC = lastCands, keepP = lastPool;
   const wv = i => Math.max(1, i.warmth);
   const issues = new Map(), add = (k, cond, ex) => { if(!issues.has(k)) issues.set(k, {conds:[], ex}); issues.get(k).conds.push(cond); };
-  const tips = new Map(), depend = new Map(), used = new Set(); let n = 0;
+  const tips = new Map(), depend = new Map(), used = new Set(), useCount = {}; let n = 0;
   for(const [label, am, noon, pm, wx] of GAP_CONDS){
     await new Promise(z=>{ const ch = new MessageChannel(); ch.port1.onmessage = ()=>z(); ch.port2.postMessage(0); });   // 画面を固めないように1回ずつ区切る（タイマーは裏に回ると遅くなるので使わない）
     let r; try{ r = compute({...base, am, noon, pm, wx}); pickOutfit(r); }catch(e){ console.warn("outfitGaps", e); continue; }
     const c = lastPool[0]; if(!c) continue; n++;
-    lastPool.forEach(x=>x.items.forEach(i=>{ if(i) used.add(i.id); }));
+    { const here = new Set(); lastPool.forEach(x=>x.items.forEach(i=>{ if(i){ used.add(i.id); here.add(i.id); } })); here.forEach(id=>useCount[id] = (useCount[id]||0) + 1); }
     const [t, o, b, s] = c.items, cond = label;
     if(!t) add("トップスが組めない", cond, "");
     if(r.outerNeed >= 3 && !o && !r.carry) add("上着なしになる（合う上着がない）", cond, "");
@@ -1698,7 +1706,81 @@ async function outfitGaps(){
     + (trouble.length ? trouble.map(x=>"・" + x).join("\n") : "・大きな困りごとはなし")
     + "\n■知識の方向性から見た手持ちのチェック（ない＝手持ちにない）\n"
     + groups.map(g=>"・" + g + "：" + check.filter(c=>c.st===g).map(c=>c.has.length ? c.need + "＝ある（「" + c.has[0] + "」" + (c.has.length > 1 ? "など" + c.has.length + "着" : "") + "）" : c.need + "＝ない").join("／")).join("\n");
-  return {text: text.slice(0, 3500), trouble, check, n};
+  return {text: text.slice(0, 3500), trouble, check, n, useCount};
+}
+/* ---------- 買い換えたい服：クローゼットから選び、同じ役割で知識により合う替え先をAIに考えてもらう ---------- */
+let replaceBusy = false;
+const REPLACE_MAX = 6;
+function replaceState(){ const st = LS.get("kn.replace", null) || {}; return {ids: Array.isArray(st.ids) ? st.ids : [], note: st.note || "", result: st.result || null, at: st.at || 0, model: st.model || ""}; }
+function saveReplace(st){ LS.set("kn.replace", st); }
+function renderReplace(rb){
+  rb = rb || $("replaceBox"); if(!rb) return; rb.textContent = "";
+  const st = replaceState(), list = (closet||[]);
+  st.ids = st.ids.filter(id=>list.some(i=>i.id === id));
+  const unusedIds = new Set(((unusedCache && unusedCache.list) || []).map(x=>x.name));
+  rb.appendChild(el("p","hint","買い換えたい服を選ぶと、同じ役割（種類・暖かさ・季節）のまま、知識から見てより合う替え先と、価格帯ごとの候補を出します。"));
+  // 結果
+  if(st.result && (st.result.items||[]).length){
+    const a = st.result;
+    if(a.summary) rb.appendChild(el("p","gapsum", a.summary));
+    const ul = el("ul","gaplist");
+    a.items.forEach(m=>{
+      const li = el("li"); li.appendChild(el("span","gmk warn","⇄"));
+      const t = el("span",null, "「" + (m.from||"") + "」→ " + m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : ""));
+      if(m.why_replace) t.appendChild(el("span","why","今の服：" + m.why_replace));
+      t.appendChild(el("span","why","替え先：" + (m.reason||"") + (m.keep ? " ／ 残したい良さ：" + m.keep : "") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : "")));
+      t.appendChild(shopLinks(m.query || (m.name + " メンズ"), m.cat));
+      if((m.picks||[]).length) t.appendChild(pickTiers(m.picks, m.query || m.name, m.cat));
+      t.appendChild(el("span","why", mercariNote(m.cat, m.query || m.name)));
+      li.appendChild(t); ul.appendChild(li); });
+    rb.appendChild(ul);
+    rb.appendChild(el("p","hint", new Date(st.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " にAI（Gemini）が、服の知識・手持ちの服・アプリが見つけた弱点から考えました。ブランドと値段は目安です。"));
+  }
+  // 服を選ぶ
+  const d = el("details","gapwhy"); if(!st.result) d.open = true;
+  const sum = el("summary",null,"買い換えたい服を選ぶ（" + st.ids.length + "着選択中・" + REPLACE_MAX + "着まで）"); d.appendChild(sum);
+  const msg = el("p","hint"); msg.id = "replaceMsg";
+  const btn = el("button","btn fix-btn", replaceBusy ? "考えています…" : st.result ? "選んだ服で考え直す" : "替え先を考える"); btn.type = "button";
+  const order = ["top","outer","bottom","shoes","inner","bag","belt","acc"];
+  order.forEach(cat=>{ const xs = list.filter(i=>i.cat === cat); if(!xs.length) return;
+    d.appendChild(el("h4",null, (CATS[cat]||cat).replace(/（.*）/,"")));
+    const box = el("div","rplist");
+    xs.forEach(i=>{ const lab = el("label","rpitem"); const cb = el("input"); cb.type = "checkbox"; cb.checked = st.ids.includes(i.id);
+      cb.disabled = !cb.checked && st.ids.length >= REPLACE_MAX;
+      cb.dataset.id = i.id;
+      cb.addEventListener("change", ()=>{ const s2 = replaceState(); s2.ids = s2.ids.filter(x=>x !== i.id); if(cb.checked) s2.ids.push(i.id); saveReplace(s2);
+        // 一覧は描き直さずに、数と押せる状態だけ更新する（スクロール位置が飛ばないように）
+        rb.querySelectorAll(".rpitem input").forEach(x=>{ x.disabled = !x.checked && s2.ids.length >= REPLACE_MAX; });
+        sum.textContent = "買い換えたい服を選ぶ（" + s2.ids.length + "着選択中・" + REPLACE_MAX + "着まで）";
+        btn.disabled = replaceBusy || !s2.ids.length; msg.textContent = s2.ids.length ? "" : "上の一覧から、買い換えたい服にチェックを入れてください。"; });
+      lab.appendChild(cb); lab.appendChild(el("span",null, i.name));
+      if(unusedIds.has(i.name)) lab.appendChild(el("span","rptag","出番なし"));
+      box.appendChild(lab); });
+    d.appendChild(box); });
+  const ta = el("textarea","rpnote"); ta.rows = 2; ta.maxLength = 300; ta.placeholder = "買い換えたい理由（任意）　例：ブルゾンは丈が短い、パーカーはくたびれた"; ta.value = st.note;
+  ta.addEventListener("change", ()=>{ const s2 = replaceState(); s2.note = ta.value.trim().slice(0,300); saveReplace(s2); });
+  d.appendChild(ta); rb.appendChild(d);
+  rb.appendChild(msg);
+  btn.disabled = replaceBusy || !st.ids.length; btn.addEventListener("click", fetchReplace); rb.appendChild(btn);
+  if(!st.ids.length) msg.textContent = "上の一覧から、買い換えたい服にチェックを入れてください。";
+}
+async function fetchReplace(){
+  if(replaceBusy) return; const st = replaceState(); if(!st.ids.length) return;
+  const ta = document.querySelector("#replaceBox .rpnote"); if(ta){ st.note = ta.value.trim().slice(0,300); saveReplace(st); }
+  replaceBusy = true; renderReplace();
+  let err = "";
+  try{
+    let gaps = null; try{ gaps = await outfitGaps(); }catch(e){ console.warn("outfitGaps", e); }
+    const targets = st.ids.map(id=>(closet||[]).find(i=>i.id === id)).filter(Boolean)
+      .map(i=>closetLine(i) + (gaps && gaps.useCount ? "（出番：" + gaps.n + "通りの天気のうち" + (gaps.useCount[i.id]||0) + "通りでコーデの候補に出る）" : "")).join("\n");
+    const r = await fetch(AI_API.replace(/classify$/, "replace"), {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({knowledge: knowledgeText(), closet: closetText(), goal: goalText(), gaps: gaps ? gaps.text : "", targets, note: st.note}), signal: AbortSignal.timeout(110000)});
+    const j = await r.json().catch(()=>({}));
+    if(r.ok && j.advice){ const s2 = replaceState(); s2.result = j.advice; s2.at = Date.now(); s2.model = j.model || ""; saveReplace(s2); }
+    else err = (j.error==="ai_failed" || r.status===429) ? "AIが混み合っています。少し待ってからもう一度押してください。" : "考えられませんでした（" + (j.error || r.status) + "）。";
+  }catch(e){ err = "中継サーバーにつながりませんでした。通信状態を確かめてください。"; }
+  replaceBusy = false; renderReplace();
+  if(err){ const m = $("replaceMsg"); if(m) m.textContent = err; }
 }
 /* AIのアドバイス：服の知識カード＋手持ちの一覧＋アプリが見つけた弱点を中継サーバーに送る */
 let adviceBusy = false;
@@ -1706,10 +1788,11 @@ function worldText(){ return String(prefs.world == null ? "ミニマル系が好
 function knowledgeText(){ const w = worldText();
   return (w ? "■自分の世界観（好きなもの・暮らし。ブランドや服は、この世界観で実際に着られているものから選ぶ）\n・" + w.replace(/\n+/g,"\n・") + "\n" : "")
     + KNOWLEDGE.map(sec=>"■" + sec.h + "\n" + sec.li.map(t=>"・" + t).join("\n")).join("\n"); }
-function closetText(){
-  return (closet||[]).map(i=>{ const c = colorOf(i); const fl = [i.alsoOuter && "羽織りOK", i.alsoInner && "中に着られる", i.alsoTop && "トップスOK", i.rain && "撥水"].filter(Boolean).join("・");
+function closetText(){ return (closet||[]).map(closetLine).join("\n"); }
+function closetLine(i){
+  { const c = colorOf(i); const fl = [i.alsoOuter && "羽織りOK", i.alsoInner && "中に着られる", i.alsoTop && "トップスOK", i.rain && "撥水"].filter(Boolean).join("・");
     const dt = Object.keys(DETAIL_KEYS).filter(k=>i[k] && DETAIL_KEYS[k][i[k]]).map(k=>DETAIL_LABEL[k] + ":" + DETAIL_KEYS[k][i[k]].replace(/（.*）/,"")).join("、");
-    return `- [${CATS[i.cat]||i.cat}] ${i.name}（系統:${styleLabel(i)}、色:${c ? COLORS[c].n : "不明"}、暖かさ${i.warmth}、きれいめ度${dressOf(i)}${dt ? "、" + dt : ""}${fl ? "、" + fl : ""}）`; }).join("\n");
+    return `- [${CATS[i.cat]||i.cat}] ${i.name}（系統:${styleLabel(i)}、色:${c ? COLORS[c].n : "不明"}、暖かさ${i.warmth}、きれいめ度${dressOf(i)}${dt ? "、" + dt : ""}${fl ? "、" + fl : ""}）`; }
 }
 function goalText(){ return (prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）")
   + "。方針：長く使える品質を優先。picks は、そのアイテムの定番ブランド・定番モデル（元祖・名作で知られる作り手）を最優先。ドメブラと国内外のファクトリーブランドも可、量販店は最後。予算はメルカリ中古で3万円まで。price はメルカリの中古相場"; }
@@ -1781,13 +1864,17 @@ function brandChips(brands, q, cat){
 }
 /* 価格帯ごとの候補（ブランド＋製品名）。ZOZOTOWNとメルカリで「ブランド＋製品名」を探す */
 const TIERS = [["budget","〜1万円"],["middle","1〜2万円"],["premium","2〜3万円"]];
+/* AIの製品名がときどき崩れる（「spック」のように英字とカナが混ざる、文字化け）。怪しい名前は出さずにブランドだけにする */
+function tidyProduct(x){ const t = String(x||"").trim();
+  if(!t || /\uFFFD|[a-z]{2,}[ァ-ヶ]|[ァ-ヶー][a-z]{2,}|[ぁ-ゖ][a-zA-Z]{2,}|[a-zA-Z]{2,}[ぁ-ゖ]/.test(t)) return "";
+  return t; }
 function pickTiers(picks, q, cat){
   const words = String(q||"").split(/\s+/).filter(w=>w && w !== "メンズ"), item = words[words.length-1] || "";
   const box = el("div","tiers"); box.appendChild(el("span","q","候補（メルカリ中古の値段の目安ごと）"));
   TIERS.forEach(([tier, label])=>{
     const ps = picks.filter(p=>p && p.tier === tier && p.brand); if(!ps.length) return;
     box.appendChild(el("p","tier-h", label));
-    ps.forEach(p=>{ const prod = String(p.product||"").trim(), kw = p.brand + " " + (prod || item);
+    ps.forEach(p=>{ const prod = tidyProduct(p.product), kw = p.brand + " " + (prod || item);
       const row = el("div","pickrow");
       const tx = el("span","pk"); tx.appendChild(el("b",null,p.brand)); if(prod) tx.appendChild(document.createTextNode(" " + prod));
       if(p.price) tx.appendChild(el("span","pp","（" + p.price + "）")); if(p.why) tx.appendChild(el("span","why", p.why)); row.appendChild(tx);

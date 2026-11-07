@@ -107,6 +107,29 @@ async function askGemini(env, data, mime, hint){
   return { status: 502, error: "ai_failed", tried };
 }
 
+// 買い換え：選んだ服ごとに、同じ役割で知識により合う替え先
+const PICKS_SCHEMA = { type: "array", items: { type: "object", properties: {
+  tier: { type: "string", enum: ["budget","middle","premium"] },
+  brand: { type: "string" }, product: { type: "string" }, price: { type: "string" }, why: { type: "string" }
+}, required: ["tier","brand","product","price","why"] } };
+const REPLACE_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    items: { type: "array", items: { type: "object", properties: {
+      from: { type: "string" },
+      name: { type: "string" },
+      cat: { type: "string", enum: ["top","outer","bottom","shoes","inner","bag","acc","belt","other"] },
+      why_replace: { type: "string" },
+      reason: { type: "string" },
+      keep: { type: "string" },
+      pairs: { type: "string" },
+      query: { type: "string" },
+      picks: PICKS_SCHEMA
+    }, required: ["from","name","cat","why_replace","reason","keep","pairs","query","picks"] } }
+  },
+  required: ["summary","items"]
+};
 const ADVISE_SCHEMA = {
   type: "object",
   properties: {
@@ -134,19 +157,20 @@ const ADVISE_SCHEMA = {
 };
 // 足りない服の提案はたまにしか使わず、長い知識と弱点を読み比べる判断が要るので、上位モデルを先に使う（だめなら軽量版）
 const ADVISE_MODELS = [["gemini-3.8-flash", 60000], ["gemini-3.5-flash-lite", 35000]];
-async function askAdvice(env, prompt){
+async function askAdvice(env, prompt, schema, key){
+  schema = schema || ADVISE_SCHEMA; key = key || "missing";
   const tried = [];
   for (const [model, ms] of ADVISE_MODELS) {
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST", signal: AbortSignal.timeout(ms),
       headers: { "x-goog-api-key": env.GEMINI_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ model, input: [ { type: "text", text: prompt } ],
-        response_format: { type: "text", mime_type: "application/json", schema: ADVISE_SCHEMA } })
+        response_format: { type: "text", mime_type: "application/json", schema } })
     }).catch(e => null);
     if (!r) { tried.push(model + ": timeout"); continue; }
     const txt = await r.text();
     if (!r.ok) { tried.push(model + ": " + r.status + " " + txt.slice(0, 200)); continue; }
-    const found = (function walk(n){ if (typeof n === "string") { try { const v = JSON.parse(n); if (v && typeof v === "object" && Array.isArray(v.missing)) return v; } catch (e) {} return null; }
+    const found = (function walk(n){ if (typeof n === "string") { try { const v = JSON.parse(n); if (v && typeof v === "object" && Array.isArray(v[key])) return v; } catch (e) {} return null; }
       if (Array.isArray(n)) { for (const x of n) { const v = walk(x); if (v) return v; } return null; }
       if (n && typeof n === "object") { for (const k of Object.keys(n)) { const v = walk(n[k]); if (v) return v; } } return null; })(JSON.parse(txt));
     if (found) return { status: 200, ok: true, model, advice: found, tried };
@@ -197,7 +221,7 @@ ${gaps ? "- 下の【アプリが見つけた弱点】は、アプリが手持�
 - strengths：手持ちで、知識に合っていて軸になっている服を最大4点（名前と短い理由）
 - letgo：知識から見て、目指すスタイルと合いにくく出番が少なそうな服を最大3点（名前と短い理由）。無理に挙げなくてよい
 - summary：全体の評価を80字以内で
-- picks（missing の中）：その服の具体的な候補を、価格帯ごとに2つまで（合計6つまで）。tier は budget＝メルカリの中古で〜1万円、middle＝1〜2万円、premium＝2〜3万円。brand はブランド名、product はそのブランドに実在する定番の製品名・モデル名・愛称（例：型番や「〇〇シャツ」のような通称）。実在に確信が持てないときは product を空文字にして、ブランドだけにする。price はメルカリでの中古相場の目安、why は30字以内
+- picks（missing の中）：その服の具体的な候補を、価格帯ごとに2つまで（合計6つまで）。tier は budget＝メルカリの中古で〜1万円、middle＝1〜2万円、premium＝2〜3万円。brand はブランド名、product はそのブランドに実在する定番の製品名・モデル名・愛称（例：型番や「〇〇シャツ」のような通称）。実在に確信が持てないときは product を空文字にして、ブランドだけにする。product はブランドの公式の表記どおりに書く（英字とカタカナを混ぜた崩れた表記や、うろ覚えの綴りは書かない）。price はメルカリでの中古相場の目安、why は30字以内
 - brands（全体）：持ち主に合いそうなブランドを最大5個。name はブランド名、why は知識の方向性・サイズ・手持ちとの相性から30字以内、price は「5,000〜1万円台」のような目安
 - ブランドは、日本で買える実在のブランドだけ。知識の方向性（メインのきれいめ、ずらし先のトラッド・ミニマルなモード・ユーロワーク）と、知識の「自分のサイズ」（日本の M は大きい。身幅が細め、ウエストが細め）と、これまでの価格帯に合うものを選ぶ。手持ちによくあるブランドばかりにしない。確信がないブランドは挙げない
 - 値段は目安にとどめ、断定しない
@@ -211,6 +235,35 @@ ${closet}${gaps ? "\n\n【アプリが見つけた弱点】\n" + gaps : ""}`;
       return json(res, res.status);
     }
 
+    if (u.pathname === "/replace" && req.method === "POST") {
+      if (!env.GEMINI_API_KEY) return json({ error: "no_key" }, 500);
+      let body; try { body = await req.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
+      const clean = (v, n) => String(v || "").replace(/[\u0000-\u0008\u000b-\u001f]/g, " ").slice(0, n);
+      const knowledge = clean(body.knowledge, 9000), closet = clean(body.closet, 9000), goal = clean(body.goal, 200), gaps = clean(body.gaps, 3500), targets = clean(body.targets, 2500), note = clean(body.note, 300);
+      if (!targets) return json({ error: "no_targets" }, 400);
+      const prompt = `あなたは、下の「服の知識」だけを根拠に考えるスタイリストです。持ち主が【買い換えたい服】を選びました。1着ごとに、替え先を1つ提案してください。
+- 目指すスタイル：${goal || "きれいめ"}
+- 替え先は、元の服と同じ役割を保つ（同じ種類・同じくらいの暖かさ・同じ季節に着るもの。シャツならシャツ、パンツならパンツ）。そのうえで、知識から見て元の服より良くなるもの（系統・きれいめ度・素材・シルエット・色・サイズ感）にする
+- 持ち主が書いた買い換えの理由があれば、それを必ず解決する
+- items：選ばれた服と同じ数・同じ順で。from は元の服の名前をそのまま。name は替え先の具体的な名前（色・素材・形を含める）。cat は種類。why_replace は元の服が知識から見て惜しいところ（40字以内。とくにないなら「くたびれた・サイズなど本人の理由」とする）。reason は替え先で何が良くなるか、知識のどのルールに基づくかを入れて80字以内。keep は元の服の良いところで、替え先でも残すと良い点（30字以内、なければ空）。pairs は手持ちのどの服と組めるかを40字以内で、手持ちの名前を使う
+- query は通販サイトで検索するときの短いキーワード（色・素材・アイテム名を空白で区切る。ブランド名は入れない。末尾に「メンズ」）
+- picks：替え先の具体的な候補を、価格帯ごとに2つまで（合計6つまで）。tier は budget＝メルカリの中古で〜1万円、middle＝1〜2万円、premium＝2〜3万円。brand はブランド名、product はそのブランドに実在する定番の製品名・モデル名・愛称。実在に確信が持てないときは product を空文字にして、ブランドだけにする。product はブランドの公式の表記どおりに書く（英字とカタカナを混ぜた崩れた表記や、うろ覚えの綴りは書かない）。price はメルカリでの中古相場の目安、why は30字以内。そのアイテムの定番ブランド・定番モデルを最優先、ドメブラと国内外のファクトリーブランドも可、量販店は最後。予算はメルカリ中古で3万円まで。日本で買える実在のブランドだけ。確信がないブランドは挙げない
+- 知識の「自分のサイズ」を踏まえる（日本の M は大きい。身幅が細め、ウエストが細め）
+- 【アプリが見つけた弱点】があれば、替え先でついでに解決できるものは解決する（例：雨に弱い→撥水の素材）
+- summary：買い換え全体の方針を80字以内で
+- 値段は目安にとどめ、断定しない
+
+【服の知識】
+${knowledge}
+
+【手持ちの服】
+${closet}
+
+【買い換えたい服】
+${targets}${note ? "\n\n【持ち主が書いた買い換えの理由】\n" + note : ""}${gaps ? "\n\n【アプリが見つけた弱点】\n" + gaps : ""}`;
+      const res = await askAdvice(env, prompt, REPLACE_SCHEMA, "items");
+      return json(res, res.status);
+    }
     if (u.pathname === "/fromimage" && req.method === "POST") {
       // ブックマーク（服に追加）で受け取った写真のURLを、端末で読めなかったときにサーバーで読む
       if (!env.GEMINI_API_KEY) return json({ error: "no_key" }, 500);
