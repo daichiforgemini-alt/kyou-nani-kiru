@@ -131,11 +131,13 @@ const ADVISE_SCHEMA = {
   },
   required: ["summary","missing","strengths","letgo","brands"]
 };
+// 足りない服の提案はたまにしか使わず、長い知識と弱点を読み比べる判断が要るので、上位モデルを先に使う（だめなら軽量版）
+const ADVISE_MODELS = [["gemini-3.8-flash", 60000], ["gemini-3.5-flash-lite", 35000]];
 async function askAdvice(env, prompt){
   const tried = [];
-  for (const model of MODELS) {
+  for (const [model, ms] of ADVISE_MODELS) {
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-      method: "POST", signal: AbortSignal.timeout(45000),
+      method: "POST", signal: AbortSignal.timeout(ms),
       headers: { "x-goog-api-key": env.GEMINI_API_KEY, "Content-Type": "application/json" },
       body: JSON.stringify({ model, input: [ { type: "text", text: prompt } ],
         response_format: { type: "text", mime_type: "application/json", schema: ADVISE_SCHEMA } })
@@ -185,11 +187,11 @@ export default {
       if (!env.GEMINI_API_KEY) return json({ error: "no_key" }, 500);
       let body; try { body = await req.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
       const clean = (v, n) => String(v || "").replace(/[\u0000-\u0008\u000b-\u001f]/g, " ").slice(0, n);
-      const knowledge = clean(body.knowledge, 9000), closet = clean(body.closet, 9000), goal = clean(body.goal, 200);
+      const knowledge = clean(body.knowledge, 9000), closet = clean(body.closet, 9000), goal = clean(body.goal, 200), gaps = clean(body.gaps, 3500);
       if (!closet) return json({ error: "no_closet" }, 400);
       const prompt = `あなたは、下の「服の知識」だけを根拠に考えるスタイリストです。持ち主の手持ちの服を見て、知識に照らして足りない服を考えてください。
 - 目指すスタイル：${goal || "きれいめ"}
-- missing：足りない服や小物（バッグ・帽子・メガネ・アクセ・ベルトなども含む）を、効果の大きい順に最大6点。query は通販サイトで検索するときの短いキーワード（色・素材・アイテム名を空白で区切る。ブランド名は入れない。末尾に「メンズ」。例「ネイビー ハイゲージ クルーネックニット メンズ」）。name は買い物で探せる具体的な名前（色・素材・形を含める）。cat は種類。priority は 1=最優先 2=次に 3=余裕があれば。reason は知識のどのルールに基づくかを入れて60字以内。pairs は手持ちのどの服と組めるかを40字以内で、手持ちの名前を使う
+${gaps ? "- 下の【アプリが見つけた弱点】は、アプリが手持ちの服で実際にコーデを組んで分かった困りごとと、知識の「方向性ごとに必要なもの」が手持ちにあるかのチェック結果。missing は、ここに出ている困りごと・足りないものを解決する服を最優先にし、効果の大きい順（多くの天気・多くのコーデに効くもの、メインのきれいめに効くもの）に並べる。reason の先頭には、どの弱点やチェックに当たるかを短く書く（例「真冬・冬：アウターが薄い」「トラッド：ブローグ系の革靴がない」）。弱点に出ていない服を入れるときは、知識のどのルールに基づくかを書く\n- letgo は、弱点の「出番がない服」や、よく出る注意の原因になっている服を参考にする\n" : ""}- missing：足りない服や小物（バッグ・帽子・メガネ・アクセ・ベルトなども含む）を、効果の大きい順に最大6点。query は通販サイトで検索するときの短いキーワード（色・素材・アイテム名を空白で区切る。ブランド名は入れない。末尾に「メンズ」。例「ネイビー ハイゲージ クルーネックニット メンズ」）。name は買い物で探せる具体的な名前（色・素材・形を含める）。cat は種類。priority は 1=最優先 2=次に 3=余裕があれば。reason は根拠（弱点・チェック・知識のルール）を入れて80字以内。pairs は手持ちのどの服と組めるかを40字以内で、手持ちの名前を使う
 - 手持ちにすでにあるものと同じ役割の服は missing に入れない。季節（真冬・真夏・雨）に足りないものも考える
 - strengths：手持ちで、知識に合っていて軸になっている服を最大4点（名前と短い理由）
 - letgo：知識から見て、目指すスタイルと合いにくく出番が少なそうな服を最大3点（名前と短い理由）。無理に挙げなくてよい
@@ -203,7 +205,7 @@ export default {
 ${knowledge}
 
 【手持ちの服】
-${closet}`;
+${closet}${gaps ? "\n\n【アプリが見つけた弱点】\n" + gaps : ""}`;
       const res = await askAdvice(env, prompt);
       return json(res, res.status);
     }

@@ -280,6 +280,10 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .gaplist .gmk.ok{color:#2e7d4f}.gaplist .gmk.ng{color:#c0392b}.gaplist .gmk.warn{color:#b8860b}
 .gaplist .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .gapsum{font-size:14px;margin:0 0 4px}
+.gapwhy{align-self:stretch;border:1px solid var(--line, #ddd);border-radius:10px;padding:8px 10px;font-size:13px}
+.gapwhy summary{cursor:pointer;color:var(--indigo);font-size:13px}
+.gapwhy .gaplist{margin-top:8px;font-size:13px}
+.gapwhy h4{margin:12px 0 0;font-size:13px}
 .aibox{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .aibox .gaplist{align-self:stretch}
 .know{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
@@ -1607,7 +1611,83 @@ async function findUnused(){
   unusedCache = {sig: closetSig(), list, rank, n: CONDS.length};
   unusedBusy = false; renderToday(); renderUnused();
 }
-/* AIのアドバイス：服の知識カード＋手持ちの一覧を中継サーバーに送る */
+/* ---------- 足りない服を考える材料（AIに渡す根拠） ----------
+   ① アプリが10通りの天気で手持ちから実際にコーデを組んでみて、困ったところ（厚さが合わない・雨に弱い・1着に頼りすぎ・よく出る注意）
+   ② 知識の「方向性ごとに必要なもの」が手持ちにあるか */
+const GAP_CONDS = [["真冬",-2,5,1,"sun"],["冬",3,10,6,"sun"],["晩秋・早春",8,15,11,"sun"],["秋・春",12,19,14,"sun"],["初夏・初秋",15,22,18,"sun"],["春夏の境目",19,27,22,"sun"],["夏",24,31,27,"sun"],["真夏",27,34,29,"sun"],["涼しい雨の日",10,16,13,"rain"],["暖かい雨の日",20,26,23,"rain"]];
+const isKnitName = i => /ニット|セーター|カーディガン/.test(i.name||"");
+const KNOW_CHECK = [
+  {st:"きれいめ（メイン）", need:"きれいめの革靴（ローファー・Uチップ・プレーントゥなど）", ok:i=>i.cat==="shoes" && LEATHER_SHOE_RE.test(i.name||"") && dressOf(i) >= 4},
+  {st:"きれいめ（メイン）", need:"ストレート〜少しワイドのきれいめなパンツ（スラックスなど）", ok:i=>i.cat==="bottom" && dressOf(i) >= 4 && !["slim","tapered"].includes(i.shape)},
+  {st:"きれいめ（メイン）", need:"白かサックスブルーの無地の長袖シャツ", ok:i=>i.cat==="top" && /シャツ/.test(i.name||"") && !/Tシャツ|ポロ|半袖/.test(i.name||"") && ["white","sax","ivory"].includes(colorOf(i)) && (!i.pattern || i.pattern==="solid")},
+  {st:"きれいめ（メイン）", need:"きれいめな上着（ジャケット・コート）", ok:i=>i.cat==="outer" && dressOf(i) >= 4},
+  {st:"きれいめ（メイン）", need:"毛足のある大人っぽいニット（冬の余裕）", ok:i=>i.cat==="top" && isKnitName(i) && i.texture==="raised" && dressOf(i) >= 3},
+  {st:"トラッド（ずらし）", need:"ブローグ系の革靴（セミブローグ・ウイングチップ）", ok:i=>i.cat==="shoes" && /ブローグ|ウイングチップ|メダリオン/.test(i.name||"")},
+  {st:"トラッド（ずらし）", need:"クルーネックのセーター", ok:i=>i.cat==="top" && isKnitName(i) && i.neck==="crew" && !/カーディガン/.test(i.name||"")},
+  {st:"トラッド（ずらし）", need:"起毛した生地のパンツ（ウールのスラックス・コーデュロイ）", ok:i=>i.cat==="bottom" && (i.texture==="raised" || i.material==="wool" || /コーデュロイ|フランネル|ツイード/.test(i.name||"")) && !["military","outdoor","sport","street"].includes(styleOf(i))},
+  {st:"トラッド（ずらし）", need:"ハットかキャスケット", ok:i=>i.cat==="acc" && /ハット|キャスケット/.test(i.name||"")},
+  {st:"モード（ずらし）", need:"シルエットを崩さない手持ちのバッグ", ok:i=>i.cat==="bag" && HANDBAG_RE.test(i.name||"")},
+  {st:"モード（ずらし）", need:"光沢のある、きれいめな服", ok:i=>["top","outer","bottom"].includes(i.cat) && (i.texture==="smooth" || ["silk","leather"].includes(i.material)) && dressOf(i) >= 3 && !["outdoor","sport","military","street"].includes(styleOf(i))},
+  {st:"ユーロワーク（ずらし）", need:"ユーロワークの服（フレンチワークジャケットなど）", ok:i=>styleOf(i)==="euro" || i.style2==="euro"},
+  {st:"小物", need:"細めのシルバーのアクセ", ok:i=>i.cat==="acc" && /ネックレス|ブレスレット|リング|チェーン|バングル/.test(i.name||"")},
+  {st:"小物", need:"シンプルな時計", ok:i=>i.cat==="acc" && /時計|ウォッチ/.test(i.name||"")},
+  {st:"小物", need:"メガネ（薄い顔は、顔まわりに視線を留める）", ok:i=>i.cat==="acc" && /メガネ|眼鏡|フレーム/.test(i.name||"")}
+];
+function knowCheck(){
+  const cl = activeCloset() || [];
+  return KNOW_CHECK.map(k=>{ const has = cl.filter(k.ok); return {st:k.st, need:k.need, has: has.map(i=>i.name)}; });
+}
+async function outfitGaps(){
+  const base = readCond(), seed0 = seed, keepC = lastCands, keepP = lastPool;
+  const wv = i => Math.max(1, i.warmth);
+  const issues = new Map(), add = (k, cond, ex) => { if(!issues.has(k)) issues.set(k, {conds:[], ex}); issues.get(k).conds.push(cond); };
+  const tips = new Map(), depend = new Map(), used = new Set(); let n = 0;
+  for(const [label, am, noon, pm, wx] of GAP_CONDS){
+    await new Promise(z=>setTimeout(z, 0));
+    let r; try{ r = compute({...base, am, noon, pm, wx}); pickOutfit(r); }catch(e){ console.warn("outfitGaps", e); continue; }
+    const c = lastPool[0]; if(!c) continue; n++;
+    lastPool.forEach(x=>x.items.forEach(i=>{ if(i) used.add(i.id); }));
+    const [t, o, b, s] = c.items, cond = label;
+    if(!t) add("トップスが組めない", cond, "");
+    if(r.outerNeed >= 3 && !o && !r.carry) add("上着なしになる（合う上着がない）", cond, "");
+    if(o && r.outerNeed && o.warmth < r.outerNeed - 1) add("上着が薄い", cond, `いちばん合ったのは「${o.name}」（暖かさ${o.warmth}、めやす${r.outerNeed}）`);
+    if(o && r.outerNeed && o.warmth > r.outerNeed + 1) add("上着が厚すぎる（ちょうどいい薄手の上着がない）", cond, `いちばん合ったのは「${o.name}」（暖かさ${o.warmth}、めやす${r.outerNeed}）`);
+    if(t && o && r.outerNeed && (wv(t) + o.warmth) < r.topNeed + r.outerNeed - 1) add("重ねても暖かさが足りない", cond, `「${t.name}」＋「${o.name}」`);
+    if(t && wv(t) > r.topNeed + 1 && r.topNeed <= 2) add("トップスが厚すぎる（暑い日向きのトップスが足りない）", cond, `いちばん合ったのは「${t.name}」（暖かさ${t.warmth}、めやす${r.topNeed}）`);
+    if(b && r.bottomNeed != null && b.warmth > r.bottomNeed + 1) add("パンツが厚すぎる（暑い日向きのパンツが足りない）", cond, `いちばん合ったのは「${b.name}」（暖かさ${b.warmth}、めやす${r.bottomNeed}）`);
+    if(b && r.bottomNeed != null && b.warmth < r.bottomNeed - 1) add("パンツが薄い（寒い日向きのパンツが足りない）", cond, `いちばん合ったのは「${b.name}」（暖かさ${b.warmth}、めやす${r.bottomNeed}）`);
+    if(!b) add("パンツが組めない", cond, "");
+    if(!s) add("靴が組めない", cond, "");
+    if(wx === "rain" && s && !s.rain) add("雨に強い靴がない", cond, `雨の日に選ばれたのは「${s.name}」`);
+    if(wx === "rain" && r.outerNeed && (!o || !o.rain)) add("雨に強い上着がない", cond, o ? `雨の日に選ばれたのは「${o.name}」` : "");
+    // 候補の上位（最大12通り）で、半分以上に出る注意
+    const G = lastCands.filter(Boolean), half = Math.max(1, Math.ceil(G.length / 2)), tc = new Map();
+    G.forEach(g=>{ const seen = new Set();
+      (g.j && g.j.tips || []).forEach(([h, txt])=>{ if(/なりにくい/.test(txt)) return; seen.add(h + "：" + String(txt).split("。")[0]); });
+      (g.j && g.j.why || []).forEach(([h, txt])=>{ if(h === "属性" && /離れています/.test(txt)) seen.add("系統がばらける（75/25ルールが崩れる）"); if(h === "きれいめ度" && /カジュアル寄りの服が/.test(txt)) seen.add("カジュアル寄りの服が2点以上になる（75/25ルール）"); });
+      seen.forEach(k=>tc.set(k, (tc.get(k)||0) + 1)); });
+    tc.forEach((v, k)=>{ if(v >= half){ if(!tips.has(k)) tips.set(k, []); tips.get(k).push(cond); } });
+    // 1着に頼りすぎ：上位候補の3/4以上に同じ服が出る
+    if(G.length >= 4){ const ic = new Map(); G.forEach(g=>[0,1,2,3,6].forEach(k=>{ const i = g.items[k]; if(i) ic.set(i, (ic.get(i)||0) + 1); }));
+      ic.forEach((v, i)=>{ if(v >= G.length * 0.75){ if(!depend.has(i)) depend.set(i, []); depend.get(i).push(cond); } }); }
+  }
+  seed = seed0; lastCands = keepC; lastPool = keepP;
+  const catName = i => (CATS[i.cat]||"").replace(/（.*）/,"");
+  const trouble = [];
+  issues.forEach((v, k)=>trouble.push(k + "：" + v.conds.join("、") + (v.ex ? "（" + v.ex + "）" : "")));
+  depend.forEach((v, i)=>{ if(v.length >= 3) trouble.push(`1着に頼りすぎ：「${i.name}」（${catName(i)}）が${v.length}通りの天気で、上位の候補のほとんどに出る（替えになる${catName(i)}が少ない）`); });
+  tips.forEach((v, k)=>{ if(v.length >= 2) trouble.push(`よく出る注意「${k}」：${v.length}通りの天気で（${v.join("、")}）`); });
+  const unused = (activeCloset()||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && !used.has(i.id)).map(i=>i.name);
+  if(unused.length) trouble.push("どの天気でも出番がない服：" + unused.slice(0,8).map(x=>"「" + x + "」").join(""));
+  const check = knowCheck();
+  const groups = [...new Set(check.map(c=>c.st))];
+  const text = "■コーデを組んでみて分かった困りごと（真冬〜真夏・雨の" + n + "通りの天気で、アプリが手持ちから組んだいちばん良いコーデと上位の候補を見た結果。天気のめやす：真冬＝朝-2℃・昼5℃、冬＝3〜10℃、晩秋・早春＝8〜15℃、秋・春＝12〜19℃、初夏・初秋＝15〜22℃、春夏の境目＝19〜27℃、夏＝24〜31℃、真夏＝27〜34℃）\n"
+    + (trouble.length ? trouble.map(x=>"・" + x).join("\n") : "・大きな困りごとはなし")
+    + "\n■知識の方向性から見た手持ちのチェック（ない＝手持ちにない）\n"
+    + groups.map(g=>"・" + g + "：" + check.filter(c=>c.st===g).map(c=>c.has.length ? c.need + "＝ある（「" + c.has[0] + "」" + (c.has.length > 1 ? "など" + c.has.length + "着" : "") + "）" : c.need + "＝ない").join("／")).join("\n");
+  return {text: text.slice(0, 3500), trouble, check, n};
+}
+/* AIのアドバイス：服の知識カード＋手持ちの一覧＋アプリが見つけた弱点を中継サーバーに送る */
 let adviceBusy = false;
 function worldText(){ return String(prefs.world == null ? "ミニマル系が好き" : prefs.world).trim(); }
 function knowledgeText(){ const w = worldText();
@@ -1727,6 +1807,14 @@ function renderAdvice(boxEl){
     const a = cache.advice;
     if(!fresh) box.appendChild(el("p","hint","※ 服か知識が変わったので、下は前回の結果です。「知識から足りない服を出す」で考え直します。"));
     if(a.summary) box.appendChild(el("p","gapsum", a.summary));
+    if(cache.gaps){ // AIに渡した根拠：アプリがコーデを組んで見つけた困りごとと、知識のチェック
+      const d = el("details","gapwhy"); d.appendChild(el("summary",null,"根拠：アプリが見つけた弱点（" + cache.gaps.n + "通りの天気でコーデを組んだ結果）"));
+      const u0 = el("ul","gaplist"); (cache.gaps.trouble||[]).forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); li.appendChild(el("span",null,x)); u0.appendChild(li); });
+      if(!u0.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"コーデを組んで困るところはありませんでした")); u0.appendChild(li); }
+      d.appendChild(u0); d.appendChild(el("h4",null,"知識の方向性ごとに必要なもの"));
+      const u1 = el("ul","gaplist"); (cache.gaps.check||[]).forEach(c=>{ const li = el("li"); const ok = c.has.length; li.appendChild(el("span","gmk " + (ok ? "ok" : "ng"), ok ? "✓" : "✕"));
+        const t = el("span",null, c.st + "：" + c.need); t.appendChild(el("span","why", ok ? c.has.slice(0,2).join("、") + (c.has.length > 2 ? " など" + c.has.length + "着" : "") : "手持ちにない")); li.appendChild(t); u1.appendChild(li); });
+      d.appendChild(u1); box.appendChild(d); }
     const ul = el("ul","gaplist");
     (a.missing||[]).slice().sort((x,y)=>(x.priority||3)-(y.priority||3)).forEach(m=>{
       const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
@@ -1746,9 +1834,9 @@ function renderAdvice(boxEl){
         li.appendChild(t); ub.appendChild(li); });
       box.appendChild(ub); box.appendChild(el("p","hint","ブランドと値段（メルカリでの中古相場の目安）はAIの提案です。メルカリのボタンは3万円以下の出品だけを出します。サイズは出品の実寸と、知識タブの「自分のサイズ」で確かめてください。")); }
     if((a.letgo||[]).length){ box.appendChild(el("h4",null,"AIの見立て：知識から見て合いにくい服")); const u3 = el("ul","gaplist"); a.letgo.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); li.appendChild(el("span",null,x)); u3.appendChild(li); }); box.appendChild(u3); }
-    box.appendChild(el("p","hint", new Date(cache.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " にAI（Gemini）が、服の知識タブの内容と手持ちの服から考えました。"));
+    box.appendChild(el("p","hint", new Date(cache.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " にAI（Gemini）が、服の知識タブの内容と手持ちの服" + (cache.gaps ? "、アプリが見つけた弱点" : "") + "から考えました。"));
   } else if(!adviceBusy){
-    box.appendChild(el("p","hint","服の知識タブの内容と手持ちの服の一覧をAI（Gemini）に送って、足りない服を考えます。写真は送りません。"));
+    box.appendChild(el("p","hint","アプリが真冬から真夏・雨の日まで10通りの天気でコーデを組んで困るところを探し、知識の方向性ごとに必要なものが手持ちにあるかも確かめます。それと服の知識タブの内容、手持ちの服の一覧をAI（Gemini）に送って、足りない服を考えます。写真は送りません。"));
   }
   const msg = el("p","hint"); msg.id = "adviceMsg"; box.appendChild(msg);
   box.appendChild(btn);
@@ -1760,9 +1848,10 @@ async function fetchAdvice(force){
   adviceBusy = true; renderAdvice();
   let err = "";
   try{
-    const r = await fetch(AI_API.replace(/classify$/, "advise"), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({knowledge: knowledgeText(), closet: closetText(), goal: goalText()}), signal: AbortSignal.timeout(100000)});
+    let gaps = null; try{ gaps = await outfitGaps(); }catch(e){ console.warn("outfitGaps", e); }
+    const r = await fetch(AI_API.replace(/classify$/, "advise"), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({knowledge: knowledgeText(), closet: closetText(), goal: goalText(), gaps: gaps ? gaps.text : ""}), signal: AbortSignal.timeout(110000)});
     const j = await r.json().catch(()=>({}));
-    if(r.ok && j.advice) LS.set("kn.advice", {sig: adviceSig(), at: Date.now(), advice: j.advice});
+    if(r.ok && j.advice) LS.set("kn.advice", {sig: adviceSig(), at: Date.now(), advice: j.advice, model: j.model, gaps: gaps ? {trouble: gaps.trouble, check: gaps.check, n: gaps.n} : null});
     else err = (j.error==="ai_failed" || r.status===429) ? "AIが混み合っています。少し待ってからもう一度押してください。" : "考えられませんでした（" + (j.error || r.status) + "）。";
   }catch(e){ err = "中継サーバーにつながりませんでした。通信状態を確かめてください。"; }
   adviceBusy = false; renderAdvice();
