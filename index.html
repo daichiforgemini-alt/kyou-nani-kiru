@@ -156,6 +156,13 @@ button,input,select{font:inherit;color:inherit}
 .restyle-list label{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.55}
 .restyle-list input{margin-top:3px;flex:none}
 .restyle-list .why{display:block;color:var(--muted);font-size:12px}
+.tiers{display:block;margin-top:8px}
+.tiers .q{display:block;font-size:11.5px;color:var(--muted)}
+.tier-h{margin:8px 0 2px;font-size:12px;font-weight:700}
+.pickrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:4px 0;border-top:1px dashed var(--line)}
+.pickrow .pk{flex:1 1 160px;font-size:13px;line-height:1.5}
+.pickrow .pp{color:var(--muted);font-size:12px}
+.pickrow .shoplinks{margin-top:0}
 .candlist{display:grid;gap:8px;margin:10px 0 14px}
 .cand{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
 .cand.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent)}
@@ -1611,7 +1618,7 @@ function closetText(){
     return `- [${CATS[i.cat]||i.cat}] ${i.name}（系統:${styleLabel(i)}、色:${c ? COLORS[c].n : "不明"}、暖かさ${i.warmth}、きれいめ度${dressOf(i)}${dt ? "、" + dt : ""}${fl ? "、" + fl : ""}）`; }).join("\n");
 }
 function goalText(){ return (prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）")
-  + "。方針：長く使える品質を優先。足りない服の brands は、そのアイテムの定番ブランド（元祖・名作で知られる作り手）を最優先。ドメブラと国内外のファクトリーブランドも可、量販店は最後。予算はメルカリ中古で1点2万円前後〜3万円。price はメルカリの中古相場"; }
+  + "。方針：長く使える品質を優先。picks は、そのアイテムの定番ブランド・定番モデル（元祖・名作で知られる作り手）を最優先。ドメブラと国内外のファクトリーブランドも可、量販店は最後。予算はメルカリ中古で3万円まで。price はメルカリの中古相場"; }
 function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText(); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
 /* 足りない服を通販サイトで探す。ZOZOTOWNは検索語をShift_JISで送る必要があるので、フォームで開く */
 /* お店やXのページは、アプリとは別のウィンドウで開く（パソコンでは小窓、iPhone・iPadではSafariの新しいタブ） */
@@ -1679,6 +1686,26 @@ function brandChips(brands, q, cat){
     box.appendChild(row); });
   return box;
 }
+/* 価格帯ごとの候補（ブランド＋製品名）。ZOZOTOWNとメルカリで「ブランド＋製品名」を探す */
+const TIERS = [["budget","〜1万円"],["middle","1〜2万円"],["premium","2〜3万円"]];
+function pickTiers(picks, q, cat){
+  const words = String(q||"").split(/\s+/).filter(w=>w && w !== "メンズ"), item = words[words.length-1] || "";
+  const box = el("div","tiers"); box.appendChild(el("span","q","候補（メルカリ中古の値段の目安ごと）"));
+  TIERS.forEach(([tier, label])=>{
+    const ps = picks.filter(p=>p && p.tier === tier && p.brand); if(!ps.length) return;
+    box.appendChild(el("p","tier-h", label));
+    ps.forEach(p=>{ const prod = String(p.product||"").trim(), kw = p.brand + " " + (prod || item);
+      const row = el("div","pickrow");
+      const tx = el("span","pk"); tx.appendChild(el("b",null,p.brand)); if(prod) tx.appendChild(document.createTextNode(" " + prod));
+      if(p.price) tx.appendChild(el("span","pp","（" + p.price + "）")); if(p.why) tx.appendChild(el("span","why", p.why)); row.appendChild(tx);
+      const bt = el("span","shoplinks");
+      const z = el("button",null,"ZOZOTOWN"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(kw)); bt.appendChild(z);
+      const m = el("a",null,"メルカリ"); m.href = mercariUrl(kw, cat, q); m.target = "_blank"; m.rel = "noopener"; bt.appendChild(m);
+      row.appendChild(bt); box.appendChild(row); });
+  });
+  box.appendChild(el("span","why","製品名はAIの提案です。実在や型番は、開いた先の商品ページで確かめてください。"));
+  return box;
+}
 function shopLinks(q, cat){
   q = String(q||"").replace(/\s+/g," ").trim().slice(0,60);
   const box = el("span","shoplinks"); box.appendChild(el("span","q","探す：" + q));
@@ -1706,7 +1733,8 @@ function renderAdvice(boxEl){
       const t = el("span",null, m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : ""));
       t.appendChild(el("span","why", (m.reason||"") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : "")));
       t.appendChild(shopLinks(m.query || (m.name + " メンズ"), m.cat));
-      if((m.brands||[]).length) t.appendChild(brandChips(m.brands, m.query || m.name, m.cat));
+      if((m.picks||[]).length) t.appendChild(pickTiers(m.picks, m.query || m.name, m.cat));
+      else if((m.brands||[]).length) t.appendChild(brandChips(m.brands, m.query || m.name, m.cat));
       t.appendChild(el("span","why", mercariNote(m.cat, m.query || m.name))); li.appendChild(t); ul.appendChild(li); });
     if(!ul.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"知識から見て、足りない服はありません")); ul.appendChild(li); }
     box.appendChild(ul);
