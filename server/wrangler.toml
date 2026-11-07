@@ -1,0 +1,11 @@
+# 中継サーバー（Cloudflare Worker）の設定。GitHub Actions がこれを使って自動でデプロイする
+name = "kyou-nani-kiru-search"
+main = "worker.js"
+compatibility_date = "2025-10-01"
+workers_dev = true
+# ダッシュボードで設定した変数（YAHOO_APPID など）を消さない。シークレット（GEMINI_API_KEY）はデプロイしても残る
+keep_vars = true
+
+[[kv_namespaces]]
+binding = "SYNC"
+id = "31e05be809ec4f6dba18e95a3e2a5946"

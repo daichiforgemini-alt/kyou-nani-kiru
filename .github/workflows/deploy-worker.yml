@@ -1,0 +1,20 @@
+# server/ の中が変わったら、中継サーバー（Cloudflare Worker）を自動でデプロイする
+name: 中継サーバーをデプロイ
+on:
+  push:
+    branches: [main]
+    paths: ["server/**"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 279d34972098bd021164bbafde2ac051
+          workingDirectory: server
+          command: deploy
