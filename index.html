@@ -1683,15 +1683,17 @@ async function outfitGaps(){
   seed = seed0; lastCands = keepC; lastPool = keepP;
   const catName = i => (CATS[i.cat]||"").replace(/（.*）/,"");
   const trouble = [];
-  issues.forEach((v, k)=>trouble.push(seasonTag(v.conds) + k + "：" + v.conds.join("、") + (v.ex ? "（" + v.ex + "）" : "")));
-  depend.forEach((v, i)=>{ if(v.length >= 3) trouble.push(seasonTag(v) + `1着に頼りすぎ：「${i.name}」（${catName(i)}）が${v.length}通りの天気で、上位の候補のほとんどに出る（替えになる${catName(i)}が少ない。${v.join("、")}）`); });
-  tips.forEach((v, k)=>{ if(v.length >= 2) trouble.push(seasonTag(v) + `よく出る注意「${k}」：${v.length}通りの天気で（${v.join("、")}）`); });
+  // 今シーズン（今月から3か月）に関係しない困りごとは出さない。季節外れの服は今は買わない
+  const inSeason = conds => !/来シーズン/.test(seasonTag(conds));
+  issues.forEach((v, k)=>inSeason(v.conds) && trouble.push(seasonTag(v.conds) + k + "：" + v.conds.join("、") + (v.ex ? "（" + v.ex + "）" : "")));
+  depend.forEach((v, i)=>{ if(v.length >= 3 && inSeason(v)) trouble.push(seasonTag(v) + `1着に頼りすぎ：「${i.name}」（${catName(i)}）が${v.length}通りの天気で、上位の候補のほとんどに出る（替えになる${catName(i)}が少ない。${v.join("、")}）`); });
+  tips.forEach((v, k)=>{ if(v.length >= 2 && inSeason(v)) trouble.push(seasonTag(v) + `よく出る注意「${k}」：${v.length}通りの天気で（${v.join("、")}）`); });
   const unused = (activeCloset()||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && !used.has(i.id)).map(i=>i.name);
   if(unused.length) trouble.push("どの天気でも出番がない服：" + unused.slice(0,8).map(x=>"「" + x + "」").join(""));
   const check = knowCheck();
   const groups = [...new Set(check.map(c=>c.st))];
   const sm = seasonMonths();
-  const text = "■今の時期：" + sm[0] + "月。今シーズン＝" + sm.join("・") + "月（" + GAP_CONDS.map(c=>c[0]).filter(c=>(GAP_MONTHS[c]||[]).some(x=>sm.includes(x))).join("、") + "の天気）。困りごとの頭の【今シーズン】【来シーズン以降】は、その天気が多い時期\n"
+  const text = "■今の時期：" + sm[0] + "月。今シーズン＝" + sm.join("・") + "月（" + GAP_CONDS.map(c=>c[0]).filter(c=>(GAP_MONTHS[c]||[]).some(x=>sm.includes(x))).join("、") + "の天気）。困りごとは今シーズンに関係するものだけ。足りない服も、今シーズンに要るもの（季節を問わず使うものを含む）だけにする\n"
     + "■コーデを組んでみて分かった困りごと（真冬〜真夏・雨の" + n + "通りの天気で、アプリが手持ちから組んだいちばん良いコーデと上位の候補を見た結果。天気のめやす：真冬＝朝-2℃・昼5℃、冬＝3〜10℃、晩秋・早春＝8〜15℃、秋・春＝12〜19℃、初夏・初秋＝15〜22℃、春夏の境目＝19〜27℃、夏＝24〜31℃、真夏＝27〜34℃）\n"
     + (trouble.length ? trouble.map(x=>"・" + x).join("\n") : "・大きな困りごとはなし")
     + "\n■知識の方向性から見た手持ちのチェック（ない＝手持ちにない）\n"
@@ -1828,7 +1830,7 @@ function renderAdvice(boxEl){
       d.appendChild(u1); box.appendChild(d); }
     const ul = el("ul","gaplist");
     const WHEN = {now:["今シーズン","now",0], any:["通年","any",1], next:["来シーズン","next",2]};   // 今の時期に要るものを先に
-    (a.missing||[]).slice().sort((x,y)=>((WHEN[x.when]||WHEN.any)[2] - (WHEN[y.when]||WHEN.any)[2]) || (x.priority||3)-(y.priority||3)).forEach(m=>{
+    (a.missing||[]).filter(m=>m.when !== "next").sort((x,y)=>((WHEN[x.when]||WHEN.any)[2] - (WHEN[y.when]||WHEN.any)[2]) || (x.priority||3)-(y.priority||3)).forEach(m=>{
       const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
       const t = el("span",null, ""); if(WHEN[m.when]){ t.appendChild(el("span","when " + WHEN[m.when][1], WHEN[m.when][0])); }
       t.appendChild(document.createTextNode(m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : "")));
