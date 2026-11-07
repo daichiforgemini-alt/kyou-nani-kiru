@@ -159,8 +159,14 @@ button,input,select{font:inherit;color:inherit}
 .tiers{display:block;margin-top:8px}
 .tiers .q{display:block;font-size:11.5px;color:var(--muted)}
 .tier-h{margin:8px 0 2px;font-size:12px;font-weight:700}
-.pickrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:4px 0;border-top:1px dashed var(--line)}
-.pickrow .pk{flex:1 1 160px;font-size:13px;line-height:1.5}
+.pickrow{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px dashed var(--line)}
+.pickrow .tier-c{flex:none;font-size:10.5px;color:var(--muted);width:4.6em}
+.mini{display:inline-flex;gap:4px;flex:none}
+.mini a,.mini button{font:inherit;font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink,inherit);text-decoration:none;cursor:pointer}
+.shopfold{margin-top:4px}
+.shopfold>summary{cursor:pointer;font-size:12px;color:var(--indigo);padding:2px 0}
+.shopfold[open]{display:flex;flex-direction:column;gap:6px;padding-bottom:4px}
+.pickrow .pk{flex:1 1 auto;min-width:0;font-size:13px;line-height:1.45}
 .pickrow .pp{color:var(--muted);font-size:12px}
 .pickrow .shoplinks{margin-top:0}
 .candlist{display:grid;gap:8px;margin:10px 0 14px}
@@ -219,7 +225,7 @@ button,input,select{font:inherit;color:inherit}
 .items .nmrow{display:flex;gap:10px;align-items:center;min-width:0}
 .gtag .gimg{position:absolute;right:12px;top:12px;width:52px;height:52px;object-fit:cover;border-radius:8px}
 .gtag.has-img{padding-right:76px}
-.items li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 8px 8px 14px}
+.items li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 8px 8px 14px}
 .items .nm{overflow-wrap:anywhere}
 .items .rain{font-size:11px;color:var(--indigo);font-weight:700;margin-left:6px}
 .del{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px}
@@ -255,7 +261,10 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .sync-join .text-in{flex:1 1 220px;min-width:0;font-family:var(--f-mono);text-transform:uppercase}
 .sync-code{font-family:var(--f-mono);font-size:16px;font-weight:700;letter-spacing:.04em;user-select:all}
 @media (max-width:800px){.has-loc #view-today .result{order:-1}}
-.items .attr{font-size:11px;color:var(--muted);margin-left:6px;white-space:nowrap}
+.items .attr{font-size:11px;color:var(--muted)}
+.items .meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:3px}
+.items .meta .code{margin-left:0}
+.items .nm{display:block;line-height:1.45}
 .why-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .why-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
 .notes .k.why{background:var(--accent-soft)}
@@ -269,6 +278,20 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .gapcard{margin-bottom:14px}
 #sizeBox .kcard{margin-bottom:14px}
 .more-fields summary{cursor:pointer;font-size:13px;color:var(--indigo)}
+.fold>summary{cursor:pointer;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:2px 0;list-style:none}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::after{content:"▾";margin-left:auto;color:var(--muted);font-size:12px;transition:transform .15s}
+.fold[open]>summary::after{transform:rotate(180deg)}
+.fold-h{font-weight:700;font-size:15px}
+.fold-s{font-size:12px;color:var(--muted)}
+.fold-body{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+#addForm>.fold+.fold{border-top:1px solid var(--line);padding-top:12px}
+.cond-more{border-top:1px solid var(--line);padding-top:10px}
+#condMore[open]{gap:16px}
+.cond-sum{color:var(--muted);font-size:12px;margin-left:4px}
+.why-fold{margin-top:4px}
+.why-fold>summary{cursor:pointer;font-size:13px;letter-spacing:.06em;color:var(--muted);padding:6px 0;list-style-position:inside}
+.why-fold[open]>summary{margin-bottom:8px}
 .more-fields[open]{display:flex;flex-direction:column;gap:8px}
 .more-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .more-grid label{display:flex;flex-direction:column;gap:4px;font-size:13px}
@@ -280,6 +303,22 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .gaplist .gmk.ok{color:#2e7d4f}.gaplist .gmk.ng{color:#c0392b}.gaplist .gmk.warn{color:#b8860b}
 .gaplist .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .gapsum{font-size:14px;margin:0 0 4px}
+.know-h{font-size:13px;letter-spacing:.12em;color:var(--muted);margin:8px 0 0}
+.kfold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.kfold>summary::-webkit-details-marker{display:none}
+.kfold-h{font-weight:700;color:var(--indigo);font-size:15px}
+.kfold-n{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px}
+.kfold>summary::after{content:"▾";margin-left:auto;color:var(--muted);font-size:12px;transition:transform .15s}
+.kfold[open]>summary::after{transform:rotate(180deg)}
+.kfold[open]>summary{margin-bottom:8px}
+.gfold{border-top:1px solid var(--line)}
+.gfold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:12px 0;font-weight:700;font-size:14px}
+.gfold>summary::-webkit-details-marker{display:none}
+.gfold>summary::after{content:"▾";margin-left:auto;color:var(--muted);font-weight:400;font-size:12px;transition:transform .15s}
+.gfold[open]>summary::after{transform:rotate(180deg)}
+.gfold-b{font-size:12px;font-weight:700;color:var(--muted)}
+.gfold-b.ng{color:#c0392b}.gfold-b.warn{color:#b8860b}.gfold-b.ok{color:#2e7d4f}
+.gfold[open]{padding-bottom:12px}
 .gaplist .when{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:6px;vertical-align:1px;border:1px solid currentColor}
 .gaplist .when.now{color:#c0392b}.gaplist .when.any{color:var(--muted)}.gaplist .when.next{color:var(--indigo)}
 .rplist{display:flex;flex-direction:column;gap:4px;margin:4px 0 6px}
@@ -352,7 +391,6 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
           <div class="stepper"><button type="button" data-step="tPm" data-d="-1" aria-label="夜の気温を下げる">−</button><input id="tPm" type="number" inputmode="numeric" step="1" value="15"><button type="button" data-step="tPm" data-d="1" aria-label="夜の気温を上げる">＋</button></div>
         </div>
       </div>
-      <span class="hint" style="margin-top:-8px">朝8時・昼（11〜15時でいちばん高い）・夜20時の気温です</span>
 
       <div class="field"><span class="lbl">天気</span>
         <div class="seg" role="radiogroup">
@@ -363,11 +401,14 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         </div>
       </div>
 
+      <p class="auto-note" id="autoNote" hidden>予報から自動で入れました。手で変えることもできます。</p>
+      <details class="more-fields cond-more" id="condMore">
+      <summary>くわしい条件 <span class="cond-sum" id="condSum"></span></summary>
+      <span class="hint">気温は朝8時・昼（11〜15時でいちばん高い）・夜20時のものです</span>
       <div class="field"><label for="wind">風の強さ（日中の平均）</label>
         <div class="range-row"><input type="range" id="wind" min="0" max="12" step="1" value="2"><output id="windOut" for="wind">2 m/s</output></div>
         <span class="hint">風速1m/sごとに体感はおよそ1℃下がります</span>
       </div>
-      <p class="auto-note" id="autoNote" hidden>予報から自動で入れました。手で変えることもできます。</p>
 
       <div class="field"><span class="lbl">外にいる時間</span>
         <div class="seg">
@@ -386,7 +427,6 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 
       <div class="field"><label for="myStyle">目指すスタイル</label>
         <select class="text-in" id="myStyle"></select>
-        <span class="hint">この系統を軸に、75/25ルールで組み合わせを選びます</span>
       </div>
 
       <div class="field"><label for="body">体質</label>
@@ -394,11 +434,12 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <div class="range-ends"><span>寒がり</span><span id="bodyOut">ふつう</span><span>暑がり</span></div>
       </div>
       <p class="hint" style="margin:0">天気データ：<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a></p>
+      </details>
     </form>
 
     <div class="result">
       <div class="verdict" aria-live="polite">
-        <div class="idx"><span class="n" id="idx">60</span><span class="k">服装指数</span></div>
+        <div class="idx" title="100が「薄着でOK」、10が「いちばん厚着」"><span class="n" id="idx">60</span><span class="k">服装指数</span></div>
         <div>
           <h3 id="verdict"></h3>
           <div class="feels"><span>昼の体感 <b id="fDay">--</b></span><span>いちばん寒い時間 <b id="fCold">--</b></span><span>寒暖差 <b id="fGap">--</b></span></div>
@@ -411,9 +452,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
           <div class="bands" id="bands"></div>
           <div class="ticks" id="ticks"></div>
         </div>
-        <p class="credit">めやすは、コットン西村さんの衣装予報（X @slimboy24、2022〜2026年の307日分）と、その日の東京の気温から作っています。</p>
-        <a class="btn xlink" id="xToday" href="https://x.com/slimboy24" target="_blank" rel="noopener"><b>𝕏</b> きょうの西村さんの衣装予報を見る</a>
-        <p class="credit" style="margin-top:4px">西村さんのプロフィールが開きます。予報は東京の気温です。</p>
+        <p class="credit">めやす：コットン西村さんの衣装予報（東京・307日分）から　<a id="xToday" href="https://x.com/slimboy24" target="_blank" rel="noopener">𝕏 きょうの予報</a></p>
       </div>
 
       <div class="outfit-head">
@@ -425,25 +464,25 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 
       <ul class="notes" id="notes"></ul>
 
-      <div class="why-head"><h2>コーデの理屈</h2></div>
+      <details class="why-fold" id="whyFold"><summary>なぜこの組み合わせ？ <span class="cond-sum" id="whySum"></span></summary>
       <ul class="notes" id="why"></ul>
-      <p class="hint">服装指数は 100 が「薄着でOK」、10 が「いちばん厚着」の目安です。</p>
+      </details>
     </div>
   </section>
 
   <!-- ===== クローゼット ===== -->
   <section id="view-closet" class="closet" hidden>
     <form class="panel" id="addForm" autocomplete="off">
-      <h2>服を登録する</h2>
+      <details class="fold" id="addFold"><summary><span class="fold-h">＋ 服を登録する</span><span class="fold-s">写真・URL・手入力</span></summary>
+      <div class="fold-body">
       <div class="photo-box">
         <div class="field"><label for="photoHint">わかっている情報（任意）</label>
           <textarea class="text-in" id="photoHint" rows="2" maxlength="300" placeholder="例：ユニクロ ウールブレンドチェスターコート、ウール60%、品番470067"></textarea>
-          <span class="hint">ブランド・商品名・素材・品番などを書いておくと、AIが写真と合わせて判断します。写真を選ぶ前に書いてください。</span>
+          <span class="hint">写真を選ぶ前に書くと、AIが写真と合わせて判断します。</span>
         </div>
         <div class="btns"><label class="btn primary" for="photoIn">写真から登録</label><button type="button" class="btn" id="photoRetry" hidden>この情報で判定し直す</button></div>
         <div class="field"><label for="pageUrl">商品ページのURLから登録</label>
           <div class="search-row"><input class="text-in" id="pageUrl" type="url" inputmode="url" placeholder="https://… 通販サイトの商品ページ" enterkeyhint="go"><button type="button" class="btn" id="pageBtn">取り込む</button></div>
-          <span class="hint">ページの写真・商品名・素材を取り出して判定します。サイトによっては取り出せないことがあります。</span>
           <details class="bm-help" id="bmHelp">
             <summary>ZOZO・HOKAなど、取り込めないサイトのとき</summary>
             <p class="hint">一部のサイトは、このアプリのサーバーからの読み取りを断っています。その場合は、Safariで商品ページを開いたまま「服に追加」ブックマークを押すと、あなたのiPhoneが読み取ってアプリに渡します（最初に1回だけ設定が必要です）。</p>
@@ -458,7 +497,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
           </details>
         </div>
         <input type="file" id="photoIn" accept="image/*" hidden>
-        <span class="hint">服を1点だけ、床に平置きするかハンガーにかけて撮ると正確です。顔や部屋が写らないようにしてください。</span>
+        <span class="hint">服1点を平置きかハンガーで。顔や部屋は写さない。</span>
         <div class="photo-res" id="photoRes" hidden><img id="photoImg" alt="選んだ写真"><p id="photoMsg"></p></div>
       </div>
       <div class="divider"><span>または手で入力</span></div>
@@ -490,22 +529,20 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
       <div class="field"><label for="itStyle">系統</label>
         <select class="text-in" id="itStyle"></select>
-        <span class="hint">名前から推定します。違っていたら選び直してください。系統は名前より、サイズ感・生地感・ディテールで決まります。</span>
+        <span class="hint">名前から推定します。違っていたら選び直してください。</span>
       </div>
       <div class="field"><label for="itStyle2">もうひとつの系統（任意）</label>
         <select class="text-in" id="itStyle2"></select>
-        <span class="hint">ハット（エレガンス・紳士が主、ワークが副）のように、2つの系統にまたがる服のときだけ。</span>
       </div>
       <div class="field"><label for="itDress">きれいめ度</label>
         <select class="text-in" id="itDress"></select>
-        <span class="hint">革靴・スラックスはきれいめ、スニーカー・パーカーはカジュアル。きれいめの日は、カジュアル寄りの服（2以下）を1点までにすると75/25ルールに合います。</span>
       </div>
       <div class="field"><label for="itColor">色</label>
         <select class="text-in" id="itColor"></select>
       </div>
       <details class="more-fields" id="moreFields">
         <summary>くわしく（素材・質感・柄・サイズ感など。任意）</summary>
-        <span class="hint">写真から登録すると、AIが自動で入れます。コーデの判定（柄は1点まで、Vシルエット、生地の圧力、首元など）に使います。</span>
+        <span class="hint">写真から登録すると、AIが自動で入れます。</span>
         <div class="more-grid">
           <label>素材<select class="text-in" id="itMaterial"></select></label>
           <label>質感<select class="text-in" id="itTexture"></select></label>
@@ -523,6 +560,9 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <input class="text-in" id="itCode" maxlength="40" placeholder="タグの品番をメモできます（例：470067）" spellcheck="false">
       </div>
       <button class="btn primary" type="submit">クローゼットに追加</button>
+      </div></details>
+      <details class="fold" id="toolFold"><summary><span class="fold-h">バックアップ・同期・まとめて整える</span></summary>
+      <div class="fold-body">
       <p class="store-note">服はこの端末に保存されます。機種変更の前にバックアップを書き出してください。</p>
       <div class="backup">
         <button type="button" class="btn" id="exportBtn">バックアップを書き出す</button>
@@ -532,13 +572,13 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       <p class="hint" id="backupMsg" style="margin:0"></p>
       <div class="sync-box">
         <p class="sync-h">くわしい項目をAIでまとめて入れる</p>
-        <p class="hint" style="margin:0">写真のある服を1着ずつAIに見せて、素材・質感・柄・サイズ感・パンツの形・首元のうち、空いているところだけを埋めます（系統や色は変えません）。1着5秒ほどかかります。</p>
+        <p class="hint" style="margin:0">写真のある服の、空いている素材・柄・形などをAIが埋めます（1着5秒ほど）。</p>
         <button type="button" class="btn" id="bulkBtn">空いている項目をAIで入れる</button>
         <p class="hint" id="bulkMsg" style="margin:0"></p>
       </div>
       <div class="sync-box">
         <p class="sync-h">系統をブランドも見て見直す</p>
-        <p class="hint" style="margin:0">写真のある服を1着ずつAIに見せて、写真の見た目に加えて、名前の先頭のブランドの世界観（どんな系統の服を作るブランドか）からも、系統ときれいめ度を判定し直します。変わる服だけを一覧にするので、確かめてから反映してください。1着5秒ほどかかります。</p>
+        <p class="hint" style="margin:0">写真とブランドの世界観から、系統ときれいめ度を判定し直します。変わる服だけを確かめてから反映（1着5秒ほど）。</p>
         <button type="button" class="btn" id="restyleBtn">ブランドも見て系統を見直す</button>
         <p class="hint" id="restyleMsg" style="margin:0"></p>
         <div id="restyleBox"></div>
@@ -565,6 +605,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         </div>
         <p class="hint" id="syncMsg" style="margin:0"></p>
       </div>
+      </div></details>
     </form>
 
     <div class="groups">
@@ -1428,11 +1469,14 @@ function renderToday(){
   const notes = $("notes"); notes.textContent = "";
   r.notes.forEach(([k,t])=>{ const li = el("li"); li.appendChild(el("span","k",k)); li.appendChild(el("span",null,t)); notes.appendChild(li); });
 
+  { const sp = $("condSum"); if(sp){ const v = n=>{ const x = document.querySelector(`input[name=${n}]:checked`); return x ? x.nextElementSibling.textContent : ""; };
+      sp.textContent = "風" + $("wind").value + "m/s・" + v("span") + "・" + v("move") + "・" + ($("myStyle").selectedOptions[0] ? $("myStyle").selectedOptions[0].textContent.replace(/（.*）/,"") : "") + "・" + $("bodyOut").textContent; } }
   const why = $("why"); why.textContent = "";
   const picked = outfit.items.filter(Boolean);
   if(picked.length){
     outfit.j.why.concat(outfit.j.tips).forEach(([k,t])=>{ const li = el("li"); li.appendChild(el("span","k why",k)); li.appendChild(el("span",null,t)); why.appendChild(li); });
     const unknown = picked.filter(i=>!i.style || !i.color).length;
+    { const ws = $("whySum"); if(ws){ const nt = outfit.j.tips.length; ws.textContent = nt ? "ヒント " + nt + "件" : ""; } }
     if(unknown && !usingSample()){ const li = el("li"); li.appendChild(el("span","k why","メモ")); li.appendChild(el("span",null,"系統や色が登録されていない服は、名前から推定しています。クローゼットの「直す」で登録すると判定が正確になります。")); why.appendChild(li); }
   }
 
@@ -1440,6 +1484,7 @@ function renderToday(){
 
 function renderCloset(){
   $("sampleBar").hidden = !usingSample();
+  if(!(closet && closet.length) && $("addFold")) $("addFold").open = true;   // まだ服がないときは、登録をはじめから開いておく
   const wrap = $("groups"); wrap.textContent = "";
   const list = activeCloset();
   Object.keys(CATS).forEach(cat=>{
@@ -1451,11 +1496,11 @@ function renderCloset(){
       const ul = el("ul","items");
       items.forEach(it=>{
         const li = el("li");
-        const nm = el("span","nm",it.name); if(it.rain) nm.appendChild(el("span","rain","雨OK")); if(it.cat==="top" && it.alsoOuter) nm.appendChild(el("span","rain","羽織りOK")); if(it.cat==="top" && it.alsoInner) nm.appendChild(el("span","rain","中に着られる")); if(it.cat==="inner" && it.alsoTop) nm.appendChild(el("span","rain","トップスOK")); if(it.code) nm.appendChild(el("span","code",it.code));
-        const c0 = colorOf(it); nm.appendChild(el("span","attr", styleLabel(it) + (c0 ? "・" + COLORS[c0].n : "") + (it.style ? "" : "（推定）")));
+        const nm = el("span","nm",it.name); if(it.rain) nm.appendChild(el("span","rain","雨OK")); if(it.cat==="top" && it.alsoOuter) nm.appendChild(el("span","rain","羽織りOK")); if(it.cat==="top" && it.alsoInner) nm.appendChild(el("span","rain","中に着られる")); if(it.cat==="inner" && it.alsoTop) nm.appendChild(el("span","rain","トップスOK"));
+        const c0 = colorOf(it), meta = el("span","meta"); if(!NOWARM[it.cat]) meta.appendChild(dots(it.warmth));
+        meta.appendChild(el("span","attr", styleLabel(it) + (c0 ? "・" + COLORS[c0].n : "") + (it.style ? "" : "（推定）"))); if(it.code) meta.appendChild(el("span","code",it.code)); nm.appendChild(meta);
         if(it.img){ const row = el("span","nmrow"); const im = el("img","thumb"); im.src = it.img; im.alt = ""; row.appendChild(im); row.appendChild(nm); li.appendChild(row); }
         else li.appendChild(nm);
-        if(!NOWARM[it.cat]) li.appendChild(dots(it.warmth));
         if(!usingSample()){
           const acts = el("span","acts");
           const ed = el("button","edit","直す"); ed.type = "button"; ed.setAttribute("aria-label", it.name+"を直す");
@@ -1512,17 +1557,26 @@ function renderCloset(){
   });
 }
 /* 手持ちの服チェック：AIによる足りない服と、天気・バランスの観点 */
+/* 知識タブの各セクションは折りたたむ。開いているかどうかは描き直しても保つ */
+const FOLD_OPEN = new Set(["advice"]);
+function gfold(parent, key, title, sub){
+  const d = el("details","gfold"); d.open = FOLD_OPEN.has(key);
+  const sm = el("summary"); sm.appendChild(el("span","gfold-h", title)); const bd = el("span","gfold-b", sub || ""); sm.appendChild(bd); d.appendChild(sm);
+  d.addEventListener("toggle", ()=>{ if(d.open) FOLD_OPEN.add(key); else FOLD_OPEN.delete(key); });
+  parent.appendChild(d); d.badge = bd; return d;
+}
+function foldCount(d, ul){ const ng = ul.querySelectorAll(".gmk.ng").length, wn = ul.querySelectorAll(".gmk.warn").length;
+  d.badge.textContent = ng || wn ? [ng && "✕" + ng, wn && "！" + wn].filter(Boolean).join(" ") : "✓"; d.badge.className = "gfold-b " + (ng ? "ng" : wn ? "warn" : "ok"); }
 function renderGap(){
   const box = $("gap"); if(!box) return; box.textContent = "";
-  box.appendChild(el("h3",null,"手持ちの服チェック（足りないもの）"));
+  box.appendChild(el("h3",null,"手持ちの服チェック"));
   const list = closet || [];
   if(!list.length){ box.appendChild(el("p","gapsum","クローゼットに服を登録すると、知識ノートの基準と照らして足りない服を出します。")); return; }
   const mk = (ul, kind, title, why)=>{ const li = el("li"); li.appendChild(el("span","gmk " + kind, kind==="ok" ? "✓" : kind==="ng" ? "✕" : "！")); const t = el("span",null,title); if(why) t.appendChild(el("span","why",why)); li.appendChild(t); ul.appendChild(li); };
   // 1. 知識と手持ちから、AIが足りない服を考える（知識カードが変われば結果も変わる）
-  box.appendChild(el("h4",null,"知識から考えた、足りない服"));
-  const aiBox = el("div","aibox"); box.appendChild(aiBox); renderAdvice(aiBox);
+  { const d = gfold(box, "advice", "足りない服（AIの提案）"); const aiBox = el("div","aibox"); d.appendChild(aiBox); renderAdvice(aiBox); }
   // 2. 天気への備え
-  box.appendChild(el("h4",null,"天気への備え"));
+  const dWx = gfold(box, "wx", "天気への備え");
   const ul2 = el("ul","gaplist");
   const outers = list.filter(i=>i.cat==="outer"), shoes = list.filter(i=>i.cat==="shoes");
   const warm5 = outers.filter(i=>i.warmth>=5);
@@ -1536,10 +1590,10 @@ function renderGap(){
   const thin = outers.filter(i=>i.warmth<=2).length;   // 前を開けて着るシャツは「トップス（外）」として数えるので、ここには入れない
   if(thin < 2) mk(ul2,"warn","暑い日の薄手の羽織り（暖かさ1〜2）", "冷房対策や朝晩の羽織りが1着しかないので、毎回同じになります。");
   if(!ul2.children.length) mk(ul2,"ok","天気への備えは足りています");
-  box.appendChild(ul2);
+  dWx.appendChild(ul2); foldCount(dWx, ul2);
   // 3. バランス
   // 小物（自分用の基準シートより：バッグは手持ち、アクセは細めのシルバーとシンプルな時計、薄い顔はメガネで顔まわりに視線を留める）
-  box.appendChild(el("h4",null,"バッグ・小物"));
+  const dBag = gfold(box, "bag", "バッグ・小物");
   const ulb = el("ul","gaplist");
   const bags = list.filter(i=>i.cat==="bag"), accs = list.filter(i=>i.cat==="acc"), belts = list.filter(i=>i.cat==="belt");
   if(!bags.length) mk(ulb,"ng","手持ちのバッグ", "バッグが登録されていません。シルエットを見せる服には手持ちのバッグ（ボディバッグやリュックはシルエットに影響する）。");
@@ -1554,8 +1608,8 @@ function renderGap(){
     else if(lack.length) mk(ulb,"warn",lack.join("・") + "のベルト", "手持ちの靴に" + lack.join("・") + "があるのに、同じ色のベルトがありません。靴とベルトの色をそろえると、視線が顔に戻りやすい。");
     else mk(ulb,"ok","ベルト：靴の色とそろえられます"); }
   if(!ulb.children.length) mk(ulb,"ok","バッグ・小物はそろっています");
-  box.appendChild(ulb);
-  box.appendChild(el("h4",null,"バランス"));
+  dBag.appendChild(ulb); foldCount(dBag, ulb);
+  const dBal = gfold(box, "bal", "バランス");
   const ul3 = el("ul","gaplist");
   const main = prefs.style && prefs.style !== "any" ? prefs.style : "kirei";
   const fit = i => itemDist(main, i) < 1;
@@ -1571,13 +1625,13 @@ function renderGap(){
   const dup = Object.entries(names).filter(([,n])=>n>1).map(([k])=>k.split(":").slice(2).join(":"));
   if(dup.length) mk(ul3,"warn","同じ名前の服が2回登録されています：" + dup.join("、"), "まちがえて2回登録したなら、クローゼットで片方を削除してください。");
   if(!ul3.children.length) mk(ul3,"ok","バランスは良好です");
-  box.appendChild(ul3);
+  dBal.appendChild(ul3); foldCount(dBal, ul3);
   // 4. もういらない服（季節と天気を変えてコーデの候補を作り、どこにも出てこない服を探す）
-  box.appendChild(el("h4",null,"もう出番がなさそうな服"));
-  const ub = el("div"); ub.id = "unusedBox"; box.appendChild(ub); renderUnused(ub);
+  { const d = gfold(box, "unused", "もう出番がなさそうな服", unusedCache ? (unusedCache.list.length ? unusedCache.list.length + "着" : "✓") : "");
+    const ub = el("div"); ub.id = "unusedBox"; d.appendChild(ub); renderUnused(ub); }
   // 5. 買い換えたい服（クローゼットから選んで、替え先をAIに考えてもらう）
-  box.appendChild(el("h4",null,"買い換えたい服と、替え先"));
-  const rb = el("div","aibox"); rb.id = "replaceBox"; box.appendChild(rb); renderReplace(rb);
+  { const st = replaceState(); const d = gfold(box, "replace", "買い換えたい服と、替え先", st.ids.length ? st.ids.length + "着" : "");
+    const rb = el("div","aibox"); rb.id = "replaceBox"; d.appendChild(rb); renderReplace(rb); }
 }
 /* もういらない服：真冬〜真夏・雨の日の、点の近いコーデ候補（各最大200通り）を作り、一度も出てこない服を挙げる */
 let unusedCache = null, unusedBusy = false;
@@ -1593,7 +1647,7 @@ function renderUnused(ub){
     ub.appendChild(ul);
     if((unusedCache.rank||[]).length){ ub.appendChild(el("p","gapsum","出番が少ない順（候補に出てきた回数）"));
       const ol = el("ol","rank"); unusedCache.rank.forEach(x=>{ const li = el("li"); li.appendChild(el("span",null, x.name + "（" + (CATS[x.cat]||"").replace(/（.*）/,"") + "）")); li.appendChild(el("span","cnt", x.c + "回")); ol.appendChild(li); }); ub.appendChild(ol); }
-    ub.appendChild(el("p","hint","真冬から真夏、雨の日まで" + unusedCache.n + "通りの天気で、点の近いコーデの候補（それぞれ最大200通り）を作って数えました。「高かった」「思い出がある」で残さず、世界観が合わない服は、手持ちにねじ込むより手放して、合う服を買うほうがおしゃれになります。"));
+    ub.appendChild(el("p","hint","真冬〜真夏・雨の" + unusedCache.n + "通りの天気で、コーデの候補を作って数えました。"));
   }
   const btn = el("button","btn fix-btn", unusedBusy ? "調べています…" : fresh ? "もう一度調べる" : "いらない服を調べる"); btn.type = "button"; btn.disabled = unusedBusy;
   btn.addEventListener("click", findUnused); ub.appendChild(btn);
@@ -1718,7 +1772,7 @@ function renderReplace(rb){
   const st = replaceState(), list = (closet||[]);
   st.ids = st.ids.filter(id=>list.some(i=>i.id === id));
   const unusedIds = new Set(((unusedCache && unusedCache.list) || []).map(x=>x.name));
-  rb.appendChild(el("p","hint","買い換えたい服を選ぶと、同じ役割（種類・暖かさ・季節）のまま、知識から見てより合う替え先と、価格帯ごとの候補を出します。"));
+  if(!st.result) rb.appendChild(el("p","hint","選んだ服と同じ役割のまま、知識により合う替え先を出します。"));
   // 結果
   if(st.result && (st.result.items||[]).length){
     const a = st.result;
@@ -1727,14 +1781,11 @@ function renderReplace(rb){
     a.items.forEach(m=>{
       const li = el("li"); li.appendChild(el("span","gmk warn","⇄"));
       const t = el("span",null, "「" + (m.from||"") + "」→ " + m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : ""));
-      if(m.why_replace) t.appendChild(el("span","why","今の服：" + m.why_replace));
-      t.appendChild(el("span","why","替え先：" + (m.reason||"") + (m.keep ? " ／ 残したい良さ：" + m.keep : "") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : "")));
-      t.appendChild(shopLinks(m.query || (m.name + " メンズ"), m.cat));
-      if((m.picks||[]).length) t.appendChild(pickTiers(m.picks, m.query || m.name, m.cat));
-      t.appendChild(el("span","why", mercariNote(m.cat, m.query || m.name)));
+      t.appendChild(el("span","why", (m.why_replace ? "今の服：" + m.why_replace + "　" : "") + "替え先：" + (m.reason||"") + (m.keep ? "（残す：" + m.keep + "）" : "")));
+      t.appendChild(shopFold(m));
       li.appendChild(t); ul.appendChild(li); });
     rb.appendChild(ul);
-    rb.appendChild(el("p","hint", new Date(st.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " にAI（Gemini）が、服の知識・手持ちの服・アプリが見つけた弱点から考えました。ブランドと値段は目安です。"));
+    rb.appendChild(el("p","hint", new Date(st.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " のAI（Gemini）の提案。ブランドと値段は目安です。"));
   }
   // 服を選ぶ
   const d = el("details","gapwhy"); if(!st.result) d.open = true;
@@ -1870,25 +1921,24 @@ function tidyProduct(x){ const t = String(x||"").trim();
   return t; }
 function pickTiers(picks, q, cat){
   const words = String(q||"").split(/\s+/).filter(w=>w && w !== "メンズ"), item = words[words.length-1] || "";
-  const box = el("div","tiers"); box.appendChild(el("span","q","候補（メルカリ中古の値段の目安ごと）"));
+  const box = el("div","tiers");
   TIERS.forEach(([tier, label])=>{
     const ps = picks.filter(p=>p && p.tier === tier && p.brand); if(!ps.length) return;
-    box.appendChild(el("p","tier-h", label));
     ps.forEach(p=>{ const prod = tidyProduct(p.product), kw = p.brand + " " + (prod || item);
       const row = el("div","pickrow");
+      row.appendChild(el("span","tier-c", label));
       const tx = el("span","pk"); tx.appendChild(el("b",null,p.brand)); if(prod) tx.appendChild(document.createTextNode(" " + prod));
-      if(p.price) tx.appendChild(el("span","pp","（" + p.price + "）")); if(p.why) tx.appendChild(el("span","why", p.why)); row.appendChild(tx);
-      const bt = el("span","shoplinks");
-      const z = el("button",null,"ZOZOTOWN"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(kw)); bt.appendChild(z);
+      if(p.why) tx.title = p.why;
+      const bt = el("span","mini");
+      const z = el("button",null,"ZOZO"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(kw)); bt.appendChild(z);
       const m = el("a",null,"メルカリ"); m.href = mercariUrl(kw, cat, q); m.target = "_blank"; m.rel = "noopener"; bt.appendChild(m);
-      row.appendChild(bt); box.appendChild(row); });
+      row.appendChild(tx); row.appendChild(bt); box.appendChild(row); });
   });
-  box.appendChild(el("span","why","製品名はAIの提案です。実在や型番は、開いた先の商品ページで確かめてください。"));
   return box;
 }
 function shopLinks(q, cat){
   q = String(q||"").replace(/\s+/g," ").trim().slice(0,60);
-  const box = el("span","shoplinks"); box.appendChild(el("span","q","探す：" + q));
+  const box = el("span","shoplinks"); box.appendChild(el("span","q","「" + q.replace(/\s*メンズ$/,"") + "」で探す"));
   const z = el("button",null,"ZOZOTOWN"); z.type = "button";
   z.addEventListener("click", ()=>zozoSearch(q));
   box.appendChild(z);
@@ -1898,6 +1948,17 @@ function shopLinks(q, cat){
     const a = el("a",null,n); a.href = u; a.target = "_blank"; a.rel = "noopener"; box.appendChild(a); });
   return box;
 }
+/* 候補と通販サイトへのリンクは、たたんでおく（開くと、価格帯別の候補→ふつうの検索→メルカリの絞り込みの順） */
+function shopFold(m){
+  const d = el("details","shopfold"); const n = (m.picks||[]).filter(p=>p && p.brand).length;
+  d.appendChild(el("summary",null, n ? "候補 " + n + " 件と、探す" : "探す"));
+  if(m.pairs) d.appendChild(el("span","why","合わせる手持ち：" + m.pairs));
+  if(n) d.appendChild(pickTiers(m.picks, m.query || m.name, m.cat));
+  else if((m.brands||[]).length) d.appendChild(brandChips(m.brands, m.query || m.name, m.cat));
+  d.appendChild(shopLinks(m.query || (m.name + " メンズ"), m.cat));
+  d.appendChild(el("span","why", mercariNote(m.cat, m.query || m.name)));
+  return d;
+}
 function renderAdvice(boxEl){
   const box = boxEl || document.querySelector("#gap .aibox"); if(!box) return; box.textContent = "";
   const cache = LS.get("kn.advice", null), fresh = cache && cache.sig === adviceSig();
@@ -1905,10 +1966,10 @@ function renderAdvice(boxEl){
   btn.addEventListener("click", ()=>fetchAdvice(true));
   if(cache && cache.advice){
     const a = cache.advice;
-    if(!fresh) box.appendChild(el("p","hint","※ 服か知識が変わったので、下は前回の結果です。「知識から足りない服を出す」で考え直します。"));
+    if(!fresh) box.appendChild(el("p","hint","※ 服か知識が変わりました。下は前回の結果です。"));
     if(a.summary) box.appendChild(el("p","gapsum", a.summary));
     if(cache.gaps){ // AIに渡した根拠：アプリがコーデを組んで見つけた困りごとと、知識のチェック
-      const d = el("details","gapwhy"); d.appendChild(el("summary",null,"根拠：アプリが見つけた弱点（" + cache.gaps.n + "通りの天気でコーデを組んだ結果）"));
+      const d = el("details","gapwhy"); d.appendChild(el("summary",null,"根拠を見る（" + cache.gaps.n + "通りの天気でコーデを組んだ結果）"));
       const u0 = el("ul","gaplist"); (cache.gaps.trouble||[]).forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); li.appendChild(el("span",null,x)); u0.appendChild(li); });
       if(!u0.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"コーデを組んで困るところはありませんでした")); u0.appendChild(li); }
       d.appendChild(u0); d.appendChild(el("h4",null,"知識の方向性ごとに必要なもの"));
@@ -1921,24 +1982,23 @@ function renderAdvice(boxEl){
       const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
       const t = el("span",null, ""); if(WHEN[m.when]){ t.appendChild(el("span","when " + WHEN[m.when][1], WHEN[m.when][0])); }
       t.appendChild(document.createTextNode(m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : "")));
-      t.appendChild(el("span","why", (m.reason||"") + (m.pairs ? " ／ 合わせる手持ち：" + m.pairs : "")));
-      t.appendChild(shopLinks(m.query || (m.name + " メンズ"), m.cat));
-      if((m.picks||[]).length) t.appendChild(pickTiers(m.picks, m.query || m.name, m.cat));
-      else if((m.brands||[]).length) t.appendChild(brandChips(m.brands, m.query || m.name, m.cat));
-      t.appendChild(el("span","why", mercariNote(m.cat, m.query || m.name))); li.appendChild(t); ul.appendChild(li); });
+      t.appendChild(el("span","why", m.reason||""));
+      t.appendChild(shopFold(m)); li.appendChild(t); ul.appendChild(li); });
     if(!ul.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"知識から見て、足りない服はありません")); ul.appendChild(li); }
     box.appendChild(ul);
-    if((a.strengths||[]).length){ box.appendChild(el("h4",null,"軸になっている手持ち")); const u2 = el("ul","gaplist"); a.strengths.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,x)); u2.appendChild(li); }); box.appendChild(u2); }
-    if((a.brands||[]).length){ box.appendChild(el("h4",null,"合いそうなブランド")); const ub = el("ul","gaplist");
+    const more = el("details","gapwhy"); more.appendChild(el("summary",null,"軸の服・合いそうなブランド・合いにくい服"));
+    if((a.strengths||[]).length){ more.appendChild(el("h4",null,"軸になっている手持ち")); const u2 = el("ul","gaplist"); a.strengths.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,x)); u2.appendChild(li); }); more.appendChild(u2); }
+    if((a.brands||[]).length){ more.appendChild(el("h4",null,"合いそうなブランド")); const ub = el("ul","gaplist");
       a.brands.forEach(b=>{ const li = el("li"); li.appendChild(el("span","gmk ok","★")); const t = el("span",null, b.name + (b.price ? "（" + b.price + "）" : ""));
-        t.appendChild(el("span","why", b.why||"")); const sl = el("span","shoplinks"); const z = el("button",null,"ZOZOTOWNで見る"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(b.name + " メンズ")); sl.appendChild(z);
-        const mm = el("a",null,"メルカリで見る"); mm.href = mercariUrl(b.name + " メンズ"); mm.target = "_blank"; mm.rel = "noopener"; sl.appendChild(mm); t.appendChild(sl);
+        t.appendChild(el("span","why", b.why||"")); const sl = el("span","mini"); const z = el("button",null,"ZOZO"); z.type = "button"; z.addEventListener("click", ()=>zozoSearch(b.name + " メンズ")); sl.appendChild(z);
+        const mm = el("a",null,"メルカリ"); mm.href = mercariUrl(b.name + " メンズ"); mm.target = "_blank"; mm.rel = "noopener"; sl.appendChild(mm); t.appendChild(sl);
         li.appendChild(t); ub.appendChild(li); });
-      box.appendChild(ub); box.appendChild(el("p","hint","ブランドと値段（メルカリでの中古相場の目安）はAIの提案です。メルカリのボタンは、値段と状態で絞り込まずに出します。サイズは出品の実寸と、知識タブの「自分のサイズ」で確かめてください。")); }
-    if((a.letgo||[]).length){ box.appendChild(el("h4",null,"AIの見立て：知識から見て合いにくい服")); const u3 = el("ul","gaplist"); a.letgo.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); li.appendChild(el("span",null,x)); u3.appendChild(li); }); box.appendChild(u3); }
-    box.appendChild(el("p","hint", new Date(cache.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " にAI（Gemini）が、服の知識タブの内容と手持ちの服" + (cache.gaps ? "、アプリが見つけた弱点" : "") + "から考えました。"));
+      more.appendChild(ub); }
+    if((a.letgo||[]).length){ more.appendChild(el("h4",null,"知識から見て合いにくい服")); const u3 = el("ul","gaplist"); a.letgo.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); li.appendChild(el("span",null,x)); u3.appendChild(li); }); more.appendChild(u3); }
+    if(more.children.length > 1) box.appendChild(more);
+    box.appendChild(el("p","hint", new Date(cache.at).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) + " のAI（Gemini）の提案。ブランド・製品名・値段は目安なので、開いた先で確かめてください。"));
   } else if(!adviceBusy){
-    box.appendChild(el("p","hint","アプリが真冬から真夏・雨の日まで10通りの天気でコーデを組んで困るところを探し、知識の方向性ごとに必要なものが手持ちにあるかも確かめます。それと服の知識タブの内容、手持ちの服の一覧をAI（Gemini）に送って、足りない服を考えます。写真は送りません。"));
+    box.appendChild(el("p","hint","10通りの天気でコーデを組んで困るところと、知識の方向性に足りないものを調べ、AIが今シーズンに要る服を考えます（写真は送りません）。"));
   }
   const msg = el("p","hint"); msg.id = "adviceMsg"; box.appendChild(msg);
   box.appendChild(btn);
@@ -1964,24 +2024,29 @@ function renderKnow(){
   { // 自分のサイズ表（服の知識タブのいちばん上。手持ちの服チェックより上に置く）
     const sb = $("sizeBox"); if(sb) sb.textContent = "";
     const c = el("div","kcard sizecard"); c.appendChild(el("h3",null,"自分のサイズ表（cm）"));
-    c.appendChild(el("p","hint","ZOZOの購入履歴と着た感想から（2026年10月）。日本のブランドの M は全体的に大きいので、トップス・上着は S が基準。表記より、この実寸と商品のサイズ表を比べる。* 肩幅は推測（肩がちょうどいい服を1着測ると確かになる）。上着の着丈は、短い丈のブルゾンでも60以上。"));
     SIZE_TABLES.forEach(t=>{ c.appendChild(el("h4",null,t.h)); const wrap = el("div","sizewrap"); const tb = el("table","sizetbl");
       const hr = el("tr"); t.cols.forEach(x=>hr.appendChild(el("th",null,x))); const th = el("thead"); th.appendChild(hr); tb.appendChild(th);
       const bd = el("tbody"); t.rows.forEach(r=>{ const tr = el("tr"); r.forEach((x,j)=>tr.appendChild(el(j ? "td" + "" : "th", j && x.length > 7 ? "wrap" : null, x))); bd.appendChild(tr); }); tb.appendChild(bd);
       wrap.appendChild(tb); c.appendChild(wrap); });
-    const sz = KNOWLEDGE.find(k=>k.size); if(sz){ const ul = el("ul"); sz.li.slice(5).forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); }
+    { const md = el("details","gapwhy"); md.appendChild(el("summary",null,"サイズの選び方メモ"));
+      md.appendChild(el("p","hint","ZOZOの購入履歴と着た感想から（2026年10月）。日本のブランドの M は全体的に大きいので、トップス・上着は S が基準。表記より、この実寸と商品のサイズ表を比べる。* 肩幅は推測（肩がちょうどいい服を1着測ると確かになる）。上着の着丈は、短い丈のブルゾンでも60以上。"));
+      const sz = KNOWLEDGE.find(k=>k.size); if(sz){ const ul = el("ul"); sz.li.slice(5).forEach(t=>ul.appendChild(el("li",null,t))); md.appendChild(ul); }
+      c.appendChild(md); }
     (sb || box).appendChild(c);
   }
   { // 自分の世界観：好きなもの・暮らし（足りない服やブランドをAIが考えるときに使う）
     const c = el("div","kcard"); c.appendChild(el("h3",null,"自分の世界観（好きなもの・暮らし）"));
-    c.appendChild(el("p","hint","似合う服は「自分が生きているカルチャー」から決まる。好きな音楽・映画・趣味、よく行く場所、憧れの人や雰囲気を書いておくと、足りない服やブランドをこの世界観から選びます。"));
+    c.appendChild(el("p","hint","好きなもの・よく行く場所・憧れの雰囲気を書くと、足りない服やブランドをこの世界観から選びます。"));
     const ta = el("textarea","text-in worldin"); ta.rows = 3; ta.maxLength = 400; ta.value = worldText(); ta.setAttribute("aria-label","自分の世界観");
     ta.placeholder = "例：ミニマル系が好き／よく行くのは美術館とカフェ／電車移動が多い";
     const msg = el("p","hint");
     ta.addEventListener("change", ()=>{ prefs.world = ta.value.trim().slice(0,400); persist(); msg.textContent = "保存しました。下の「足りない服」を考え直すと反映されます。"; renderAdvice(); });
     c.appendChild(ta); c.appendChild(msg); box.appendChild(c);
   }
-  KNOWLEDGE.forEach(sec=>{ if(sec.size) return; const c = el("div","kcard"); c.appendChild(el("h3",null,sec.h)); const ul = el("ul"); sec.li.forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); box.appendChild(c); });
+  box.appendChild(el("h2","know-h","服の知識"));
+  KNOWLEDGE.forEach((sec,k)=>{ if(sec.size) return; const c = el("details","kcard kfold"); if(k === 0) c.open = true;
+    const sm = el("summary"); sm.appendChild(el("span","kfold-h", sec.h)); sm.appendChild(el("span","kfold-n", sec.li.length + "")); c.appendChild(sm);
+    const ul = el("ul"); sec.li.forEach(t=>ul.appendChild(el("li",null,t))); c.appendChild(ul); box.appendChild(c); });
 }
 function fillSelect(sel, map, first){
   sel.textContent = "";
@@ -2167,7 +2232,7 @@ async function fromShared(){
   history.replaceState(null, "", location.pathname + location.search);   // アドレスに情報を残さない
   let d; try{ d = JSON.parse(decodeURIComponent(m[1])); }catch(err){ return; }
   if(!d || typeof d !== "object") return;
-  document.getElementById("tab-closet").click();
+  document.getElementById("tab-closet").click(); $("addFold").open = true;
   const msg = $("photoMsg"); $("photoRes").hidden = false; $("photoImg").removeAttribute("src");
   const str = v => String(v || "").replace(/[\u0000-\u001f]/g, " ").trim();
   const info = [str(d.b) && "ブランド: " + str(d.b), str(d.n) && "商品名: " + str(d.n), str(d.c) && "色: " + str(d.c), str(d.s) && "説明: " + str(d.s)].filter(Boolean).join("\n").slice(0, 300);
