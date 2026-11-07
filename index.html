@@ -1846,11 +1846,11 @@ function mercariColor(text){ const words = String(text||"").split(/\s+/);
 function mercariUrl(q, cat, name){
   const sz = mercariSize(cat, name || q), col = mercariColor(name || q);
   const kw = col ? String(q).split(/\s+/).filter(w=>w !== col.word).join(" ") : q;
-  return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(kw) + "&status=on_sale&price_max=30000&item_condition_id=1%2C2%2C3"
+  return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(kw) + "&status=on_sale&price_max=30000"
     + (sz ? "&" + MERCARI_SIZE_KEY + "=" + sz.id : "") + (col ? "&" + MERCARI_COLOR_KEY + "=" + col.id : "");
 }
 function mercariNote(cat, name){ const sz = mercariSize(cat, name), col = mercariColor(name), mat = (String(name||"").match(MATERIAL_RE)||[])[0];
-  return "メルカリは3万円以下・状態の良いもの" + (sz ? "・サイズ" + sz.label : "") + (col ? "・色" + col.label : "") + "で絞り込み" + (mat ? "、素材（" + mat + "）はキーワードで探します" : "ます"); }
+  return "メルカリは3万円以下・状態はすべて" + (sz ? "・サイズ" + sz.label : "") + (col ? "・色" + col.label : "") + "で絞り込み" + (mat ? "、素材（" + mat + "）はキーワードで探します" : "ます"); }
 /* おすすめのブランド：ZOZOTOWNとメルカリで「ブランド名＋アイテム」を探す */
 function brandChips(brands, q, cat){
   const words = String(q||"").split(/\s+/).filter(w=>w && w !== "メンズ"), item = words[words.length-1] || "";
