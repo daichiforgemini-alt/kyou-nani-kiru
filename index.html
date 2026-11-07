@@ -1643,7 +1643,7 @@ async function outfitGaps(){
   const issues = new Map(), add = (k, cond, ex) => { if(!issues.has(k)) issues.set(k, {conds:[], ex}); issues.get(k).conds.push(cond); };
   const tips = new Map(), depend = new Map(), used = new Set(); let n = 0;
   for(const [label, am, noon, pm, wx] of GAP_CONDS){
-    await new Promise(z=>setTimeout(z, 0));
+    await new Promise(z=>{ const ch = new MessageChannel(); ch.port1.onmessage = ()=>z(); ch.port2.postMessage(0); });   // 画面を固めないように1回ずつ区切る（タイマーは裏に回ると遅くなるので使わない）
     let r; try{ r = compute({...base, am, noon, pm, wx}); pickOutfit(r); }catch(e){ console.warn("outfitGaps", e); continue; }
     const c = lastPool[0]; if(!c) continue; n++;
     lastPool.forEach(x=>x.items.forEach(i=>{ if(i) used.add(i.id); }));
