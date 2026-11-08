@@ -287,7 +287,12 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .fold-body{display:flex;flex-direction:column;gap:14px;margin-top:12px}
 #addForm>.fold+.fold{border-top:1px solid var(--line);padding-top:12px}
 .cond-more{border-top:1px solid var(--line);padding-top:10px}
-#condMore[open]{gap:16px}
+#condMore > .field, #condMore > .hint{margin-top:14px}
+#condMore > summary + .hint{margin-top:8px}
+.wash-set{display:flex;gap:8px;align-items:center}
+.wash-set select{flex:1}
+.wash-line{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.6}
+.wash-line b{color:var(--ink,inherit)}
 .cond-sum{color:var(--muted);font-size:12px;margin-left:4px}
 .why-fold{margin-top:4px}
 .why-fold>summary{cursor:pointer;font-size:13px;letter-spacing:.06em;color:var(--muted);padding:6px 0;list-style-position:inside}
@@ -449,6 +454,11 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
         <select class="text-in" id="myStyle"></select>
       </div>
 
+      <div class="field"><label for="washN">洗濯の間隔</label>
+        <div class="wash-set"><select class="text-in" id="washN"><option value="2">2日ごと</option><option value="3">3日ごと</option><option value="4">4日ごと</option><option value="5">5日ごと</option><option value="7">1週間ごと</option></select>
+        <button class="btn fix-btn" type="button" id="washNow">今日洗濯した</button></div>
+        <span class="hint">次の洗濯まで、同じTシャツ・シャツ・インナーを出さないように組みます（パンツとニットは3回まで）</span>
+      </div>
       <div class="field"><label for="body">体質</label>
         <input type="range" id="body" min="-2" max="2" step="1" value="0" style="accent-color:var(--indigo)">
         <div class="range-ends"><span>寒がり</span><span id="bodyOut">ふつう</span><span>暑がり</span></div>
@@ -484,6 +494,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 
       <ul class="notes" id="notes"></ul>
 
+      <p class="wash-line" id="washLine" hidden></p>
       <details class="why-fold" id="whyFold"><summary>なぜこの組み合わせ？ <span class="cond-sum" id="whySum"></span></summary>
       <ul class="notes" id="why"></ul>
       </details>
@@ -1017,6 +1028,7 @@ let closet = LS.get("kn.closet", null);
 if(Array.isArray(closet) && closet.some(i=>i && i.cat==="acc" && /ベルト/.test(i.name||""))){ closet.forEach(i=>{ if(i && i.cat==="acc" && /ベルト/.test(i.name||"")) i.cat = "belt"; }); LS.set("kn.closet", closet); }
 let prefs  = LS.get("kn.prefs", {move:"walk", body:0, span:"day"});
 if(!prefs.style || (prefs.style !== "any" && !STYLES[prefs.style])) prefs.style = "kirei";
+if(![2,3,4,5,7].includes(+prefs.wash)) prefs.wash = 3;   // 洗濯の間隔（日）
 let loc    = LS.get("kn.loc", null);          // {lat, lon, name}
 let forecast = null;                           // 取得した予報
 function usingSample(){ return !closet || closet.length === 0; }
@@ -1259,9 +1271,30 @@ let seed = 0, lastCands = [], lastPool = [], listOpen = false;
 let hist = LS.get("kn.hist", {});              // {"2026-10-28": [服のid…]}
 function dayKey(off){ const d = new Date(); d.setDate(d.getDate() + off); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function planOffset(){ return $("d1") && $("d1").checked ? 1 : 0; }
+/* 洗濯の周期：前の洗濯日から、肌に触れる服（Tシャツ・シャツ・インナー）は1回、パンツ・ニットは3回着たら、次の洗濯まで出さない */
+let simWorn = null;   // 足りない服の計算で、何日か続けて組んでみるとき用（id→回数）
+function washKind(i){ if(!i) return "none";
+  if(i.cat === "inner") return "each";
+  if(i.cat === "bottom") return "few";
+  if(i.cat !== "top") return "none";
+  if(/ニット|セーター|カーディガン|スウェット|パーカー|フーディ|フリース/.test(i.name||"") || i.warmth >= 3) return "few";
+  return "each"; }
+function dayNum(key){ const [y,m,d] = key.split("-").map(Number); return Math.round(Date.UTC(y, m-1, d) / 864e5); }
+function lastWashKey(base){   // base日（0=きょう）から見た、いちばん近い過去の洗濯日
+  const n = +prefs.wash || 3, today = dayNum(dayKey(base));
+  let anchor = prefs.washAt ? dayNum(prefs.washAt) : null;
+  if(anchor == null){ const ks = Object.keys(hist).sort(); anchor = ks.length ? dayNum(ks[0]) : today; }
+  const k = Math.floor((today - anchor) / n); return anchor + k * n;   // 洗濯日（日の番号）
+}
+function wornSinceWash(it, base){
+  if(simWorn) return simWorn.get(it.id) || 0;
+  const w = lastWashKey(base), today = dayNum(dayKey(base)); let c = 0;
+  for(let k=1; k<=7; k++){ const key = dayKey(base - k), dn = dayNum(key); if(dn < w) break; const ids = hist[key]; if(ids && ids.includes(it.id)) c++; }
+  return c; }
+function isDirty(it, base){ const k = washKind(it); if(k === "none") return false; const c = wornSinceWash(it, base == null ? planOffset() : base); return k === "each" ? c >= 1 : c >= 3; }
 function recentPenalty(it){
   if(!it || usingSample()) return 0;
-  const base = planOffset(); let p = 0;
+  const base = planOffset(); let p = isDirty(it, base) ? 6 : 0;   // 洗濯かごの服は、ほかに無いときだけ
   for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" || it.cat==="inner" || it.cat==="bag" || it.cat==="acc" ? 0.15 : 0.7) * (7 - k) / 6; }
   return p;
 }
@@ -1410,11 +1443,23 @@ function pickAcc(c, r, st){
 function el(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text!=null) e.textContent = text; return e; }
 function dots(n){ const d = el("span","dots"); d.setAttribute("aria-label","暖かさ"+n); for(let i=1;i<=5;i++) d.appendChild(el("i", i<=n?"on":"")); return d; }
 
+function renderWashLine(outfit){
+  const p = $("washLine"); if(!p) return;
+  if(usingSample() || !outfit){ p.hidden = true; return; }
+  const n = +prefs.wash || 3, base = planOffset(), w = lastWashKey(base), today = dayNum(dayKey(base)), left = w + n - today;
+  const basket = activeCloset().filter(i=>washKind(i) !== "none" && isDirty(i, base));
+  const dirtyPick = outfit.items.filter(i=>i && isDirty(i, base));
+  p.hidden = false; p.textContent = "";
+  p.appendChild(document.createTextNode("洗濯（" + n + "日ごと）：" + (left === n ? "きょうが洗濯日" : "次の洗濯まであと" + left + "日") + "。"));
+  if(basket.length) p.appendChild(document.createTextNode("洗濯かごの服 " + basket.length + "着は出していません。"));
+  if(dirtyPick.length){ const b = el("b", null, "かごの「" + dirtyPick.map(i=>i.name).join("」「") + "」をもう一度使っています（代わりがありません）。"); p.appendChild(b); }
+}
 function renderToday(){
   const s = readCond(); const r = compute(s);
   const outfit = pickOutfit(r);
   renderCandList();
   rememberOutfit(outfit);
+  renderWashLine(outfit);
   $("idx").textContent = r.idx;
   $("verdict").textContent = r.verdict;
   $("fDay").textContent = r.day + "℃"; $("fCold").textContent = r.cold + "℃"; $("fGap").textContent = r.gap + "℃";
@@ -1490,7 +1535,7 @@ function renderToday(){
   r.notes.forEach(([k,t])=>{ const li = el("li"); li.appendChild(el("span","k",k)); li.appendChild(el("span",null,t)); notes.appendChild(li); });
 
   { const sp = $("condSum"); if(sp){ const v = n=>{ const x = document.querySelector(`input[name=${n}]:checked`); return x ? x.nextElementSibling.textContent : ""; };
-      sp.textContent = "風" + $("wind").value + "m/s・" + v("span") + "・" + v("move") + "・" + ($("myStyle").selectedOptions[0] ? $("myStyle").selectedOptions[0].textContent.replace(/（.*）/,"") : "") + "・" + $("bodyOut").textContent; } }
+      sp.textContent = "風" + $("wind").value + "m/s・" + v("span") + "・" + v("move") + "・" + ($("myStyle").selectedOptions[0] ? $("myStyle").selectedOptions[0].textContent.replace(/（.*）/,"") : "") + "・" + $("bodyOut").textContent + "・洗濯" + (+prefs.wash === 7 ? "1週間" : prefs.wash + "日") + "ごと"; } }
   const why = $("why"); why.textContent = "";
   const picked = outfit.items.filter(Boolean);
   if(picked.length){
@@ -1861,6 +1906,16 @@ async function outfitGaps(opt){ const quick = opt && opt.sync;   // quick：区�
     if(!s) add("靴が組めない", cond, "");
     if(wx === "rain" && s && !s.rain) add("雨に強い靴がない", cond, `雨の日に選ばれたのは「${s.name}」`);
     if(wx === "rain" && r.outerNeed && (!o || !o.rain)) add("雨に強い上着がない", cond, o ? `雨の日に選ばれたのは「${o.name}」` : "");
+    // 洗濯の周期で回るか：今シーズンの天気で、洗濯の間隔の日数ぶん続けて組んでみる（洗濯かごの服を使わずに済むか）
+    if((GAP_MONTHS[label]||[]).some(x=>seasonMonths().includes(x))){
+      const N = +prefs.wash || 3; let fail = null; simWorn = new Map();
+      try{ for(let d=0; d<N; d++){ pickOutfit(r); const b0 = lastPool[0]; if(!b0) break;
+        const dirty = b0.items.filter(i=>i && isDirty(i)); if(dirty.length){ fail = {day: d+1, items: dirty}; break; }
+        b0.items.forEach(i=>{ if(i) simWorn.set(i.id, (simWorn.get(i.id)||0) + 1); }); } }
+      finally{ simWorn = null; }
+      if(fail){ const kinds = [...new Set(fail.items.map(i=>i.cat === "inner" ? "インナー" : i.cat === "bottom" ? "パンツ" : washKind(i) === "few" ? "ニット・スウェット" : "肌に触れるトップス（Tシャツ・シャツ）"))];
+        add("洗濯（" + N + "日ごと）で回らない：" + kinds.join("・") + "が足りない", cond, fail.day + "日目に、洗濯かごの「" + fail.items.map(i=>i.name).join("」「") + "」をまた使うことになる"); }
+    }
     // 候補の上位（最大12通り）で、半分以上に出る注意
     const G = lastCands.filter(Boolean), half = Math.max(1, Math.ceil(G.length / 2)), tc = new Map();
     G.forEach(g=>{ const seen = new Set();
@@ -2220,16 +2275,19 @@ function applyPrefs(){
   const sp = document.querySelector(`input[name=span][value="${prefs.span||"day"}"]`); if(sp) sp.checked = true;
   $("body").value = prefs.body; $("bodyOut").textContent = BODY[String(prefs.body)];
   $("myStyle").value = prefs.style;
+  $("washN").value = String(prefs.wash);
 }
 $("cond").addEventListener("input", e=>{
   if(e.target.name==="day") return;
   if(e.target.name==="move"){ prefs.move = e.target.value; persist(); }
   if(e.target.name==="span"){ prefs.span = e.target.value; persist(); }
   if(e.target.id==="myStyle"){ prefs.style = e.target.value; persist(); renderCloset(); }
+  if(e.target.id==="washN"){ prefs.wash = +e.target.value; persist(); renderGap(); }
   if(e.target.id==="body"){ prefs.body = +e.target.value; $("bodyOut").textContent = BODY[e.target.value]; persist(); }
   if(["tAm","tNoon","tPm","wind"].includes(e.target.id) || e.target.name==="wx") $("autoNote").hidden = true;
   seed = 0; renderToday();
 });
+$("washNow").addEventListener("click", ()=>{ prefs.washAt = dayKey(0); persist(); seed = 0; renderToday(); $("washNow").textContent = "洗濯した日：きょう"; });
 document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", ()=>{
   const inp = $(b.dataset.step); inp.value = (parseFloat(inp.value)||0) + (+b.dataset.d); $("autoNote").hidden = true; seed = 0; renderToday();
 }));
