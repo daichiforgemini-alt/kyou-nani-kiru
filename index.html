@@ -303,6 +303,26 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .gaplist .gmk.ok{color:#2e7d4f}.gaplist .gmk.ng{color:#c0392b}.gaplist .gmk.warn{color:#b8860b}
 .gaplist .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .gapsum{font-size:14px;margin:0 0 4px}
+.prog{display:flex;flex-direction:column;gap:10px;padding:4px 0 14px}
+.prog-head{display:flex;align-items:center;gap:12px}
+.prog-pct{font-size:34px;font-weight:700;color:var(--indigo);line-height:1;font-variant-numeric:tabular-nums}
+.prog-sub{display:flex;flex-direction:column;font-size:12.5px;color:var(--muted);line-height:1.5}
+.prog-start{font-size:12px;color:var(--ink,inherit)}
+.prog-bars{display:flex;flex-direction:column;gap:6px}
+.prog-row{display:grid;grid-template-columns:4.2em 1fr 2.6em;align-items:center;gap:8px;font-size:12.5px}
+.prog-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--sunk)}
+.prog-n{font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.pb-fit{background:var(--indigo)}.pb-near{background:#9fb0d6}.pb-far{background:#e3c99a}
+.prog-legend{display:flex;gap:12px;font-size:11.5px;color:var(--muted);margin:0}
+.prog-legend .lg{display:inline-flex;align-items:center;gap:4px}
+.prog-legend i{display:inline-block;width:10px;height:10px;border-radius:3px}
+.step{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.step-h{margin:0;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.step-body{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.step-cat{font-size:11px;font-weight:700;color:var(--indigo);border:1px solid currentColor;border-radius:6px;padding:0 6px}
+.step-t{margin:0;font-size:14.5px;font-weight:700;line-height:1.5}
+.step .why{display:block;font-size:12.5px;color:var(--muted)}
+.btn.ghost{background:transparent}
 .know-h{font-size:13px;letter-spacing:.12em;color:var(--muted);margin:8px 0 0}
 .kfold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
 .kfold>summary::-webkit-details-marker{display:none}
@@ -1557,6 +1577,115 @@ function renderCloset(){
   });
 }
 /* 手持ちの服チェック：AIによる足りない服と、天気・バランスの観点 */
+/* ---------- 方向性への進み具合：手持ちを少しずつ「きれいめ・トラッド・モード」に寄せる ----------
+   合う＝系統がきれいめ・トラッド・モードで、きれいめ度3以上／まあなじむ＝方向性の系統だがカジュアル寄り、またはベーシック等できれいめ度3以上／離れている＝それ以外 */
+const DIR_STYLES = ["kirei","trad","mode"], PROG_CATS = ["bottom","shoes","outer","top","bag"];
+const DIR_LABEL = {fit:"合う", near:"まあなじむ", far:"離れている"};
+function dirClass(i){ const s = styleOf(i), s2 = style2Of(i), d = dressOf(i);
+  if(DIR_STYLES.includes(s) && d >= 3) return "fit";
+  if(DIR_STYLES.includes(s) || (DIR_STYLES.includes(s2) && d >= 3) || (["basic","euro"].includes(s) && d >= 3)) return "near";
+  return "far"; }
+function itemBorn(i){ const m = /^i([0-9a-z]{7,9})[0-9a-z]{4}$/.exec(i.id||""); const t = m ? parseInt(m[1], 36) : NaN;
+  return (t > 1.6e12 && t < Date.now() + 864e5) ? t : (i.u || 0); }
+function progressNow(){
+  const list = (closet||[]).filter(i=>PROG_CATS.includes(i.cat)), by = {};
+  PROG_CATS.forEach(c=>by[c] = {fit:0, near:0, far:0});
+  list.forEach(i=>by[i.cat][dirClass(i)]++);
+  const fit = list.filter(i=>dirClass(i)==="fit").length;
+  return {n: list.length, fit, pct: list.length ? Math.round(fit * 100 / list.length) : 0, by};
+}
+function progressLog(now){   // 出発点と、月ごとの割合を記録する
+  const L = LS.get("kn.progress", null) || {};
+  const key = new Date().toISOString().slice(0,7);
+  if(!L.start && now.n) L.start = {at: Date.now(), pct: now.pct, fit: now.fit, n: now.n};
+  L.months = L.months || {};
+  const cur = L.months[key];
+  if(now.n && (!cur || cur.pct !== now.pct || cur.n !== now.n)){ L.months[key] = {pct: now.pct, fit: now.fit, n: now.n}; LS.set("kn.progress", L); }
+  else if(!LS.get("kn.progress", null)) LS.set("kn.progress", L);
+  return L;
+}
+let gapsMemo = null, gapsMemoBusy = false, stepIdx = 0, stepSig = "";
+function gapsMemoSig(){ return closetText() + "|m" + (new Date().getMonth() + 1); }
+function ensureGapsMemo(){
+  if(gapsMemoBusy || (gapsMemo && gapsMemo.sig === gapsMemoSig())) return;
+  gapsMemoBusy = true;
+  outfitGaps({sync:true}).then(g=>{ gapsMemo = {sig: gapsMemoSig(), g}; }).catch(e=>console.warn("gapsMemo", e)).finally(()=>{ gapsMemoBusy = false; renderProgress(); });
+}
+function stepCands(){
+  const use = (gapsMemo && gapsMemo.g.useCount) || {}, n = (gapsMemo && gapsMemo.g.n) || 10;
+  const now = progressNow(), adv = (LS.get("kn.advice", null) || {}).advice || {};
+  const out = [];
+  PROG_CATS.filter(c=>c !== "bag").forEach((cat, ci)=>{
+    const b = now.by[cat], tot = b.fit + b.near + b.far, ratio = tot ? b.fit / tot : 0;
+    const later = ratio >= 0.6 ? 10 : 0;   // もう6割合っている種類は後回し
+    (adv.missing||[]).filter(m=>m.cat === cat && m.when !== "next").forEach(m=>out.push({kind:"buy", cat, m, key: later + ci + (m.priority||3) * 0.1}));
+    (closet||[]).filter(i=>i.cat === cat && dirClass(i) === "far").forEach(i=>out.push({kind:"swap", cat, item:i, use: use[i.id]||0, n, key: later + ci + 0.05 + (1 - (use[i.id]||0) / n) * 0.25}));
+  });
+  return out.sort((a,b)=>a.key - b.key);
+}
+function letgoCands(L){   // 出発点のあとに入れた「合う」服と、同じ役目の「離れている」服
+  if(!L.start) return [];
+  const fresh = (closet||[]).filter(i=>PROG_CATS.includes(i.cat) && dirClass(i) === "fit" && itemBorn(i) > L.start.at);
+  const out = [], use = (gapsMemo && gapsMemo.g.useCount) || {};
+  fresh.sort((a,b)=>itemBorn(a) - itemBorn(b)).forEach(nw=>{   // 新しい服1着につき、いちばん近い役目の古い服を1着だけ
+    const olds = (closet||[]).filter(old=>old.cat === nw.cat && dirClass(old) === "far" && Math.abs((old.warmth||0) - (nw.warmth||0)) <= 1
+      && !(old.rain && !nw.rain) && !out.some(x=>x.old === old));
+    olds.sort((a,b)=>(Math.abs(a.warmth - nw.warmth) - Math.abs(b.warmth - nw.warmth)) || ((colorOf(b) === colorOf(nw)) - (colorOf(a) === colorOf(nw))) || ((use[a.id]||0) - (use[b.id]||0)));
+    if(olds[0]) out.push({old: olds[0], nw});
+  });
+  return out.slice(0, 6);
+}
+function renderProgress(pb){
+  pb = pb || $("progBox"); if(!pb) return; pb.textContent = "";
+  if(usingSample() || !(closet||[]).length) return;
+  const now = progressNow(), L = progressLog(now);
+  // 1. メーター
+  const head = el("div","prog-head");
+  head.appendChild(el("span","prog-pct", now.pct + "%"));
+  const hs = el("span","prog-sub", "方向性（きれいめ・トラッド・モード）に合う服　" + now.fit + "／" + now.n + "着");
+  if(L.start){ const d0 = new Date(L.start.at); hs.appendChild(el("span","prog-start", "出発点 " + (d0.getMonth()+1) + "/" + d0.getDate() + "：" + L.start.pct + "%" + (now.pct !== L.start.pct ? (now.pct > L.start.pct ? "　+" : "　") + (now.pct - L.start.pct) + "ポイント" : ""))); }
+  head.appendChild(hs); pb.appendChild(head);
+  const bars = el("div","prog-bars");
+  PROG_CATS.forEach(c=>{ const b = now.by[c], tot = b.fit + b.near + b.far; if(!tot) return;
+    const row = el("div","prog-row"); row.appendChild(el("span","prog-cat", (CATS[c]||c).replace(/（.*）|・.*$/,"")));
+    const bar = el("span","prog-bar"); ["fit","near","far"].forEach(k=>{ if(!b[k]) return; const s = el("span","pb-" + k); s.style.flex = b[k]; s.title = DIR_LABEL[k] + " " + b[k]; bar.appendChild(s); });
+    row.appendChild(bar); row.appendChild(el("span","prog-n", b.fit + "/" + tot)); bars.appendChild(row); });
+  pb.appendChild(bars);
+  const lg = el("p","prog-legend"); ["fit","near","far"].forEach(k=>{ const s = el("span","lg"); s.appendChild(el("i","pb-" + k)); s.appendChild(document.createTextNode(DIR_LABEL[k])); lg.appendChild(s); }); pb.appendChild(lg);
+  const ms = Object.keys(L.months||{}).sort(); if(ms.length > 1) pb.appendChild(el("p","hint", "月ごと：" + ms.map(k=>(+k.slice(5)) + "月 " + L.months[k].pct + "%").join(" → ")));
+  // 2. 次の一手（1つだけ）
+  const sb = el("div","step"); sb.appendChild(el("p","step-h","次の一手"));
+  const cands = stepCands(), sig = closetText().length + ":" + cands.length;
+  if(sig !== stepSig){ stepSig = sig; stepIdx = 0; }
+  if(!gapsMemo && !cands.length){ sb.appendChild(el("p","hint","コーデを組んで、いちばん効く一手を探しています…")); }
+  else if(!cands.length){ sb.appendChild(el("p","hint","いまは大きな一手はありません。足りない服を出すと、買う一手も候補に入ります。")); }
+  else{
+    const c = cands[stepIdx % cands.length], catn = (CATS[c.cat]||"").replace(/（.*）|・.*$/,"");
+    const t = el("div","step-body"); t.appendChild(el("span","step-cat", catn));
+    if(c.kind === "swap"){
+      t.appendChild(el("p","step-t", "「" + c.item.name + "」を、方向性に合う" + catn + "に買い換える"));
+      t.appendChild(el("p","why", STYLES[styleOf(c.item)] ? styleLabel(c.item) + "・きれいめ度" + dressOf(c.item) + (gapsMemo ? "。" + c.n + "通りの天気のうち" + c.use + "通りで出番があるので、替えると効きやすい" : "") : ""));
+      const go = el("button","btn fix-btn","この服の替え先を考える"); go.type = "button";
+      go.addEventListener("click", ()=>{ const s2 = replaceState(); s2.ids = [c.item.id]; s2.note = "方向性（きれいめ・トラッド・モード）に寄せたい"; s2.result = null; saveReplace(s2); FOLD_OPEN.add("replace"); renderGap();
+        const rb = $("replaceBox"); if(rb) rb.scrollIntoView({behavior:"smooth", block:"start"}); fetchReplace(); });
+      t.appendChild(go);
+    } else {
+      t.appendChild(el("p","step-t", "「" + c.m.name + "」を買い足す"));
+      t.appendChild(el("p","why", c.m.reason || ""));
+      t.appendChild(shopFold(c.m));
+    }
+    sb.appendChild(t);
+    if(cands.length > 1){ const nx = el("button","btn fix-btn ghost","別の一手（" + ((stepIdx % cands.length) + 1) + "/" + cands.length + "）"); nx.type = "button"; nx.addEventListener("click", ()=>{ stepIdx++; renderProgress(); }); sb.appendChild(nx); }
+    sb.appendChild(el("p","hint","ボトムスと靴（全体の土台）から順に。一度に全部ではなく、1つずつ。"));
+  }
+  pb.appendChild(sb);
+  // 3. 手放すタイミング
+  const lgo = letgoCands(L);
+  if(lgo.length){ const d = el("div","step"); d.appendChild(el("p","step-h","役目を終えたかもしれない服"));
+    const ul = el("ul","gaplist"); lgo.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk warn","！")); const t = el("span",null,"「" + x.old.name + "」"); t.appendChild(el("span","why","新しく入れた「" + x.nw.name + "」と同じ役目です。もう着ないなら手放しどき。")); li.appendChild(t); ul.appendChild(li); });
+    d.appendChild(ul); pb.appendChild(d); }
+  ensureGapsMemo();
+}
 /* 知識タブの各セクションは折りたたむ。開いているかどうかは描き直しても保つ */
 const FOLD_OPEN = new Set(["advice"]);
 function gfold(parent, key, title, sub){
@@ -1572,6 +1701,7 @@ function renderGap(){
   box.appendChild(el("h3",null,"手持ちの服チェック"));
   const list = closet || [];
   if(!list.length){ box.appendChild(el("p","gapsum","クローゼットに服を登録すると、知識ノートの基準と照らして足りない服を出します。")); return; }
+  { const pb = el("div","prog"); pb.id = "progBox"; box.appendChild(pb); renderProgress(pb); }
   const mk = (ul, kind, title, why)=>{ const li = el("li"); li.appendChild(el("span","gmk " + kind, kind==="ok" ? "✓" : kind==="ng" ? "✕" : "！")); const t = el("span",null,title); if(why) t.appendChild(el("span","why",why)); li.appendChild(t); ul.appendChild(li); };
   // 1. 知識と手持ちから、AIが足りない服を考える（知識カードが変われば結果も変わる）
   { const d = gfold(box, "advice", "足りない服（AIの提案）"); const aiBox = el("div","aibox"); d.appendChild(aiBox); renderAdvice(aiBox); }
@@ -1708,13 +1838,13 @@ function knowCheck(){
   const cl = activeCloset() || [];
   return KNOW_CHECK.map(k=>{ const has = cl.filter(k.ok); return {st:k.st, need:k.need, has: has.map(i=>i.name)}; });
 }
-async function outfitGaps(){
+async function outfitGaps(opt){ const quick = opt && opt.sync;   // quick：区切らずに一気に計算（画面の裏で使うとき、他の描画と混ざらないように）
   const base = readCond(), seed0 = seed, keepC = lastCands, keepP = lastPool;
   const wv = i => Math.max(1, i.warmth);
   const issues = new Map(), add = (k, cond, ex) => { if(!issues.has(k)) issues.set(k, {conds:[], ex}); issues.get(k).conds.push(cond); };
   const tips = new Map(), depend = new Map(), used = new Set(), useCount = {}; let n = 0;
   for(const [label, am, noon, pm, wx] of GAP_CONDS){
-    await new Promise(z=>{ const ch = new MessageChannel(); ch.port1.onmessage = ()=>z(); ch.port2.postMessage(0); });   // 画面を固めないように1回ずつ区切る（タイマーは裏に回ると遅くなるので使わない）
+    if(!quick) await new Promise(z=>{ const ch = new MessageChannel(); ch.port1.onmessage = ()=>z(); ch.port2.postMessage(0); });   // 画面を固めないように1回ずつ区切る（タイマーは裏に回ると遅くなるので使わない）
     let r; try{ r = compute({...base, am, noon, pm, wx}); pickOutfit(r); }catch(e){ console.warn("outfitGaps", e); continue; }
     const c = lastPool[0]; if(!c) continue; n++;
     { const here = new Set(); lastPool.forEach(x=>x.items.forEach(i=>{ if(i){ used.add(i.id); here.add(i.id); } })); here.forEach(id=>useCount[id] = (useCount[id]||0) + 1); }
