@@ -457,7 +457,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       <div class="field"><label for="washN">洗濯の間隔</label>
         <div class="wash-set"><select class="text-in" id="washN"><option value="2">2日ごと</option><option value="3">3日ごと</option><option value="4">4日ごと</option><option value="5">5日ごと</option><option value="7">1週間ごと</option></select>
         <button class="btn fix-btn" type="button" id="washNow">今日洗濯した</button></div>
-        <span class="hint">次の洗濯まで、同じTシャツ・シャツ・インナーを出さないように組みます（パンツとニットは3回まで）</span>
+        <span class="hint">次の洗濯まで、同じシャツ・Tシャツ・インナーを出さないように組みます（パンツとニットは3回まで。白Tシャツは数えない）</span>
       </div>
       <div class="field"><label for="body">体質</label>
         <input type="range" id="body" min="-2" max="2" step="1" value="0" style="accent-color:var(--indigo)">
@@ -1273,7 +1273,9 @@ function dayKey(off){ const d = new Date(); d.setDate(d.getDate() + off); return
 function planOffset(){ return $("d1") && $("d1").checked ? 1 : 0; }
 /* 洗濯の周期：前の洗濯日から、肌に触れる服（Tシャツ・シャツ・インナー）は1回、パンツ・ニットは3回着たら、次の洗濯まで出さない */
 let simWorn = null, simHist = null, simDay = 0;   // 何日か続けて組んでみるとき用（洗濯かご id→回数、毎日の服、何日目か）
-function washKind(i){ if(!i) return "none";
+/* 白Tシャツは消耗品として数に入れない（何枚でもある扱い：洗濯かごに入れず、要らない・足りないの判定からも外す） */
+function isWhiteTee(i){ return !!i && ["top","inner"].includes(i.cat) && /Tシャツ|ティーシャツ|カットソー|ロンT|(^|[^ァ-ヶ])T$/.test(i.name||"") && ["white","ivory"].includes(colorOf(i)); }
+function washKind(i){ if(!i || isWhiteTee(i)) return "none";
   if(i.cat === "inner") return "each";
   if(i.cat === "bottom") return "few";
   if(i.cat !== "top") return "none";
@@ -1818,7 +1820,7 @@ function renderUnused(ub){
   const fresh = unusedCache && unusedCache.sig === closetSig() + "|w" + prefs.wash;
   if(fresh){
     const U = unusedCache;
-    ub.appendChild(el("p","hint","洗濯" + U.N + "日ごとに、1年の天気（10通り×" + U.D + "日）を毎日組んでみた結果です。"));
+    ub.appendChild(el("p","hint","洗濯" + U.N + "日ごとに、1年の天気（10通り×" + U.D + "日）を毎日組んでみた結果です。白Tシャツは数に入れていません。"));
     // 要らないかも
     ub.appendChild(el("h4",null,"要らないかも（ローテで選ばれない）"));
     const ul = el("ul","gaplist");
@@ -1845,7 +1847,7 @@ async function findUnused(){
   let R; try{ R = rotationSim(); }catch(e){ console.warn("findUnused", e); unusedBusy = false; renderUnused(); return; }
   const count = R.uses;
   const main = prefs.style && prefs.style !== "any" ? prefs.style : "kirei";
-  const list = (closet||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && !count[i.id]).map(i=>{
+  const list = (closet||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && !count[i.id] && !isWhiteTee(i)).map(i=>{
     const why = [];
     if(itemDist(main, i) >= 2) why.push(STYLES[main].replace(/（.*）/,"") + "から遠い系統（" + styleLabel(i) + "）で、ほかの服と組みにくい。");
     const twin = (closet||[]).find(o=>o !== i && o.cat === i.cat && colorOf(o) === colorOf(i) && Math.abs((o.warmth||0) - (i.warmth||0)) <= 1 && count[o.id]);
@@ -1853,7 +1855,7 @@ async function findUnused(){
     if(dressOf(i) <= 2 && ["kirei","trad","mode","euro"].includes(main)) why.push("カジュアル寄り（きれいめ度" + dressOf(i) + "）。");
     if(!why.length) why.push("ほかの服のほうが、どの天気でも合う。");
     return {name:i.name, cat:i.cat, why: why.join("")}; });
-  const rank = (closet||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && count[i.id])
+  const rank = (closet||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && count[i.id] && !isWhiteTee(i))
     .map(i=>({name:i.name, cat:i.cat, c:count[i.id]})).sort((a,b)=>a.c-b.c).slice(0,10);
   const byKind = new Map();
   rotationShort(R).forEach(x=>x.kinds.forEach(k=>{ if(!byKind.has(k)) byKind.set(k, {kind:k, conds:[], ex:x.ex}); byKind.get(k).conds.push(x.label); }));
@@ -1901,7 +1903,7 @@ function rotationShort(R){   // 天気ごとに「洗濯の間隔で回すと足
     const kinds = [...new Set(items.map(washKindLabel))];
     return kinds.length ? {label: c.label, kinds, forced: c.short.length, worse: c.worse, ex: c.short.length ? c.short[0].day + "日目に、洗濯かごの「" + c.short[0].items.map(i=>i.name).join("」「") + "」をまた使うことになる" : c.days + "日のうち" + c.worse + "日は、" + kinds.join("・") + "が洗濯かごに入っていて、合いにくい組み合わせになる"} : null; }).filter(Boolean);
 }
-function washKindLabel(i){ return i.cat === "inner" ? "インナー" : i.cat === "bottom" ? "パンツ" : washKind(i) === "few" ? "ニット・スウェット" : "肌に触れるトップス（Tシャツ・シャツ）"; }
+function washKindLabel(i){ return i.cat === "inner" ? "インナー" : i.cat === "bottom" ? "パンツ" : washKind(i) === "few" ? "ニット・スウェット" : "シャツ・色物のTシャツ"; }
 const isKnitName = i => /ニット|セーター|カーディガン/.test(i.name||"");
 const KNOW_CHECK = [
   {st:"きれいめ（メイン）", need:"きれいめの革靴（ローファー・Uチップ・プレーントゥなど）", ok:i=>i.cat==="shoes" && LEATHER_SHOE_RE.test(i.name||"") && dressOf(i) >= 4},
@@ -1968,7 +1970,7 @@ async function outfitGaps(opt){ const quick = opt && opt.sync;   // quick：区�
   issues.forEach((v, k)=>inSeason(v.conds) && trouble.push(seasonTag(v.conds) + k + "：" + v.conds.join("、") + (v.ex ? "（" + v.ex + "）" : "")));
   depend.forEach((v, i)=>{ if(v.length >= 3 && inSeason(v)) trouble.push(seasonTag(v) + `1着に頼りすぎ：「${i.name}」（${catName(i)}）が${v.length}通りの天気で、上位の候補のほとんどに出る（替えになる${catName(i)}が少ない。${v.join("、")}）`); });
   tips.forEach((v, k)=>{ if(v.length >= 2 && inSeason(v)) trouble.push(seasonTag(v) + `よく出る注意「${k}」：${v.length}通りの天気で（${v.join("、")}）`); });
-  const unused = (activeCloset()||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && !R.uses[i.id]).map(i=>i.name);
+  const unused = (activeCloset()||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && !R.uses[i.id] && !isWhiteTee(i)).map(i=>i.name);
   if(unused.length) trouble.push("洗濯の間隔で1年ぶん回しても選ばれない服（要らないかも）：" + unused.slice(0,10).map(x=>"「" + x + "」").join(""));
   const check = knowCheck();
   const groups = [...new Set(check.map(c=>c.st))];
