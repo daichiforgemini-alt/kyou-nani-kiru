@@ -1852,9 +1852,14 @@ function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledg
 /* お店やXのページは、アプリとは別のウィンドウで開く（パソコンでは小窓、iPhone・iPadではSafariの新しいタブ） */
 const WIN_FEATURES = "popup,width=1100,height=900";
 function openWin(url){ const w = window.open(url, "_blank", WIN_FEATURES); if(w){ try{ w.opener = null; }catch(e){} } else location.href = url; }
+/* iPhone・iPad：メルカリのリンクは新しい画面を開かずに、その場でたどる。
+   新しい画面で開くと、メルカリのアプリに切り替わったあと白い画面が残るため（その場なら、アプリだけが開く） */
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const APP_LINK_RE = /^https:\/\/(jp\.)?mercari\.com\//;
 document.addEventListener("click", e=>{
   const a = e.target.closest && e.target.closest('a[target="_blank"]'); if(!a || !/^https?:/.test(a.href)) return;
   if(e.metaKey || e.ctrlKey || e.shiftKey) return;   // 修飾キーつきはブラウザに任せる
+  if(IS_IOS && APP_LINK_RE.test(a.href)){ a.removeAttribute("target"); setTimeout(()=>a.setAttribute("target","_blank"), 0); return; }
   e.preventDefault(); openWin(a.href);
 });
 function zozoSearch(q){
