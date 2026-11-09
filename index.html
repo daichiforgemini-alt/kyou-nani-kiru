@@ -308,6 +308,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .gaplist .gmk.ok{color:#2e7d4f}.gaplist .gmk.ng{color:#c0392b}.gaplist .gmk.warn{color:#b8860b}
 .gaplist .why{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .gapsum{font-size:14px;margin:0 0 4px}
+.miss-h{align-self:stretch;margin:10px 0 0;font-size:13px;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:4px}
 .prog{display:flex;flex-direction:column;gap:10px;padding:4px 0 14px}
 .prog-head{display:flex;align-items:center;gap:12px}
 .prog-pct{font-size:34px;font-weight:700;color:var(--indigo);line-height:1;font-variant-numeric:tabular-nums}
@@ -2201,16 +2202,20 @@ function renderAdvice(boxEl){
       const u1 = el("ul","gaplist"); (cache.gaps.check||[]).forEach(c=>{ const li = el("li"); const ok = c.has.length; li.appendChild(el("span","gmk " + (ok ? "ok" : "ng"), ok ? "✓" : "✕"));
         const t = el("span",null, c.st + "：" + c.need); t.appendChild(el("span","why", ok ? c.has.slice(0,2).join("、") + (c.has.length > 2 ? " など" + c.has.length + "着" : "") : "手持ちにない")); li.appendChild(t); u1.appendChild(li); });
       d.appendChild(u1); box.appendChild(d); }
-    const ul = el("ul","gaplist");
     const WHEN = {now:["今シーズン","now",0], any:["通年","any",1], next:["来シーズン","next",2]};   // 今の時期に要るものを先に
-    (a.missing||[]).filter(m=>m.when !== "next").sort((x,y)=>((WHEN[x.when]||WHEN.any)[2] - (WHEN[y.when]||WHEN.any)[2]) || (x.priority||3)-(y.priority||3)).forEach(m=>{
+    // 服と、靴・バッグ・小物を分けて出す
+    const GOODS = ["shoes","bag","belt","acc"], ms = (a.missing||[]).filter(m=>m.when !== "next").sort((x,y)=>((WHEN[x.when]||WHEN.any)[2] - (WHEN[y.when]||WHEN.any)[2]) || (x.priority||3)-(y.priority||3));
+    [["服", ms.filter(m=>!GOODS.includes(m.cat)), "服は足りています"], ["靴・バッグ・小物", ms.filter(m=>GOODS.includes(m.cat)), "靴・バッグ・小物は足りています"]].forEach(([title, list, none])=>{
+    box.appendChild(el("h4","miss-h", title + (list.length ? "（" + list.length + "）" : "")));
+    const ul = el("ul","gaplist");
+    list.forEach(m=>{
       const li = el("li"); li.appendChild(el("span","gmk " + ((m.priority||3)<=1 ? "ng" : "warn"), (m.priority||3)<=1 ? "✕" : "！"));
       const t = el("span",null, ""); if(WHEN[m.when]){ t.appendChild(el("span","when " + WHEN[m.when][1], WHEN[m.when][0])); }
       t.appendChild(document.createTextNode(m.name + (CATS[m.cat] ? "（" + CATS[m.cat].replace(/（.*）/,"") + "）" : "")));
       t.appendChild(el("span","why", m.reason||""));
       t.appendChild(shopFold(m)); li.appendChild(t); ul.appendChild(li); });
-    if(!ul.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,"知識から見て、足りない服はありません")); ul.appendChild(li); }
-    box.appendChild(ul);
+    if(!ul.children.length){ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null, none)); ul.appendChild(li); }
+    box.appendChild(ul); });
     const more = el("details","gapwhy"); more.appendChild(el("summary",null,"軸の服・合いそうなブランド・合いにくい服"));
     if((a.strengths||[]).length){ more.appendChild(el("h4",null,"軸になっている手持ち")); const u2 = el("ul","gaplist"); a.strengths.forEach(x=>{ const li = el("li"); li.appendChild(el("span","gmk ok","✓")); li.appendChild(el("span",null,x)); u2.appendChild(li); }); more.appendChild(u2); }
     if((a.brands||[]).length){ more.appendChild(el("h4",null,"合いそうなブランド")); const ub = el("ul","gaplist");
