@@ -163,7 +163,10 @@ const ADVISE_MODELS = [["gemini-3.8-flash", 45000], ["gemini-3.5-flash-lite", 60
 async function askAdvice(env, prompt, schema, key){
   schema = schema || ADVISE_SCHEMA; key = key || "missing";
   const tried = [];
-  for (const [model, ms] of ADVISE_MODELS) {
+  const order = ADVISE_MODELS.concat([[ADVISE_MODELS[ADVISE_MODELS.length - 1][0], 50000, 3000]]);   // 混み合い（503）のときは、少し待って軽量版をもう1回
+  for (const [model, ms, wait] of order) {
+    if (wait && !tried.some(t => / 503 /.test(t))) break;
+    if (wait) await new Promise(z => setTimeout(z, wait));
     const r = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
       method: "POST", signal: AbortSignal.timeout(ms),
       headers: { "x-goog-api-key": env.GEMINI_API_KEY, "Content-Type": "application/json" },
