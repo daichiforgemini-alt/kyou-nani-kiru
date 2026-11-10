@@ -293,6 +293,14 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .wash-set select{flex:1}
 .wash-line{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.6}
 .wash-line b{color:var(--ink,inherit)}
+.worn-days{display:flex;gap:6px;margin:4px 0 6px}
+.worn-cat{margin:10px 0 4px;font-size:12px;font-weight:700;color:var(--muted)}
+.worn-chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:inherit;cursor:pointer}
+.chip.on{background:var(--indigo);border-color:var(--indigo);color:#fff}
+.worn-chips .chip{font-size:12px;padding:5px 10px;max-width:100%;white-space:normal;text-align:left;line-height:1.35}
+.worn-act{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.worn-act .btn.primary{flex:1;min-width:140px}
 .cond-sum{color:var(--muted);font-size:12px;margin-left:4px}
 .why-fold{margin-top:4px}
 .why-fold>summary{cursor:pointer;font-size:13px;letter-spacing:.06em;color:var(--muted);padding:6px 0;list-style-position:inside}
@@ -496,6 +504,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       <ul class="notes" id="notes"></ul>
 
       <p class="wash-line" id="washLine" hidden></p>
+      <details class="why-fold" id="wornFold"><summary>着た服を記録 <span class="cond-sum" id="wornSum"></span></summary><div id="wornBox"></div></details>
       <details class="why-fold" id="whyFold"><summary>なぜこの組み合わせ？ <span class="cond-sum" id="whySum"></span></summary>
       <ul class="notes" id="why"></ul>
       </details>
@@ -1270,6 +1279,7 @@ function compute(s){
 let seed = 0, lastCands = [], lastPool = [], listOpen = false;
 /* 毎日同じ服にならないように：最近の提案を覚えておき、続けて出た服は少し下げる */
 let hist = LS.get("kn.hist", {});              // {"2026-10-28": [服のid…]}
+let histManual = LS.get("kn.histManual", {});  // 自分で記録した日 {"2026-10-28": true}（アプリの提案で上書きしない）
 function dayKey(off){ const d = new Date(); d.setDate(d.getDate() + off); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
 function planOffset(){ return $("d1") && $("d1").checked ? 1 : 0; }
 /* 洗濯の周期：前の洗濯日から、肌に触れる服（Tシャツ・シャツ・インナー）は1回、パンツ・ニットは3回着たら、次の洗濯まで出さない */
@@ -1310,6 +1320,7 @@ function dayJitter(it){   // 同じ点数の服どうしは、日によって順
 function rememberOutfit(outfit){
   if(usingSample() || !outfit) return;
   const ids = outfit.items.filter(Boolean).map(i=>i.id); const key = dayKey(planOffset());
+  if(histManual[key]) return;   // 自分で記録した日はそのまま
   if(JSON.stringify(hist[key]) === JSON.stringify(ids)) return;
   hist[key] = ids;
   const old = dayKey(-14); Object.keys(hist).forEach(k=>{ if(k < old) delete hist[k]; });
@@ -1447,6 +1458,38 @@ function pickAcc(c, r, st){
 function el(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text!=null) e.textContent = text; return e; }
 function dots(n){ const d = el("span","dots"); d.setAttribute("aria-label","暖かさ"+n); for(let i=1;i<=5;i++) d.appendChild(el("i", i<=n?"on":"")); return d; }
 
+/* 着た服を記録：きのう・おととい・きょう実際に着た服を選ぶ。洗濯かごや「最近着た服」の計算に使う */
+let wornDay = -1;
+function renderWorn(){
+  const box = $("wornBox"); if(!box) return; box.textContent = "";
+  const sum = $("wornSum"), yk = dayKey(-1);
+  if(sum) sum.textContent = histManual[yk] ? "きのう：記録済み（" + (hist[yk]||[]).length + "点）" : "きのう：まだ";
+  if(usingSample()){ box.appendChild(el("p","hint","自分の服を登録すると使えます。")); return; }
+  const dayRow = el("div","worn-days");
+  [[-2,"おととい"],[-1,"きのう"],[0,"きょう"]].forEach(([o,l])=>{ const b = el("button","chip" + (o === wornDay ? " on" : ""), l + (histManual[dayKey(o)] ? " ✓" : "")); b.type = "button";
+    b.addEventListener("click", ()=>{ wornDay = o; renderWorn(); }); dayRow.appendChild(b); });
+  box.appendChild(dayRow);
+  const key = dayKey(wornDay), sel = new Set(hist[key] || []);
+  box.appendChild(el("p","hint", histManual[key] ? "記録した服です。直して「記録する」を押すと上書きします。" : (hist[key] ? "いまはアプリが出したコーデが入っています。実際に着た服に直してください。" : "着た服を選んでください。")));
+  const order = ["outer","top","inner","bottom","shoes","bag","belt","acc"];
+  order.forEach(cat=>{ const xs = activeCloset().filter(i=>i.cat === cat); if(!xs.length) return;
+    box.appendChild(el("p","worn-cat", (CATS[cat]||cat).replace(/（.*）/,"")));
+    const wrap = el("div","worn-chips");
+    xs.forEach(i=>{ const b = el("button","chip" + (sel.has(i.id) ? " on" : ""), i.name); b.type = "button"; b.setAttribute("aria-pressed", sel.has(i.id));
+      b.addEventListener("click", ()=>{ if(sel.has(i.id)) sel.delete(i.id); else sel.add(i.id); b.classList.toggle("on"); b.setAttribute("aria-pressed", sel.has(i.id)); cnt.textContent = sel.size + "点を選択中"; });
+      wrap.appendChild(b); });
+    box.appendChild(wrap); });
+  const act = el("div","worn-act"), cnt = el("span","hint", sel.size + "点を選択中");
+  const save = el("button","btn primary","記録する"); save.type = "button";
+  save.addEventListener("click", ()=>{ hist[key] = [...sel]; histManual[key] = true;
+    const old = dayKey(-14); Object.keys(histManual).forEach(k=>{ if(k < old) delete histManual[k]; });
+    LS.set("kn.hist", hist); LS.set("kn.histManual", histManual); seed = 0; renderToday(); renderWorn(); const m = document.querySelector("#wornBox .worn-act .hint"); if(m) m.textContent = "記録しました"; });
+  act.appendChild(cnt); act.appendChild(save);
+  if(histManual[key]){ const undo = el("button","btn fix-btn","記録を消す"); undo.type = "button";
+    undo.addEventListener("click", ()=>{ delete histManual[key]; if(wornDay !== planOffset()) delete hist[key]; LS.set("kn.hist", hist); LS.set("kn.histManual", histManual); seed = 0; renderToday(); renderWorn(); });
+    act.appendChild(undo); }
+  box.appendChild(act);
+}
 function renderWashLine(outfit){
   const p = $("washLine"); if(!p) return;
   if(usingSample() || !outfit){ p.hidden = true; return; }
@@ -1463,7 +1506,7 @@ function renderToday(){
   const outfit = pickOutfit(r);
   renderCandList();
   rememberOutfit(outfit);
-  renderWashLine(outfit);
+  renderWashLine(outfit); if(!$("wornFold").open) renderWorn();
   $("idx").textContent = r.idx;
   $("verdict").textContent = r.verdict;
   $("fDay").textContent = r.day + "℃"; $("fCold").textContent = r.cold + "℃"; $("fGap").textContent = r.gap + "℃";
@@ -2327,6 +2370,7 @@ $("cond").addEventListener("input", e=>{
   if(["tAm","tNoon","tPm","wind"].includes(e.target.id) || e.target.name==="wx") $("autoNote").hidden = true;
   seed = 0; renderToday();
 });
+$("wornFold").addEventListener("toggle", ()=>{ if($("wornFold").open){ wornDay = -1; renderWorn(); } });
 $("washNow").addEventListener("click", ()=>{ prefs.washAt = dayKey(0); persist(); seed = 0; renderToday(); $("washNow").textContent = "洗濯した日：きょう"; });
 document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click", ()=>{
   const inp = $(b.dataset.step); inp.value = (parseFloat(inp.value)||0) + (+b.dataset.d); $("autoNote").hidden = true; seed = 0; renderToday();
