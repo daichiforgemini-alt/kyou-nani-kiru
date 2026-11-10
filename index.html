@@ -1043,7 +1043,8 @@ let closet = LS.get("kn.closet", null);
 // 以前「小物」で登録したベルトは「ベルト」の枠へ移す
 if(Array.isArray(closet) && closet.some(i=>i && i.cat==="acc" && /ベルト/.test(i.name||""))){ closet.forEach(i=>{ if(i && i.cat==="acc" && /ベルト/.test(i.name||"")) i.cat = "belt"; }); LS.set("kn.closet", closet); }
 let prefs  = LS.get("kn.prefs", {move:"walk", body:0, span:"day"});
-if(!prefs.style || (prefs.style !== "any" && !STYLES[prefs.style])) prefs.style = "kirei";
+if(!prefs.style || (prefs.style !== "any" && !STYLES[prefs.style])) prefs.style = "any";
+if(!prefs.v2style){ prefs.style = "any"; prefs.v2style = 1; }   // 毎日のコーデは系統を問わない（買う物だけ世界観に合わせる）
 if(![2,3,4,5,7].includes(+prefs.wash)) prefs.wash = 3;   // 洗濯の間隔（日）
 let loc    = LS.get("kn.loc", null);          // {lat, lon, name}
 let forecast = null;                           // 取得した予報
@@ -1854,7 +1855,7 @@ function renderGap(){
   dBag.appendChild(ulb); foldCount(dBag, ulb);
   const dBal = gfold(box, "bal", "バランス");
   const ul3 = el("ul","gaplist");
-  const main = prefs.style && prefs.style !== "any" ? prefs.style : "kirei";
+  const main = "kirei";   // 手放す・買う判断は、毎日のコーデの設定ではなく世界観（きれいめが軸）で
   const fit = i => itemDist(main, i) < 1;
   ["top","bottom","outer","shoes"].forEach(cat=>{
     const xs = list.filter(i=>i.cat===cat); if(xs.length < 2) return;
@@ -1911,7 +1912,7 @@ async function findUnused(){
   await new Promise(z=>setTimeout(z, 30));
   let R; try{ R = rotationSim(); }catch(e){ console.warn("findUnused", e); unusedBusy = false; renderUnused(); return; }
   const count = R.uses;
-  const main = prefs.style && prefs.style !== "any" ? prefs.style : "kirei";
+  const main = "kirei";   // 手放す・買う判断は、毎日のコーデの設定ではなく世界観（きれいめが軸）で
   const list = (closet||[]).filter(i=>["top","outer","bottom","shoes"].includes(i.cat) && !count[i.id] && !isWhiteTee(i)).map(i=>{
     const why = [];
     if(itemDist(main, i) >= 2) why.push(STYLES[main].replace(/（.*）/,"") + "から遠い系統（" + styleLabel(i) + "）で、ほかの服と組みにくい。");
@@ -2130,7 +2131,8 @@ function closetLine(i){
     const dt = Object.keys(DETAIL_KEYS).filter(k=>i[k] && DETAIL_KEYS[k][i[k]]).map(k=>DETAIL_LABEL[k] + ":" + DETAIL_KEYS[k][i[k]].replace(/（.*）/,"")).join("、");
     return `- [${CATS[i.cat]||i.cat}] ${i.name}（系統:${styleLabel(i)}、色:${c ? COLORS[c].n : "不明"}、暖かさ${i.warmth}、きれいめ度${dressOf(i)}${dt ? "、" + dt : ""}${fl ? "、" + fl : ""}）`; }
 }
-function goalText(){ return (prefs.style && prefs.style !== "any" ? STYLES[prefs.style].replace(/（.*）/,"") : "指定なし（知識の「自分の方向性」に合わせる）")
+/* 買う物は、毎日のコーデの設定とは別に、いつも自分の世界観（知識の方向性：きれいめが軸、ずらしにトラッド・ミニマルなモード）に合わせる */
+function goalText(){ return "きれいめ（メイン）、ずらしにトラッド・ミニマルなモード（知識の「自分の方向性」と「自分の世界観」に合わせる。手持ちの系統がばらばらでも、買う物はこの方向に寄せる）"
   + "。方針：長く使える品質を優先。picks は、そのアイテムの定番ブランド・定番モデル（元祖・名作で知られる作り手）を最優先。ドメブラと国内外のファクトリーブランドも可、量販店は最後。予算はメルカリ中古で3万円まで。price はメルカリの中古相場"; }
 function adviceSig(){ const t = goalText() + "|" + closetText() + "|" + knowledgeText() + "|m" + (new Date().getMonth() + 1); let h = 5381; for(let i=0;i<t.length;i++) h = ((h*33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + t.length; }
 /* 足りない服を通販サイトで探す。ZOZOTOWNは検索語をShift_JISで送る必要があるので、フォームで開く */
@@ -2749,7 +2751,7 @@ window.addEventListener("online", ()=>syncNow());
 /* ---------- 起動 ---------- */
 $("today").textContent = new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"});
 if(new Date().getHours() >= 18) $("d1").checked = true;   // 夜は明日の服を考える
-fillSelect($("myStyle"), STYLES, "指定なし（手持ちの服に合わせる）"); $("myStyle").options[0].value = "any"; fillSelect($("itStyle"), STYLES); fillSelect($("itStyle2"), STYLES, "なし");
+fillSelect($("myStyle"), STYLES, "こだわらない（手持ちで組む）"); $("myStyle").options[0].value = "any"; fillSelect($("itStyle"), STYLES); fillSelect($("itStyle2"), STYLES, "なし");
 const DETAIL_IDS = {material:"itMaterial", texture:"itTexture", pattern:"itPattern", fit:"itFit", shape:"itShape", neck:"itNeck"};
 Object.entries(DETAIL_IDS).forEach(([k,id])=>fillSelect($(id), DETAIL_KEYS[k], "わからない")); fillSelect($("itDress"), DRESS, "おまかせ（系統から）"); fillSelect($("itColor"), COLORS, "わからない・その他");
 applyPrefs(); updateWarmHint(); updateGuess(); renderAll(); renderKnow();
