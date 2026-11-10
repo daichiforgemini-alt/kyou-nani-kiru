@@ -130,11 +130,7 @@ const REPLACE_SCHEMA = {
   },
   required: ["summary","items"]
 };
-const ADVISE_SCHEMA = {
-  type: "object",
-  properties: {
-    summary: { type: "string" },
-    missing: { type: "array", items: { type: "object", properties: {
+const MISSING_ITEM = { type: "object", properties: {
       name: { type: "string" },
       cat: { type: "string", enum: ["top","outer","bottom","shoes","inner","bag","acc","other"] },
       query: { type: "string" },
@@ -146,14 +142,21 @@ const ADVISE_SCHEMA = {
       when: { type: "string", enum: ["now","next","any"] },
       reason: { type: "string" },
       pairs: { type: "string" }
-    }, required: ["name","cat","priority","when","reason","pairs","query","picks"] } },
+    }, required: ["name","cat","priority","when","reason","pairs","query","picks"] };
+// 服と、靴・バッグ・小物を別の配列で返させる（数を守らせるため。服は6〜10点）
+const ADVISE_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    clothes: { type: "array", minItems: 6, maxItems: 10, items: MISSING_ITEM },
+    goods: { type: "array", maxItems: 5, items: MISSING_ITEM },
     strengths: { type: "array", items: { type: "string" } },
     letgo: { type: "array", items: { type: "string" } },
     brands: { type: "array", items: { type: "object", properties: {
       name: { type: "string" }, why: { type: "string" }, price: { type: "string" }
     }, required: ["name","why","price"] } }
   },
-  required: ["summary","missing","strengths","letgo","brands"]
+  required: ["summary","clothes","goods","strengths","letgo","brands"]
 };
 // 足りない服の提案はたまにしか使わず、長い知識と弱点を読み比べる判断が要るので、上位モデルを先に使う（だめなら軽量版）
 const ADVISE_MODELS = [["gemini-3.8-flash", 45000], ["gemini-3.5-flash-lite", 60000]];   // 提案の数が多いので、軽量版にも時間を取る
@@ -216,7 +219,7 @@ export default {
       if (!closet) return json({ error: "no_closet" }, 400);
       const prompt = `あなたは、下の「服の知識」だけを根拠に考えるスタイリストです。持ち主の手持ちの服を見て、知識に照らして足りない服を考えてください。
 - 目指すスタイル：${goal || "きれいめ"}
-${gaps ? "- 下の【アプリが見つけた弱点】は、アプリが手持ちの服で実際にコーデを組んで分かった困りごとと、知識の「方向性ごとに必要なもの」が手持ちにあるかのチェック結果。missing は、ここに出ている困りごと・足りないものを解決する服を最優先にする。順番は ①天気の困りごと（雨に強い靴・上着、寒さ・暑さに合う厚さ）②1着に頼りすぎている服の替え ③メイン（きれいめ）のチェックで「ない」もの ④ずらし先（トラッド・モード・ユーロワーク）で「ない」もの ⑤小物。天気の困りごとは、手持ちで解決できない限り必ず入れる。missing は今シーズン（今月から3か月）に要るものだけにする。季節外れの服（冬に夏物など）は入れない。when は、その服がいる時期：now＝今シーズンの季節物、any＝季節を問わず使う（革靴・バッグ・メガネ・通年のシャツなど）。next は使わない。チェックの「ない」に当てる服は、その条件そのものを満たすものにする（例：ブローグ系がないならブローグ系の革靴。ローファーで代用しない）。reason の先頭には、どの弱点やチェックに当たるかを短く書く（例「真冬・冬：アウターが薄い」「トラッド：ブローグ系の革靴がない」）。弱点に出ていない服を入れるときは、知識のどのルールに基づくかを書く\n- letgo は、弱点の「出番がない服」や、よく出る注意の原因になっている服を参考にする\n" : ""}- missing：足りないものを2つのグループに分けて考える。①服（トップス・アウター・ボトムス・インナー）を効果の大きい順に、必ず6点以上・10点まで（今シーズンに要るもの、2着目・入れ替え用も数えてよい） ②靴・バッグ・ベルト・小物（帽子・メガネ・アクセ・時計など）を効果の大きい順に最大5点。弱点の「洗濯で回すと足りない」種類や、方向性に寄せるために買い換えたほうがいい種類（ボトムス・靴など）は、手持ちに同じ役割があっても「2着目」「入れ替え用」として入れてよい。どちらかが無ければ0点でよいが、片方だけで埋めない。cat は正しく付ける（靴は shoes、バッグは bag、ベルトは belt、小物は acc）。query は通販サイトで検索するときの短いキーワード（色・素材・アイテム名を空白で区切る。ブランド名は入れない。末尾に「メンズ」。例「ネイビー ハイゲージ クルーネックニット メンズ」）。name は買い物で探せる具体的な名前（色・素材・形を含める）。cat は種類。priority は 1=最優先 2=次に 3=余裕があれば。reason は根拠（弱点・チェック・知識のルール）を入れて80字以内。pairs は手持ちのどの服と組めるかを40字以内で、手持ちの名前を使う
+${gaps ? "- 下の【アプリが見つけた弱点】は、アプリが手持ちの服で実際にコーデを組んで分かった困りごとと、知識の「方向性ごとに必要なもの」が手持ちにあるかのチェック結果。missing は、ここに出ている困りごと・足りないものを解決する服を最優先にする。順番は ①天気の困りごと（雨に強い靴・上着、寒さ・暑さに合う厚さ）②1着に頼りすぎている服の替え ③メイン（きれいめ）のチェックで「ない」もの ④ずらし先（トラッド・モード・ユーロワーク）で「ない」もの ⑤小物。天気の困りごとは、手持ちで解決できない限り必ず入れる。missing は今シーズン（今月から3か月）に要るものだけにする。季節外れの服（冬に夏物など）は入れない。when は、その服がいる時期：now＝今シーズンの季節物、any＝季節を問わず使う（革靴・バッグ・メガネ・通年のシャツなど）。next は使わない。チェックの「ない」に当てる服は、その条件そのものを満たすものにする（例：ブローグ系がないならブローグ系の革靴。ローファーで代用しない）。reason の先頭には、どの弱点やチェックに当たるかを短く書く（例「真冬・冬：アウターが薄い」「トラッド：ブローグ系の革靴がない」）。弱点に出ていない服を入れるときは、知識のどのルールに基づくかを書く\n- letgo は、弱点の「出番がない服」や、よく出る注意の原因になっている服を参考にする\n" : ""}- 足りないものを2つの配列に分けて答える。clothes＝服（トップス・アウター・ボトムス・インナー）を効果の大きい順に、必ず6点以上・10点まで（今シーズンに要るもの、2着目・入れ替え用も数えてよい）。goods＝靴・バッグ・ベルト・小物（帽子・メガネ・アクセ・時計など）を効果の大きい順に最大5点。clothes に靴や小物を入れない。以下で missing と書いてあるものは、この2つの配列のこと。弱点の「洗濯で回すと足りない」種類や、方向性に寄せるために買い換えたほうがいい種類（ボトムス・靴など）は、手持ちに同じ役割があっても「2着目」「入れ替え用」として入れてよい。どちらかが無ければ0点でよいが、片方だけで埋めない。cat は正しく付ける（靴は shoes、バッグは bag、ベルトは belt、小物は acc）。query は通販サイトで検索するときの短いキーワード（色・素材・アイテム名を空白で区切る。ブランド名は入れない。末尾に「メンズ」。例「ネイビー ハイゲージ クルーネックニット メンズ」）。name は買い物で探せる具体的な名前（色・素材・形を含める）。cat は種類。priority は 1=最優先 2=次に 3=余裕があれば。reason は根拠（弱点・チェック・知識のルール）を入れて80字以内。pairs は手持ちのどの服と組めるかを40字以内で、手持ちの名前を使う
 - 手持ちにすでにあるものと同じ役割の服は、上の「2着目・入れ替え用」以外は missing に入れない。季節（真冬・真夏・雨）に足りないものも考える
 - strengths：手持ちで、知識に合っていて軸になっている服を最大4点（名前と短い理由）
 - letgo：知識から見て、目指すスタイルと合いにくく出番が少なそうな服を最大3点（名前と短い理由）。無理に挙げなくてよい
@@ -231,7 +234,8 @@ ${knowledge}
 
 【手持ちの服】
 ${closet}${gaps ? "\n\n【アプリが見つけた弱点】\n" + gaps : ""}`;
-      const res = await askAdvice(env, prompt);
+      const res = await askAdvice(env, prompt, ADVISE_SCHEMA, "clothes");
+      if (res.advice) { const a = res.advice; a.missing = [...(a.clothes||[]), ...(a.goods||[])]; delete a.clothes; delete a.goods; }   // アプリへは今までどおり missing で返す
       return json(res, res.status);
     }
 
