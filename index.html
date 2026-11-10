@@ -293,6 +293,9 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 .wash-set select{flex:1}
 .wash-line{margin:6px 0 0;font-size:12.5px;color:var(--muted);line-height:1.6}
 .wash-line b{color:var(--ink,inherit)}
+.feel-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.feel-l{font-size:12.5px;color:var(--muted);margin-right:2px}
+.feel-row .chip{font-size:12px;padding:4px 10px}
 .worn-days{display:flex;gap:6px;margin:4px 0 6px}
 .worn-cat{margin:10px 0 4px;font-size:12px;font-weight:700;color:var(--muted)}
 .worn-chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -503,6 +506,9 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
 
       <ul class="notes" id="notes"></ul>
 
+      <div class="feel-row" id="feelRow"><span class="feel-l">きょうの着心地</span>
+        <button type="button" class="chip" data-feel="cold">寒かった</button><button type="button" class="chip" data-feel="ok">ちょうど</button><button type="button" class="chip" data-feel="hot">暑かった</button></div>
+      <p class="wash-line" id="feelNote" hidden></p>
       <p class="wash-line" id="washLine" hidden></p>
       <details class="why-fold" id="wornFold"><summary>着た服を記録 <span class="cond-sum" id="wornSum"></span></summary><div id="wornBox"></div></details>
       <details class="why-fold" id="whyFold"><summary>なぜこの組み合わせ？ <span class="cond-sum" id="whySum"></span></summary>
@@ -1211,7 +1217,7 @@ function readCond(){
     wx: f.querySelector('input[name=wx]:checked').value,
     wind: +$("wind").value,
     span: f.querySelector('input[name=span]:checked').value,
-    move: prefs.move, body: prefs.body };
+    move: prefs.move, body: prefs.body, feel: +prefs.feel || 0 };
 }
 const r1 = x => Math.round(x*10)/10;
 const pickBand = (bands, t) => bands.find(b => t >= b.min) || bands[bands.length-1];
@@ -1220,7 +1226,7 @@ function compute(s){
   const wind = s.move==="car" ? 0 : Math.min(s.wind, 12);
   const windAdj = Math.max(0, wind - 2);               // 2m/sを超える風から体感が下がる
   const bike = s.move==="bike" ? 1.5 : 0;
-  const body = s.body * 1.5;                           // 寒がりはマイナス、暑がりはプラス
+  const body = s.body * 1.5 + (s.feel || 0);          // 寒がりはマイナス、暑がりはプラス。feel は「寒かった／暑かった」の記録から少しずつ学ぶ分（℃）
   const sky = s.wx==="sun" ? 1 : (s.wx==="rain"||s.wx==="snow") ? -1 : 0;
   const wet = s.wx==="rain" ? 1 : 0;
   // 朝・昼・夜の体感
@@ -1490,6 +1496,21 @@ function renderWorn(){
     act.appendChild(undo); }
   box.appendChild(act);
 }
+/* 着心地の記録：「寒かった」で体感を0.5℃ぶん寒がりに、「暑かった」で0.5℃ぶん暑がりに寄せる（1日1回、答え直しは上書き。±3℃まで） */
+const FEEL_STEP = {cold:-0.5, ok:0, hot:0.5};
+function renderFeel(){
+  const key = dayKey(0), log = prefs.feelLog || {}, cur = log[key];
+  document.querySelectorAll("[data-feel]").forEach(b=>b.classList.toggle("on", b.dataset.feel === cur));
+  const n = $("feelNote"), f = +prefs.feel || 0; if(!n) return;
+  n.hidden = !f && !cur; n.textContent = (cur ? "記録しました。" : "") + (f ? "これまでの着心地から、体感を" + Math.abs(f).toFixed(1) + "℃ぶん" + (f < 0 ? "寒がり" : "暑がり") + "に寄せて組んでいます。" : "");
+}
+document.addEventListener("click", e=>{ const b = e.target.closest && e.target.closest("[data-feel]"); if(!b) return;
+  const key = dayKey(0), log = prefs.feelLog = prefs.feelLog || {}, prev = log[key];
+  let f = (+prefs.feel || 0) - (prev ? FEEL_STEP[prev] : 0);   // 同じ日の答え直しは、前の答えを取り消してから
+  if(prev === b.dataset.feel){ delete log[key]; } else { log[key] = b.dataset.feel; f += FEEL_STEP[b.dataset.feel]; }
+  prefs.feel = Math.max(-3, Math.min(3, Math.round(f * 10) / 10));
+  const old = dayKey(-60); Object.keys(log).forEach(k=>{ if(k < old) delete log[k]; });
+  persist(); renderToday(); renderFeel(); });
 function renderWashLine(outfit){
   const p = $("washLine"); if(!p) return;
   if(usingSample() || !outfit){ p.hidden = true; return; }
@@ -1506,7 +1527,7 @@ function renderToday(){
   const outfit = pickOutfit(r);
   renderCandList();
   rememberOutfit(outfit);
-  renderWashLine(outfit); if(!$("wornFold").open) renderWorn();
+  renderWashLine(outfit); renderFeel(); if(!$("wornFold").open) renderWorn();
   $("idx").textContent = r.idx;
   $("verdict").textContent = r.verdict;
   $("fDay").textContent = r.day + "℃"; $("fCold").textContent = r.cold + "℃"; $("fGap").textContent = r.gap + "℃";
@@ -2089,7 +2110,7 @@ async function fetchReplace(){
     const targets = st.ids.map(id=>(closet||[]).find(i=>i.id === id)).filter(Boolean)
       .map(i=>closetLine(i) + (gaps && gaps.useCount ? "（洗濯の間隔で1年の天気を回したとき、" + gaps.days + "日のうち" + (gaps.useCount[i.id]||0) + "日選ばれる）" : "")).join("\n");
     const r = await fetch(AI_API.replace(/classify$/, "replace"), {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({knowledge: knowledgeText(), closet: closetText(), goal: goalText(), gaps: gaps ? gaps.text : "", targets, note: st.note}), signal: AbortSignal.timeout(110000)});
+      body: JSON.stringify({knowledge: knowledgeText(), closet: closetText(), goal: goalText(), gaps: gaps ? gaps.text : "", targets, note: st.note}), signal: AbortSignal.timeout(118000)});
     const j = await r.json().catch(()=>({}));
     if(r.ok && j.advice){ const s2 = replaceState(); s2.result = j.advice; s2.at = Date.now(); s2.model = j.model || ""; saveReplace(s2); }
     else err = (j.error==="ai_failed" || r.status===429) ? "AIが混み合っています。少し待ってからもう一度押してください。" : "考えられませんでした（" + (j.error || r.status) + "）。";
@@ -2284,7 +2305,7 @@ async function fetchAdvice(force){
   let err = "";
   try{
     let gaps = null; try{ gaps = await outfitGaps(); }catch(e){ console.warn("outfitGaps", e); }
-    const r = await fetch(AI_API.replace(/classify$/, "advise"), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({knowledge: knowledgeText(), closet: closetText(), goal: goalText(), gaps: gaps ? gaps.text : ""}), signal: AbortSignal.timeout(110000)});
+    const r = await fetch(AI_API.replace(/classify$/, "advise"), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({knowledge: knowledgeText(), closet: closetText(), goal: goalText(), gaps: gaps ? gaps.text : ""}), signal: AbortSignal.timeout(118000)});
     const j = await r.json().catch(()=>({}));
     if(r.ok && j.advice) LS.set("kn.advice", {sig: adviceSig(), at: Date.now(), advice: j.advice, model: j.model, gaps: gaps ? {trouble: gaps.trouble, check: gaps.check, n: gaps.n} : null});
     else err = (j.error==="ai_failed" || r.status===429) ? "AIが混み合っています。少し待ってからもう一度押してください。" : "考えられませんでした（" + (j.error || r.status) + "）。";
