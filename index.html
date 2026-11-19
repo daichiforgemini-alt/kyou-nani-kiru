@@ -129,6 +129,28 @@ button,input,select{font:inherit;color:inherit}
 .mk.cold{top:28px;flex-direction:column-reverse}
 .mk.cold .line{height:40px;opacity:.6}
 .mk.cold .tag{background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);margin-top:20px}
+.mk.tokyo{top:28px;flex-direction:column-reverse}
+.mk.tokyo .line{height:40px;opacity:.7;background:#c0392b}
+.mk.tokyo .tag{background:var(--surface);color:#c0392b;border:1.5px solid #c0392b;margin-top:20px}
+.tokyo-line b{color:#c0392b;margin-right:2px}
+.tokyo-line{margin-top:30px}
+.tabs button{white-space:nowrap}
+.trip{display:flex;flex-direction:column;gap:14px;max-width:760px;margin:0 auto}
+.trip-form{display:flex;flex-direction:column;gap:14px}
+.trip-row{display:flex;gap:8px}.trip-row .text-in{flex:1;min-width:0}
+.trip-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.trip-head h2{margin:0 0 4px}
+.trip-sum{margin:6px 0;font-weight:700}
+.trip-pack,.trip-items,.trip-notes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.trip-pack li,.trip-items li{display:grid;grid-template-columns:5.2em 1fr;gap:8px;font-size:13.5px;line-height:1.5}
+.pk-cat{font-size:11.5px;color:var(--muted);padding-top:2px}
+.pk-names{display:flex;flex-wrap:wrap;gap:4px 10px}
+.pk-it.worn{text-decoration:underline;text-underline-offset:3px}
+.trip-day{display:flex;flex-direction:column;gap:8px}
+.trip-dh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 10px;align-items:baseline}
+.trip-wx{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.trip-v{margin:0;font-weight:700;color:var(--indigo)}
+.trip-notes li{font-size:12px;color:var(--muted)}
 
 .outfit-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
 .outfit-head h2{font-size:13px;letter-spacing:.12em;color:var(--muted)}
@@ -388,9 +410,10 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       <h1>きょう何着る？</h1>
     </div>
     <nav class="tabs" role="tablist">
-      <button role="tab" id="tab-today" aria-selected="true" data-view="today">きょうの服装</button>
+      <button role="tab" id="tab-today" aria-selected="true" data-view="today">きょう</button>
       <button role="tab" id="tab-closet" aria-selected="false" data-view="closet">クローゼット</button>
-      <button role="tab" id="tab-know" aria-selected="false" data-view="know">服の知識</button>
+      <button role="tab" id="tab-trip" aria-selected="false" data-view="trip">旅行</button>
+      <button role="tab" id="tab-know" aria-selected="false" data-view="know">知識</button>
     </nav>
   </header>
 
@@ -489,11 +512,12 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
 
       <div class="scale">
-        <div class="scale-head"><h2>気温とアウターのめやす</h2><small>朝と昼の平均体感 ℃</small></div>
+        <div class="scale-head"><h2>気温とアウターのめやす</h2><small>朝・昼・夜の体感 ℃（西村さん式）</small></div>
         <div class="track" id="track">
           <div class="bands" id="bands"></div>
           <div class="ticks" id="ticks"></div>
         </div>
+        <p class="credit tokyo-line" id="tokyoLine" hidden></p>
         <p class="credit">めやす：コットン西村さんの衣装予報（東京・307日分）から　<a id="xToday" href="https://x.com/slimboy24" target="_blank" rel="noopener">𝕏 きょうの予報</a></p>
       </div>
 
@@ -661,6 +685,23 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
       <div id="groups"></div>
     </div>
+  </section>
+  <!-- ===== 旅行 ===== -->
+  <section id="view-trip" class="trip" hidden>
+    <div class="panel trip-form">
+      <h2>旅行のコーデ</h2>
+      <div class="field"><label for="tripQ">行き先</label>
+        <div class="trip-row"><input class="text-in" id="tripQ" placeholder="例：札幌、京都、ソウル" autocomplete="off"><button class="btn" type="button" id="tripFind">探す</button></div>
+        <span class="hint" id="tripPlace"></span></div>
+      <div class="trip-row2">
+        <div class="field"><label for="tripStart">出発日</label><input class="text-in" type="date" id="tripStart"></div>
+        <div class="field"><label for="tripDays">日数</label><select class="text-in" id="tripDays"><option value="1">日帰り</option><option value="2" selected>1泊2日</option><option value="3">2泊3日</option><option value="4">3泊4日</option><option value="5">4泊5日</option><option value="6">5泊6日</option><option value="7">6泊7日</option></select></div>
+      </div>
+      <button class="btn primary" type="button" id="tripGo">コーデを組む</button>
+      <p class="hint" id="tripMsg"></p>
+      <p class="hint" style="margin:0">行き先の朝・昼・夜の予報で毎日のコーデを組み、なるべく少ない服で回せるように持ち物をまとめます（旅先では洗濯しない前提）。</p>
+    </div>
+    <div id="tripOut"></div>
   </section>
   <!-- ===== 服の知識 ===== -->
   <section id="view-know" hidden>
@@ -1118,6 +1159,152 @@ function wxFromCode(code, pop){
   if(w!=="snow" && pop!=null && pop >= 50) w = "rain";
   return w;
 }
+/* ---------- 予報の1日分を、西村さん式の「朝8時・昼（11〜15時の最高）・夜20時」にする ---------- */
+function tempsFrom(fc, i){
+  if(!fc || !fc.daily || !fc.daily.time || !fc.daily.time[i]) return null;
+  const d = fc.daily, day = d.time[i], hi = d.temperature_2m_max[i], lo = d.temperature_2m_min[i];
+  if(hi == null || lo == null) return null;
+  const pop = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
+  let wx = wxFromCode(d.weather_code ? d.weather_code[i] : 3, pop);
+  if(!d.precipitation_probability_max && d.precipitation_sum && d.precipitation_sum[i] >= 1 && wx !== "snow") wx = "rain";   // 去年の実績には降水確率がないので、降水量で
+  let am = lo + (hi-lo)*0.2, noon = hi, pm = lo + (hi-lo)*0.4, wind = 2;
+  if(fc.hourly && fc.hourly.time){
+    const H = fc.hourly, t = {}, ws = [];
+    H.time.forEach((x,k)=>{ if(x.slice(0,10)===day){ const h = +x.slice(11,13); t[h] = H.temperature_2m[k]; if(h>=8 && h<=19 && H.wind_speed_10m) ws.push(H.wind_speed_10m[k]); } });
+    if(t[8]!=null) am = t[8];
+    const mid = [11,12,13,14,15].map(h=>t[h]).filter(v=>v!=null); if(mid.length) noon = Math.max(...mid);
+    if(t[20]!=null) pm = t[20];
+    if(ws.length) wind = Math.round(ws.reduce((a,b)=>a+b,0)/ws.length*0.7);
+  }
+  return {day, am, noon, pm, wind: Math.min(12, wind), wx, pop};
+}
+const WX_JA = {sun:"晴れ", cloud:"くもり", rain:"雨", snow:"雪"};
+
+/* ---------- 東京の気温（西村さんの衣装予報と比べる用。場所に関係なくいつも東京） ---------- */
+let tokyoFc = LS.get("kn.fcTokyo", null), tokyoR = null;
+async function loadTokyo(){
+  try{
+    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=35.6895&longitude=139.6917&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&hourly=temperature_2m,wind_speed_10m&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=2");
+    if(!r.ok) throw new Error("http " + r.status);
+    tokyoFc = await r.json(); tokyoFc.fetchedAt = Date.now(); LS.set("kn.fcTokyo", tokyoFc);
+  }catch(e){ console.warn("tokyo", e); }
+  renderToday();
+}
+function tokyoCalc(){   // 西村さんと同じ条件で：ふつうの体質・歩き・日中だけ
+  const t = tempsFrom(tokyoFc, dayIndex()); if(!t || t.day !== dayKey(planOffset())) return null;
+  const savedPop = curPop; curPop = t.pop;
+  try{ return {t, r: compute({am:t.am, noon:t.noon, pm:t.pm, wx:t.wx, wind:t.wind, span:"day", move:"walk", body:0, feel:0})}; }
+  finally{ curPop = savedPop; }
+}
+function renderTokyo(){
+  const p = $("tokyoLine"); if(!p) return; tokyoR = tokyoCalc();
+  if(!tokyoR){ p.hidden = true; return; }
+  const {t, r} = tokyoR, O = OUTER_BANDS.find(b=>b.need === r.outerNeed) || OUTER_BANDS[0], T = TOP_BANDS.find(b=>b.need === r.topNeed) || TOP_BANDS[0];
+  p.hidden = false; p.textContent = "";
+  p.appendChild(el("b",null,"東京の" + (planOffset() ? "あす" : "きょう")));
+  p.appendChild(document.createTextNode("　朝" + Math.round(t.am) + "・昼" + Math.round(t.noon) + "・夜" + Math.round(t.pm) + "℃・" + WX_JA[t.wx]
+    + "　→ このアプリの西村さん式：" + T.s + (r.outerNeed ? "＋" + O.label : "") + (r.innerNeed ? "＋ヒートテック" : "") + "（" + r.x + "℃）"));
+}
+
+/* ---------- 旅行のコーデ：行き先の予報（16日より先は去年の同じ日の実績）で、毎日のコーデと持ち物を組む ---------- */
+let tripLoc = (LS.get("kn.trip", null) || {}).loc || null, simPacked = null, simMonth = 0, tripBusy = false;
+function tripState(){ return LS.get("kn.trip", null) || {}; }
+async function tripFind(){
+  const q = $("tripQ").value.trim(); if(!q) return;
+  $("tripFind").disabled = true;
+  try{
+    const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=ja&name=" + encodeURIComponent(q));
+    const j = await r.json(), hit = j.results && j.results[0];
+    if(!hit){ $("tripPlace").textContent = "「" + q + "」が見つかりませんでした。市や町の名前で試してください。"; return; }
+    tripLoc = {lat: hit.latitude, lon: hit.longitude, name: hit.name + (hit.admin1 && hit.admin1 !== hit.name ? "（" + hit.admin1 + "）" : "") + (hit.country_code && hit.country_code !== "JP" ? "・" + (hit.country || hit.country_code) : ""), tz: hit.timezone || "auto"};
+    const st = tripState(); st.loc = tripLoc; LS.set("kn.trip", st);
+    $("tripPlace").textContent = "行き先：" + tripLoc.name; $("tripQ").value = "";
+  }catch(e){ $("tripPlace").textContent = "地名を検索できませんでした。通信状態を確かめてください。"; }
+  finally{ $("tripFind").disabled = false; }
+}
+const ymd = d => d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+async function tripGo(){
+  if(tripBusy) return;
+  const msg = $("tripMsg"); msg.textContent = "";
+  if(!tripLoc){ msg.textContent = "先に行き先を探してください。"; return; }
+  if(usingSample()){ msg.textContent = "自分の服を登録すると、旅行のコーデを組めます。"; return; }
+  const start = $("tripStart").value, days = +$("tripDays").value || 2;
+  if(!start){ msg.textContent = "出発日を選んでください。"; return; }
+  const s0 = new Date(start + "T00:00:00"), today = new Date(); today.setHours(0,0,0,0);
+  const off0 = Math.round((s0 - today) / 864e5);
+  if(off0 < 0){ msg.textContent = "出発日はきょう以降にしてください。"; return; }
+  const end = new Date(s0); end.setDate(end.getDate() + days - 1);
+  tripBusy = true; $("tripGo").disabled = true; $("tripGo").textContent = "組んでいます…";
+  try{
+    let fc, past = false;
+    const base = "latitude=" + tripLoc.lat + "&longitude=" + tripLoc.lon + "&hourly=temperature_2m,wind_speed_10m&wind_speed_unit=ms&timezone=" + encodeURIComponent(tripLoc.tz || "auto");
+    if(off0 + days - 1 <= 15){
+      const r = await fetch("https://api.open-meteo.com/v1/forecast?" + base + "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&start_date=" + ymd(s0) + "&end_date=" + ymd(end));
+      if(!r.ok) throw new Error("http " + r.status); fc = await r.json();
+    } else {   // 16日より先は予報がないので、去年の同じ日の天気で
+      past = true; const ps = new Date(s0), pe = new Date(end); ps.setFullYear(ps.getFullYear() - 1); pe.setFullYear(pe.getFullYear() - 1);
+      const r = await fetch("https://archive-api.open-meteo.com/v1/archive?" + base + "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=" + ymd(ps) + "&end_date=" + ymd(pe));
+      if(!r.ok) throw new Error("http " + r.status); fc = await r.json();
+    }
+    const plan = tripPlan(fc, s0, days, off0);
+    const st = tripState(); st.loc = tripLoc; st.start = start; st.days = days; st.result = {plan, past, name: tripLoc.name, at: Date.now()}; LS.set("kn.trip", st);
+    renderTrip();
+  }catch(e){ console.warn("trip", e); msg.textContent = "天気を取得できませんでした。通信状態を確かめて、もう一度押してください。"; }
+  finally{ tripBusy = false; $("tripGo").disabled = false; $("tripGo").textContent = "コーデを組む"; }
+}
+function tripPlan(fc, s0, days, off0){
+  const base = readCond(), seed0 = seed, keepC = lastCands, keepP = lastPool, savedPop = curPop;
+  const out = [];
+  simWorn = new Map(); simHist = []; simPacked = new Set();
+  try{
+    for(let k=0; k<days; k++){
+      const t = tempsFrom(fc, k); if(!t) continue;
+      const dt = new Date(s0); dt.setDate(dt.getDate() + k);
+      simDay = off0 + k; simMonth = dt.getMonth() + 1; curPop = t.pop;
+      const r = compute({...base, am:t.am, noon:t.noon, pm:t.pm, wx:t.wx, wind:t.wind, span:"long"});
+      const o = pickOutfit(r); if(!o) continue;
+      const items = o.items.map(i=>i ? i.id : null);
+      out.push({date: ymd(dt), t:{am:Math.round(t.am), noon:Math.round(t.noon), pm:Math.round(t.pm), wx:t.wx, pop:t.pop}, verdict: r.verdict, x: r.x, items, notes: r.notes.slice(0,3).map(n=>n[0] + "：" + n[1])});
+      const ids = new Set(o.items.filter(Boolean).map(i=>i.id)); simHist.push(ids);
+      ids.forEach(id=>{ simWorn.set(id, (simWorn.get(id)||0) + 1); simPacked.add(id); });
+    }
+  } finally { simWorn = null; simHist = null; simPacked = null; simDay = 0; simMonth = 0; curPop = savedPop; seed = seed0; lastCands = keepC; lastPool = keepP; }
+  return out;
+}
+const SLOT_JA = ["トップス","上着","ボトムス","くつ","インナー","","中に着る","バッグ","小物","ベルト"];
+function renderTrip(){
+  const box = $("tripOut"); if(!box) return; box.textContent = "";
+  const st = tripState(); if(st.loc && !$("tripPlace").textContent) $("tripPlace").textContent = "行き先：" + st.loc.name;
+  const res = st.result; if(!res || !(res.plan||[]).length) return;
+  const byId = id => (closet||[]).find(i=>i.id === id);
+  const head = el("div","panel trip-head");
+  head.appendChild(el("h2",null, res.name + "・" + res.plan.length + "日"));
+  if(res.past) head.appendChild(el("p","hint","出発が16日より先なので、去年の同じ日の天気で組んでいます。近くなったら組み直してください。"));
+  // 持ち物
+  const firstIds = new Set(res.plan[0].items.filter(Boolean)), all = new Map();
+  res.plan.forEach(d=>d.items.forEach(id=>{ if(id && byId(id)) all.set(id, (all.get(id)||0) + 1); }));
+  const packN = [...all.keys()].filter(id=>!firstIds.has(id)).length;
+  head.appendChild(el("p","trip-sum", "持ち物 " + packN + "点（1日目に着ていく服をのぞく）"));
+  const order = ["outer","top","inner","bottom","shoes","bag","belt","acc"], ul = el("ul","trip-pack");
+  order.forEach(cat=>{ const ids = [...all.keys()].filter(id=>byId(id).cat === cat); if(!ids.length) return;
+    const li = el("li"); li.appendChild(el("span","pk-cat", (CATS[cat]||cat).replace(/（.*）/,"")));
+    const names = el("span","pk-names"); ids.forEach(id=>{ const s = el("span","pk-it" + (firstIds.has(id) ? " worn" : ""), byId(id).name + (all.get(id) > 1 ? "×" + all.get(id) + "日" : "")); names.appendChild(s); });
+    li.appendChild(names); ul.appendChild(li); });
+  head.appendChild(ul);
+  head.appendChild(el("p","hint","下線は1日目に着ていく服。白Tシャツは何枚でもある扱いです。"));
+  box.appendChild(head);
+  // 毎日のコーデ
+  res.plan.forEach((d,k)=>{
+    const c = el("div","panel trip-day"), dt = new Date(d.date + "T00:00:00");
+    const h = el("div","trip-dh"); h.appendChild(el("b",null, (k+1) + "日目　" + (dt.getMonth()+1) + "/" + dt.getDate() + "（" + "日月火水木金土"[dt.getDay()] + "）"));
+    h.appendChild(el("span","trip-wx", WX_JA[d.t.wx] + (d.t.pop!=null ? " " + d.t.pop + "%" : "") + "　朝" + d.t.am + "・昼" + d.t.noon + "・夜" + d.t.pm + "℃")); c.appendChild(h);
+    c.appendChild(el("p","trip-v", d.verdict));
+    const ul2 = el("ul","trip-items");
+    [4,6,0,1,2,3,7,9,8].forEach(k2=>{ const id = d.items[k2], it = id && byId(id); if(!it) return; const li = el("li"); li.appendChild(el("span","pk-cat", SLOT_JA[k2])); li.appendChild(el("span",null, it.name)); ul2.appendChild(li); });
+    c.appendChild(ul2);
+    if(d.notes.length){ const n = el("ul","trip-notes"); d.notes.forEach(x=>n.appendChild(el("li",null,x))); c.appendChild(n); }
+    box.appendChild(c); });
+}
 function showWxMsg(t){ const m = $("wxMsg"); m.textContent = t || ""; m.hidden = !t; }
 function dayIndex(){ return +document.querySelector('input[name=day]:checked').value; }
 
@@ -1240,7 +1427,7 @@ function compute(s){
   const pm   = s.pm   + body - windAdj*0.8 - bike - wet;
   const coldest = s.span==="long" ? Math.min(am, pm) : am;
   // アウター：朝0.4・昼0.5・夜0.1（夜まで外にいる日は、朝の代わりに朝晩の寒いほう）。寒暖差が6℃を超える分の半分、秋は1℃、寒い扱いにする
-  const mon = +dayKey(planOffset()).slice(5,7), seasonAdj = [9,10,11,12].includes(mon) ? -1 : [2,3,4,5].includes(mon) ? 1 : 0;
+  const mon = simMonth || +dayKey(planOffset()).slice(5,7), seasonAdj = [9,10,11,12].includes(mon) ? -1 : [2,3,4,5].includes(mon) ? 1 : 0;
   const swing = s.noon - s.am, swingAdj = -0.5 * Math.max(0, swing - 6);
   let x = 0.4 * coldest + 0.5 * noon + 0.1 * pm + swingAdj + seasonAdj;
   if(s.move==="car") x = (x + noon) / 2;
@@ -1324,6 +1511,7 @@ function isDirty(it, base){ const k = washKind(it); if(k === "none") return fals
 function recentPenalty(it){
   if(!it || usingSample()) return 0;
   const base = planOffset(); let p = isDirty(it, base) ? 6 : 0;   // 洗濯かごの服は、ほかに無いときだけ
+  if(simPacked && simPacked.size && !simPacked.has(it.id)) p += ({outer:1, bottom:0.8, shoes:1.2, bag:1.5, belt:1, acc:0.3}[it.cat] || 0.15);   // 旅行：もう持っていく服を使い回す
   if(simHist){ for(let k=1; k<=6; k++){ const ids = simHist[simHist.length - k]; if(ids && ids.has(it.id)) p += (it.cat==="shoes" || it.cat==="inner" || it.cat==="bag" || it.cat==="acc" ? 0.15 : 0.7) * (7 - k) / 6; } return p; }
   for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" || it.cat==="inner" || it.cat==="bag" || it.cat==="acc" ? 0.15 : 0.7) * (7 - k) / 6; }
   return p;
@@ -1571,6 +1759,7 @@ function renderToday(){
   const track = $("track"); track.querySelectorAll(".mk").forEach(m=>m.remove());
   const mk = (cls, label, t) => { const m = el("div","mk "+cls); m.style.left = pos(t)+"%"; m.appendChild(el("span","tag",label)); m.appendChild(el("span","line")); track.appendChild(m); };
   mk("day", "きょう "+r.x+"℃", r.x);
+  renderTokyo(); if(tokyoR) mk("tokyo", "東京 "+tokyoR.r.x+"℃", tokyoR.r.x);
 
   const tags = $("tags"); tags.textContent = "";
   [
@@ -2449,7 +2638,8 @@ function renderCandList(){
 document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click", ()=>{
   const v = b.dataset.view;
   document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", String(x===b)));
-  $("view-today").hidden = v!=="today"; $("view-closet").hidden = v!=="closet"; $("view-know").hidden = v!=="know";
+  $("view-today").hidden = v!=="today"; $("view-closet").hidden = v!=="closet"; $("view-know").hidden = v!=="know"; $("view-trip").hidden = v!=="trip";
+  if(v==="trip") renderTrip();
   if(v==="know") fetchAdvice(false);   // 服か知識が変わっていたら、開いたときに考え直す
   window.scrollTo(0,0);
 }));
@@ -2765,6 +2955,11 @@ const DETAIL_IDS = {material:"itMaterial", texture:"itTexture", pattern:"itPatte
 Object.entries(DETAIL_IDS).forEach(([k,id])=>fillSelect($(id), DETAIL_KEYS[k], "わからない")); fillSelect($("itDress"), DRESS, "おまかせ（系統から）"); fillSelect($("itColor"), COLORS, "わからない・その他");
 applyPrefs(); updateWarmHint(); updateGuess(); renderAll(); renderKnow();
 if(loc){ $("place").textContent = loc.name || "現在地"; const c = LS.get("kn.fc", null); if(c){ forecast = c; applyForecast(); } loadForecast(); }
+loadTokyo();
+$("tripFind").addEventListener("click", tripFind);
+$("tripQ").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); tripFind(); } });
+$("tripGo").addEventListener("click", tripGo);
+{ const st = tripState(), tm = new Date(); tm.setDate(tm.getDate() + 1); $("tripStart").value = st.start && st.start >= ymd(new Date()) ? st.start : ymd(tm); $("tripStart").min = ymd(new Date()); if(st.days) $("tripDays").value = String(st.days); }
 renderSync(); syncNow(); fromShared(); updateOuterRow();
 if("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
