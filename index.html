@@ -699,7 +699,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
       <button class="btn primary" type="button" id="tripGo">コーデを組む</button>
       <p class="hint" id="tripMsg"></p>
-      <p class="hint" style="margin:0">行き先の朝・昼・夜の予報で毎日のコーデを組み、なるべく少ない服で回せるように持ち物をまとめます（アウターは1着だけ。旅先では洗濯しない前提）。</p>
+      <p class="hint" style="margin:0">行き先の朝・昼・夜の予報で毎日のコーデを組み、なるべく少ない服で回せるように持ち物をまとめます（アウターは1着だけ、トップスとパンツは2日で1着。旅先では洗濯しない前提）。</p>
     </div>
     <div id="tripOut"></div>
   </section>
@@ -1263,7 +1263,7 @@ let simOuterFix;   // 旅行：持っていくアウター（null＝持ってい
 function tripPlan(fc, s0, days, off0, fix){
   const base = readCond(), seed0 = seed, keepC = lastCands, keepP = lastPool, savedPop = curPop;
   const out = [];
-  simWorn = new Map(); simHist = []; simPacked = new Set(); simOuterFix = fix;
+  simWorn = new Map(); simHist = []; simPacked = new Set(); simOuterFix = fix; simTopLimit = 2;
   try{
     for(let k=0; k<days; k++){
       const t = tempsFrom(fc, k); if(!t) continue;
@@ -1276,7 +1276,7 @@ function tripPlan(fc, s0, days, off0, fix){
       const ids = new Set(o.items.filter(Boolean).map(i=>i.id)); simHist.push(ids);
       ids.forEach(id=>{ simWorn.set(id, (simWorn.get(id)||0) + 1); simPacked.add(id); });
     }
-  } finally { simWorn = null; simHist = null; simPacked = null; simOuterFix = undefined; simDay = 0; simMonth = 0; curPop = savedPop; seed = seed0; lastCands = keepC; lastPool = keepP; }
+  } finally { simWorn = null; simHist = null; simPacked = null; simOuterFix = undefined; simTopLimit = 0; simDay = 0; simMonth = 0; curPop = savedPop; seed = seed0; lastCands = keepC; lastPool = keepP; }
   return out;
 }
 const SLOT_JA = ["トップス","上着","ボトムス","くつ","インナー","","中に着る","バッグ","小物","ベルト"];
@@ -1515,12 +1515,15 @@ function wornSinceWash(it, base){
   const w = lastWashKey(base), today = dayNum(dayKey(base)); let c = 0;
   for(let k=1; k<=7; k++){ const key = dayKey(base - k), dn = dayNum(key); if(dn < w) break; const ids = hist[key]; if(ids && ids.includes(it.id)) c++; }
   return c; }
-function isDirty(it, base){ const k = washKind(it); if(k === "none") return false; const c = wornSinceWash(it, base == null ? planOffset() : base); return k === "each" ? c >= 1 : c >= 3; }
+let simTopLimit = 0;   // 旅行：トップスとパンツは2日で1着（同じ服を2回まで着る）
+function isDirty(it, base){ const k = washKind(it); if(k === "none") return false; const c = wornSinceWash(it, base == null ? planOffset() : base);
+  if(simTopLimit && (it.cat === "top" || it.cat === "bottom")) return c >= simTopLimit;
+  return k === "each" ? c >= 1 : c >= 3; }
 function recentPenalty(it){
   if(!it || usingSample()) return 0;
   const base = planOffset(); let p = isDirty(it, base) ? 6 : 0;   // 洗濯かごの服は、ほかに無いときだけ
   if(simOuterFix !== undefined && it.cat === "outer" && it.id !== simOuterFix) p += 50;   // 旅行のアウターは1着だけ
-  if(simPacked && simPacked.size && !simPacked.has(it.id)) p += ({outer:1, bottom:0.8, shoes:1.2, bag:1.5, belt:1, acc:0.3}[it.cat] || 0.15);   // 旅行：もう持っていく服を使い回す
+  if(simPacked && simPacked.size && !simPacked.has(it.id)) p += ({outer:1, bottom:0.8, shoes:1.2, bag:1.5, belt:1, acc:0.3, top:1}[it.cat] || 0.15);   // 旅行：もう持っていく服を使い回す
   if(simHist){ for(let k=1; k<=6; k++){ const ids = simHist[simHist.length - k]; if(ids && ids.has(it.id)) p += (it.cat==="shoes" || it.cat==="inner" || it.cat==="bag" || it.cat==="acc" ? 0.15 : 0.7) * (7 - k) / 6; } return p; }
   for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" || it.cat==="inner" || it.cat==="bag" || it.cat==="acc" ? 0.15 : 0.7) * (7 - k) / 6; }
   return p;
