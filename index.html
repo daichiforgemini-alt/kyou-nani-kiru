@@ -699,7 +699,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
       <button class="btn primary" type="button" id="tripGo">コーデを組む</button>
       <p class="hint" id="tripMsg"></p>
-      <p class="hint" style="margin:0">行き先の朝・昼・夜の予報で毎日のコーデを組み、なるべく少ない服で回せるように持ち物をまとめます（旅先では洗濯しない前提）。</p>
+      <p class="hint" style="margin:0">行き先の朝・昼・夜の予報で毎日のコーデを組み、なるべく少ない服で回せるように持ち物をまとめます（アウターは1着だけ。旅先では洗濯しない前提）。</p>
     </div>
     <div id="tripOut"></div>
   </section>
@@ -1246,16 +1246,24 @@ async function tripGo(){
       const r = await fetch("https://archive-api.open-meteo.com/v1/archive?" + base + "&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum&start_date=" + ymd(ps) + "&end_date=" + ymd(pe));
       if(!r.ok) throw new Error("http " + r.status); fc = await r.json();
     }
-    const plan = tripPlan(fc, s0, days, off0);
+    // アウターは1着だけ持っていく：手持ちのアウター（と「なし」）を1つずつ固定して全日を組み、いちばん合計点の良いものにする
+    let best = null;
+    [null, ...activeCloset().filter(i=>i.cat === "outer").map(i=>i.id)].forEach(fix=>{
+      const pl = tripPlan(fc, s0, days, off0, fix); if(!pl.length) return;
+      const total = pl.reduce((a,d)=>a + d.score, 0);
+      if(!best || total < best.total - 1e-6) best = {total, plan: pl};
+    });
+    const plan = best ? best.plan : [];
     const st = tripState(); st.loc = tripLoc; st.start = start; st.days = days; st.result = {plan, past, name: tripLoc.name, at: Date.now()}; LS.set("kn.trip", st);
     renderTrip();
   }catch(e){ console.warn("trip", e); msg.textContent = "天気を取得できませんでした。通信状態を確かめて、もう一度押してください。"; }
   finally{ tripBusy = false; $("tripGo").disabled = false; $("tripGo").textContent = "コーデを組む"; }
 }
-function tripPlan(fc, s0, days, off0){
+let simOuterFix;   // 旅行：持っていくアウター（null＝持っていかない、undefined＝しばらない）
+function tripPlan(fc, s0, days, off0, fix){
   const base = readCond(), seed0 = seed, keepC = lastCands, keepP = lastPool, savedPop = curPop;
   const out = [];
-  simWorn = new Map(); simHist = []; simPacked = new Set();
+  simWorn = new Map(); simHist = []; simPacked = new Set(); simOuterFix = fix;
   try{
     for(let k=0; k<days; k++){
       const t = tempsFrom(fc, k); if(!t) continue;
@@ -1264,11 +1272,11 @@ function tripPlan(fc, s0, days, off0){
       const r = compute({...base, am:t.am, noon:t.noon, pm:t.pm, wx:t.wx, wind:t.wind, span:"long"});
       const o = pickOutfit(r); if(!o) continue;
       const items = o.items.map(i=>i ? i.id : null);
-      out.push({date: ymd(dt), t:{am:Math.round(t.am), noon:Math.round(t.noon), pm:Math.round(t.pm), wx:t.wx, pop:t.pop}, verdict: r.verdict, x: r.x, items, notes: r.notes.slice(0,3).map(n=>n[0] + "：" + n[1])});
+      out.push({date: ymd(dt), t:{am:Math.round(t.am), noon:Math.round(t.noon), pm:Math.round(t.pm), wx:t.wx, pop:t.pop}, verdict: r.verdict, x: r.x, items, score: o.score, notes: r.notes.slice(0,3).map(n=>n[0] + "：" + n[1])});
       const ids = new Set(o.items.filter(Boolean).map(i=>i.id)); simHist.push(ids);
       ids.forEach(id=>{ simWorn.set(id, (simWorn.get(id)||0) + 1); simPacked.add(id); });
     }
-  } finally { simWorn = null; simHist = null; simPacked = null; simDay = 0; simMonth = 0; curPop = savedPop; seed = seed0; lastCands = keepC; lastPool = keepP; }
+  } finally { simWorn = null; simHist = null; simPacked = null; simOuterFix = undefined; simDay = 0; simMonth = 0; curPop = savedPop; seed = seed0; lastCands = keepC; lastPool = keepP; }
   return out;
 }
 const SLOT_JA = ["トップス","上着","ボトムス","くつ","インナー","","中に着る","バッグ","小物","ベルト"];
@@ -1511,6 +1519,7 @@ function isDirty(it, base){ const k = washKind(it); if(k === "none") return fals
 function recentPenalty(it){
   if(!it || usingSample()) return 0;
   const base = planOffset(); let p = isDirty(it, base) ? 6 : 0;   // 洗濯かごの服は、ほかに無いときだけ
+  if(simOuterFix !== undefined && it.cat === "outer" && it.id !== simOuterFix) p += 50;   // 旅行のアウターは1着だけ
   if(simPacked && simPacked.size && !simPacked.has(it.id)) p += ({outer:1, bottom:0.8, shoes:1.2, bag:1.5, belt:1, acc:0.3}[it.cat] || 0.15);   // 旅行：もう持っていく服を使い回す
   if(simHist){ for(let k=1; k<=6; k++){ const ids = simHist[simHist.length - k]; if(ids && ids.has(it.id)) p += (it.cat==="shoes" || it.cat==="inner" || it.cat==="bag" || it.cat==="acc" ? 0.15 : 0.7) * (7 - k) / 6; } return p; }
   for(let k=1; k<=6; k++){ const ids = hist[dayKey(base - k)]; if(ids && ids.includes(it.id)) p += (it.cat==="shoes" || it.cat==="inner" || it.cat==="bag" || it.cat==="acc" ? 0.15 : 0.7) * (7 - k) / 6; }
