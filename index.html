@@ -729,9 +729,10 @@ const WARM_HINT = {
 };
 // コットン西村さんの衣装予報ツイート（2022〜2026年・307件）と、その日の東京の気温から作った基準。
 // 2026-11 に朝・昼・夜を分けて分析し直した（10分割の交差検証）：
-//  アウター＝朝0.4・昼0.5・夜0.1 の重み。朝と昼の差が6℃を超える日は、超えた分の半分だけ寒い扱い（寒暖差の大きい日は1段厚め）。
+//  ※2026-11-26 から、トップスと上着は重み付きの平均をやめ、最低・最高の気温で決めている（compute の中の説明を参照）。帯の境目はそのまま使う。
+//  （以前）アウター＝朝0.4・昼0.5・夜0.1 の重み。朝と昼の差が6℃を超える日は、超えた分の半分だけ寒い扱い（寒暖差の大きい日は1段厚め）。
 //    秋（9〜12月）は同じ気温でも1℃寒い扱い、春（2〜5月）は1℃暖かい扱い。一致率 64%→70%
-//  トップス＝朝0.5・昼0.2・夜0.3（昼より朝晩で決まる）。一致率 87%→89%
+//  （以前）トップス＝朝0.5・昼0.2・夜0.3（昼より朝晩で決まる）。一致率 87%→89%
 //  発熱インナー＝朝0.5・昼0.1・夜0.4 が7.5℃未満。マフラー＝朝0.7・夜0.3 が6℃未満（昼は関係ない）
 const OUTER_BANDS = [   // 下限℃（高い順）
   {min:23.75, need:0, text:"なしでOK（冷房が苦手なら薄手の羽織りをかばんに）", s:"",              label:"半袖"},
@@ -1006,6 +1007,7 @@ const KNOWLEDGE = [
     "顔も体も情報量が控えめなら、服で少し情報を足すとバランスが取れる（基準シート）。このアプリでは、涼しい日にニットの下へ長袖シャツを入れる組み方も出す。カジュアルな服に白シャツを1枚かませるのも、ほどよいずらし。",
     "レイヤードは濃さをグラデーションに：インナー → シャツ → アウターで色の濃さを段階的に。インナーとアウターの生地の差が大きいときは、間にジレなどを挟んで段階的にする。",
     "トップスと上着は、1枚ずつではなく重ねた合計の暖かさで考える。ただし長袖が必要な日に半袖を着て、厚い上着で補うのは不自然。",
+    "このアプリでは、合計の暖かさをその日のいちばん寒い時間の気温で決める（平均はとらない）。寒い時間と暖かい時間で必要な暖かさが2以上違う日は、暖かい時間に上着を脱いでトップスだけで過ごせるように、トップスを暖かい時間に合わせ、足りない分を上着で足す。",
     "朝と夜の体感（朝5：昼1：夜4）が7.5℃を下回る日はヒートテックなどの発熱インナーを足す（コットン西村さんの衣装予報より）。3℃を下回るなら極暖。インナーは見えないので、系統や色の判定には入れない。",
     "パンツは少し厚め（+1）までなら気にしなくていい。タンクトップやエアリズムは暖かさ0として数える。",
     "重ね着の生地の厚さは、インナーからアウターへ均等に上げていく。厚いアウターの下に薄いポプリンのシャツはNG（デニムシャツやオックスフォード、厚めのウールのベストなどで段階をつける）。",
@@ -1386,15 +1388,19 @@ function applyForecast(){
   const hi = d.temperature_2m_max[i], lo = d.temperature_2m_min[i];
   const pop = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
   const wx = wxFromCode(d.weather_code[i], pop);
-  // 西村さん式：「朝・昼・夜」の気温（最高・最低ではなく、出かける時間の気温）
+  // 出かける時間・昼・夜の気温。トップスと上着は、この中の最低と最高で決める（compute）
   let am = lo + (hi-lo)*0.2, noon = hi, pm = lo + (hi-lo)*0.4, wind = 2;
   if(forecast.hourly && forecast.hourly.time){
     const day = d.time[i], H = forecast.hourly, temps = {}, winds = [];
     H.time.forEach((t,k)=>{ if(t.slice(0,10)===day){ const h = +t.slice(11,13); if(H.temperature_2m) temps[h] = H.temperature_2m[k]; if(h>=8 && h<=19) winds.push(H.wind_speed_10m[k]); } });
-    if(temps[8]!=null) am = temps[8];
-    const mid = [11,12,13,14,15].map(h=>temps[h]).filter(v=>v!=null); if(mid.length) noon = Math.max(...mid);
-    if(temps[20]!=null) pm = temps[20];
+    // きょうは、アプリを開いた時間（＝出かける時間）をスタートにする。それより前の朝の冷え込みは入れない。あしたは朝8時から
+    const h0 = i === 0 ? new Date().getHours() : 8;
+    if(temps[h0]!=null) am = temps[h0];
+    const hs = []; for(let h = Math.max(h0, 11); h <= Math.max(15, h0); h++) hs.push(h);
+    const mid = hs.map(h=>temps[h]).filter(v=>v!=null); if(mid.length) noon = Math.max(...mid);
+    const pmH = Math.max(20, h0); if(temps[pmH]!=null) pm = temps[pmH];
     if(winds.length) wind = Math.round(winds.reduce((a,b)=>a+b,0)/winds.length*0.7);  // 予報は高さ10mの風。人の高さではおよそ7割
+    const al = document.querySelector(".am-lbl"); if(al) al.textContent = i === 0 ? h0 + "時（いま） ℃" : "朝 ℃";
   }
   curPop = pop;
   $("tAm").value = Math.round(am); $("tNoon").value = Math.round(noon); $("tPm").value = Math.round(pm); $("wind").value = Math.min(12, wind);
@@ -1476,14 +1482,22 @@ function compute(s){
   const noon = s.noon + body - windAdj*0.5 + sky;
   const pm   = s.pm   + body - windAdj*0.8 - bike - wet;
   const coldest = s.span==="long" ? Math.min(am, pm) : am;
-  // アウター：朝0.4・昼0.5・夜0.1（夜まで外にいる日は、朝の代わりに朝晩の寒いほう）。寒暖差が6℃を超える分の半分、秋は1℃、寒い扱いにする
+  // 最低と最高の気温で決める（平均はとらない）
+  //   トップス＋上着の合計は、いちばん寒い時間の気温に合わせる
+  //   寒暖差が大きい日は、暖かい時間に上着を脱いでトップスだけで過ごせるように、トップスを暖かい時間に合わせ、足りない分を上着で足す
   const mon = simMonth || +dayKey(planOffset()).slice(5,7), seasonAdj = [9,10,11,12].includes(mon) ? -1 : [2,3,4,5].includes(mon) ? 1 : 0;
-  const swing = s.noon - s.am, swingAdj = -0.5 * Math.max(0, swing - 6);
-  let x = 0.4 * coldest + 0.5 * noon + 0.1 * pm + swingAdj + seasonAdj;
-  if(s.move==="car") x = (x + noon) / 2;
-  // トップス：朝0.5・昼0.2・夜0.3（昼より朝晩で決まる）
-  const tx = 0.5 * am + 0.2 * noon + 0.3 * pm;
-  const O = pickBand(OUTER_BANDS, x), T = pickBand(TOP_BANDS, tx);
+  const swing = s.noon - s.am;
+  let lo = Math.min(coldest, noon) + seasonAdj;
+  const hi = Math.max(am, noon, s.span==="long" ? pm : -99) + seasonAdj;
+  if(s.move==="car") lo = (lo + noon + seasonAdj) / 2;   // 車移動は外にいる時間が短いので、寒い時間を昼に少し寄せる
+  const x = lo;
+  const Oc = pickBand(OUTER_BANDS, lo), Tc = pickBand(TOP_BANDS, lo), Ow = pickBand(OUTER_BANDS, hi), Tw = pickBand(TOP_BANDS, hi);
+  const coldTotal = Oc.need + Tc.need, warmTotal = Ow.need + Tw.need;
+  const layered = coldTotal - warmTotal >= 2;   // 寒い時間と暖かい時間で、必要な暖かさが2以上違う日は脱ぎ着する前提
+  // 上着とトップスの差が開きすぎないように（半袖＋冬のコート、にしない）、上着はトップス＋2まで。トップスはそのぶん厚めにする
+  const tNeed = layered ? Math.max(1, Math.min(3, Math.max(warmTotal, Math.ceil((coldTotal - 2) / 2)))) : Tc.need;
+  const T = TOP_BANDS.find(b=>b.need === tNeed) || Tc;
+  const O = OUTER_BANDS.find(b=>b.need === Math.min(5, Math.max(0, coldTotal - tNeed))) || Oc;
   const day = r1(noon), cold = r1(Math.min(coldest, noon));
   const temps = [s.am, s.noon].concat(s.span==="long" ? [s.pm] : []);
   const gap = r1(Math.max(...temps) - Math.min(...temps));
@@ -1506,9 +1520,8 @@ function compute(s){
   if(s.wx!=="rain" && s.wx!=="snow" && curPop!=null && curPop >= 10) notes.push(["傘", `降水確率は${curPop}%。折りたたみ傘をかばんに入れておくと安心です。`]);
   if(s.wx==="rain") notes.push(["雨予報", "傘を忘れずに。撥水のアウターと、濡れても平気なくつがおすすめです。"]);
   if(s.wx==="snow") notes.push(["雪", "滑りにくい靴底のブーツを。手袋・マフラー・帽子で首元と手先を守りましょう。"]);
-  const nishiSwing = swingAdj <= -0.5 ? "こういう日の西村さんは、平均の気温より上着を厚めにしています（その分を入れて選んでいます）。" : "";
-  if(gap >= 8) notes.push(["寒暖差", `外にいる時間の気温差が${gap}℃あります。昼は脱ぎ着で調節を。` + nishiSwing]);
-  else if(nishiSwing) notes.push(["寒暖差", `朝と昼の差が${r1(swing)}℃あります。` + nishiSwing]);
+  if(layered) notes.push(["脱ぎ着", `いちばん寒い時間（体感${r1(lo)}℃）に合わせて上着まで着る暖かさにし、暖かい時間（体感${r1(hi)}℃）は上着を脱いでトップスだけで過ごせる組み合わせにしています。`]);
+  else if(gap >= 8) notes.push(["寒暖差", `外にいる時間の気温差が${gap}℃あります。昼は脱ぎ着で調節を。`]);
   if(carry) notes.push(["持ち歩き", "昼は半袖で大丈夫ですが、朝晩は少し冷えます。薄手の羽織りをかばんに入れておきましょう。"]);
   if(outerNeed===0 && s.noon < 28) notes.push(["冷房対策", "冷房が苦手なら、長袖シャツなどの羽織りをかばんに入れておくと安心です。"]);
   if(x >= 16.75 && x < 19.75) notes.push(["暑がり・寒がり", "感じ方が分かれる気温です。暑がりは羽織りを軽めに、寒がりはカーディガンを1枚足して。"]);
@@ -1606,7 +1619,8 @@ function cands(cat, need, rain){
 function layerPen(items, r){
   const t = items[0], o = items[1]; if(!t || !o || !r.outerNeed) return 0;
   const d = (Math.max(1, t.warmth) + o.warmth) - (r.topNeed + r.outerNeed);
-  return d < -1 ? (-d-1)*1.2 : d > 2 ? (d-2)*0.6 : 0;
+  // めやすとの差は ±1 まで。同じ気温で合計の暖かさが大きくばらつかないように、それより外れると強く減点する
+  return d === 0 ? 0 : Math.abs(d) === 1 ? 0.25 : d < 0 ? 0.25 + (-d-1)*2.0 : 0.25 + (d-1)*1.2;
 }
 function pickOutfit(r){
   // トップスは「外」と「中」の2枚で考える。中に何を着るかは外の服と気温で変える
@@ -1649,7 +1663,7 @@ function pickOutfit(r){
     midCache.set(key, res); return res;
   };
   combos.forEach(c=>{ c.items.push(null, null); const t = c.items[0]; if(t && /タンク/.test(t.name||"")) c.w += 0.4; });   // タンクトップ1枚で出かけるのは控えめに（シャツの中に着る）   // [外, 上着, ボトムス, くつ, インナー, (未使用), 中]
-  combos.forEach(c=>{ const t = c.items[0]; if(r.outerNeed && t && !c.items[1]){ c.noOuter = true; c.w += 0.35 + Math.max(0, r.topNeed + r.outerNeed - wv(t) - 1)*0.6; } });   // 上着なしは、トップスの厚さが足りないほど点を引く
+  combos.forEach(c=>{ const t = c.items[0]; if(r.outerNeed && t && !c.items[1]){ c.noOuter = true; c.w += 0.35 + Math.max(0, r.topNeed + r.outerNeed - wv(t) - 1)*2.0; } });   // 上着なしは、トップスの厚さが足りないほど点を引く
   if(!combos.length) combos = [{items:[null,null,null,null,null,null,null], w:0}];
   combos.forEach(c=>{ const vis = c.items.slice(0,4); const st = style0 || mainStyleOf(vis);
     const md = pickMid(c.items[0], st); c.items[6] = md.m; c.w += md.w;
