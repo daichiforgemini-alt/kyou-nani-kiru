@@ -1,14 +1,14 @@
 {
   "note": "知識フォルダ（C:\\Claude\\private\\知識\\服）のどの版をアプリに反映したかの記録。自動反映のタスクが、変わったかどうかの判定に使う",
-  "reflected_at": "2026-10-31T23:58+09:00",
+  "reflected_at": "2026-11-26T21:00+09:00",
   "files": {
     "自分用_基準シート.md": {
-      "sha256": "f75ff9ed773f87805e4f5030b0ee6a4cf901a48ff0f242f12220b083c00fefb1",
-      "bytes": 13390
+      "sha256": "c4513bccd91c1055b5835e2acb57924b3d81fae4f3e87cac44461eb75553f4ff",
+      "bytes": 21837
     },
     "服の知識_yuuki0210000.md": {
-      "sha256": "920c04f7dca0d04232668bdf3e9ab47b8ddbc46d059ea7f3d526cc133dd1a9af",
-      "bytes": 143044
+      "sha256": "0fca60375e4638c323660d7cc2f2ce72b27d0d3922de8906a9836c9016647a08",
+      "bytes": 242339
     }
   }
 }
