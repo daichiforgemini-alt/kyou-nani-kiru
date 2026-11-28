@@ -512,7 +512,7 @@ body{margin:0;padding-top:max(20px,env(safe-area-inset-top,0px));padding-bottom:
       </div>
 
       <div class="scale">
-        <div class="scale-head"><h2>気温とアウターのめやす</h2><small>朝・昼・夜の体感 ℃（西村さん式）</small></div>
+        <div class="scale-head"><h2>気温とアウターのめやす</h2><small>いちばん寒い時間の体感 ℃（西村さん式）</small></div>
         <div class="track" id="track">
           <div class="bands" id="bands"></div>
           <div class="ticks" id="ticks"></div>
@@ -729,26 +729,30 @@ const WARM_HINT = {
 };
 // コットン西村さんの衣装予報ツイート（2022〜2026年・307件）と、その日の東京の気温から作った基準。
 // 2026-11 に朝・昼・夜を分けて分析し直した（10分割の交差検証）：
-//  ※2026-11-26 から、トップスと上着は重み付きの平均をやめ、最低・最高の気温で決めている（compute の中の説明を参照）。帯の境目はそのまま使う。
+//  ※2026-11-28：平均はやめ、「いちばん寒い時間の気温」で決める。帯の境目も、同じ307日分でいちばん寒い時間（朝と夜の低いほう）に合わせて引き直した
+//    （平均用の境目を最低気温に当てていたので、8・18・16℃の日でもダウンになっていた。西村さんとの一致は 上着45%・トップス69% → 66%・85%）
+//    上着の境目：秋（9〜12月）は1℃高く、春（2〜5月）は1℃低く（同じ気温でも秋は厚め、春は薄め）。トップスは季節の差なし
+//    発熱インナー＝いちばん寒い時間が7℃未満、マフラー＝6℃未満
+//    寒い時間と暖かい時間で必要な暖かさが4以上違う日だけ、脱ぎ着の前提で組む（2以上だと西村さんとずれが大きかった）。
 //  （以前）アウター＝朝0.4・昼0.5・夜0.1 の重み。朝と昼の差が6℃を超える日は、超えた分の半分だけ寒い扱い（寒暖差の大きい日は1段厚め）。
 //    秋（9〜12月）は同じ気温でも1℃寒い扱い、春（2〜5月）は1℃暖かい扱い。一致率 64%→70%
 //  （以前）トップス＝朝0.5・昼0.2・夜0.3（昼より朝晩で決まる）。一致率 87%→89%
 //  発熱インナー＝朝0.5・昼0.1・夜0.4 が7.5℃未満。マフラー＝朝0.7・夜0.3 が6℃未満（昼は関係ない）
-const OUTER_BANDS = [   // 下限℃（高い順）
-  {min:23.75, need:0, text:"なしでOK（冷房が苦手なら薄手の羽織りをかばんに）", s:"",              label:"半袖"},
-  {min:22,   need:1, text:"長袖シャツなどの軽い羽織り",                         s:"軽い羽織り",    label:"羽織り"},
-  {min:18.25, need:2, text:"ジップパーカー・ナイロンジャケット・デニムジャケットなど", s:"秋アウター", label:"秋物"},
-  {min:11.25, need:3, text:"トレンチ・マウンテンパーカー・レザージャケットなど",     s:"コートやジャケット", label:"コート"},
-  {min:9.75, need:4, text:"メルトンコート・MA-1・フリースなどの冬アウター",        s:"冬アウター",    label:"冬物"},
+const OUTER_BANDS = [   // 下限℃（高い順）。いちばん寒い時間の気温
+  {min:21.25, need:0, text:"なしでOK（冷房が苦手なら薄手の羽織りをかばんに）", s:"",              label:"半袖"},
+  {min:18.25, need:1, text:"長袖シャツなどの軽い羽織り",                         s:"軽い羽織り",    label:"羽織り"},
+  {min:15.25, need:2, text:"ジップパーカー・ナイロンジャケット・デニムジャケットなど", s:"秋アウター", label:"秋物"},
+  {min:8.25, need:3, text:"トレンチ・マウンテンパーカー・レザージャケットなど",     s:"コートやジャケット", label:"コート"},
+  {min:6.25, need:4, text:"メルトンコート・MA-1・フリースなどの冬アウター",        s:"冬アウター",    label:"冬物"},
   {min:-99,  need:5, text:"ダウン・厚手のコート",                                 s:"ダウン",        label:"ダウン"}
 ];
 const TOP_BANDS = [
-  {min:19,   need:1, text:"半袖（Tシャツ・半袖シャツ）", s:"半袖"},
-  {min:11.75, need:2, text:"ロンT・長袖シャツ",            s:"ロンT"},
+  {min:17.25, need:1, text:"半袖（Tシャツ・半袖シャツ）", s:"半袖"},
+  {min:9.25, need:2, text:"ロンT・長袖シャツ",            s:"ロンT"},
   {min:-99,  need:3, text:"スウェット・ニット・シャツ＋カーディガン", s:"ニット"}
 ];
 const BODY = {"-2":"かなり寒がり","-1":"やや寒がり","0":"ふつう","1":"やや暑がり","2":"かなり暑がり"};
-const EDGES = [4,9.75,11.25,18.25,22,23.75,30];   // アウターの帯（OUTER_BANDS と同じ境目）
+const EDGES = [1,6.25,8.25,15.25,18.25,21.25,27];   // アウターの帯（OUTER_BANDS と同じ境目。季節の分は表示のときにずらす）
 const BAND_COLOR = [1,2,4,6,7,8];
 let curPop = null;
 
@@ -1237,7 +1241,8 @@ async function loadTokyo(){
 function tokyoCalc(){   // 西村さんと同じ条件で：ふつうの体質・歩き・日中だけ
   const t = tempsFrom(tokyoFc, dayIndex()); if(!t || t.day !== dayKey(planOffset())) return null;
   const savedPop = curPop; curPop = t.pop;
-  try{ return {t, r: compute({am:t.am, noon:t.noon, pm:t.pm, wx:t.wx, wind:t.wind, span:"day", move:"walk", body:0, feel:0})}; }
+  // 西村さんの基準は東京の朝・昼・夜の気温そのもの（風や天気の補正なし）。朝晩のいちばん寒い時間で決める
+  try{ return {t, r: compute({am:t.am, noon:t.noon, pm:t.pm, wx:"cloud", wind:0, span:"long", move:"walk", body:0, feel:0})}; }
   finally{ curPop = savedPop; }
 }
 function renderTokyo(){
@@ -1247,7 +1252,7 @@ function renderTokyo(){
   p.hidden = false; p.textContent = "";
   p.appendChild(el("b",null,"東京の" + (planOffset() ? "あす" : "きょう")));
   p.appendChild(document.createTextNode("　朝" + Math.round(t.am) + "・昼" + Math.round(t.noon) + "・夜" + Math.round(t.pm) + "℃・" + WX_JA[t.wx]
-    + "　→ このアプリの西村さん式：" + T.s + (r.outerNeed ? "＋" + O.label : "") + (r.innerNeed ? "＋ヒートテック" : "") + "（" + r.x + "℃）"));
+    + "　→ このアプリの西村さん式：" + T.s + (r.outerNeed ? "＋" + O.label : "") + (r.innerNeed ? "＋ヒートテック" : "") + "（いちばん寒い時間 " + r.x + "℃）"));
 }
 
 /* ---------- 旅行のコーデ：行き先の予報（16日より先は去年の同じ日の実績）で、毎日のコーデと持ち物を組む ---------- */
@@ -1487,13 +1492,14 @@ function compute(s){
   //   寒暖差が大きい日は、暖かい時間に上着を脱いでトップスだけで過ごせるように、トップスを暖かい時間に合わせ、足りない分を上着で足す
   const mon = simMonth || +dayKey(planOffset()).slice(5,7), seasonAdj = [9,10,11,12].includes(mon) ? -1 : [2,3,4,5].includes(mon) ? 1 : 0;
   const swing = s.noon - s.am;
-  let lo = Math.min(coldest, noon) + seasonAdj;
-  const hi = Math.max(am, noon, s.span==="long" ? pm : -99) + seasonAdj;
-  if(s.move==="car") lo = (lo + noon + seasonAdj) / 2;   // 車移動は外にいる時間が短いので、寒い時間を昼に少し寄せる
-  const x = lo;
-  const Oc = pickBand(OUTER_BANDS, lo), Tc = pickBand(TOP_BANDS, lo), Ow = pickBand(OUTER_BANDS, hi), Tw = pickBand(TOP_BANDS, hi);
+  let lo = Math.min(coldest, noon);
+  const hi = Math.max(am, noon, s.span==="long" ? pm : -99);
+  if(s.move==="car") lo = Math.min(lo + 2, noon);   // 車移動は外にいる時間が短いので、寒い時間を少しゆるめる（平均はとらない）
+  const x = lo;   // いちばん寒い時間の体感（帯の目盛り）
+  // 上着の帯は季節で1℃ずらす（秋は同じ気温でも厚め）。トップスは季節の差なし
+  const Oc = pickBand(OUTER_BANDS, lo + seasonAdj), Tc = pickBand(TOP_BANDS, lo), Ow = pickBand(OUTER_BANDS, hi + seasonAdj), Tw = pickBand(TOP_BANDS, hi);
   const coldTotal = Oc.need + Tc.need, warmTotal = Ow.need + Tw.need;
-  const layered = coldTotal - warmTotal >= 2;   // 寒い時間と暖かい時間で、必要な暖かさが2以上違う日は脱ぎ着する前提
+  const layered = coldTotal - warmTotal >= 4;   // 寒い時間と暖かい時間で、必要な暖かさが4以上違う日だけ脱ぎ着する前提
   // 上着とトップスの差が開きすぎないように（半袖＋冬のコート、にしない）、上着はトップス＋2まで。トップスはそのぶん厚めにする
   const tNeed = layered ? Math.max(1, Math.min(3, Math.max(warmTotal, Math.ceil((coldTotal - 2) / 2)))) : Tc.need;
   const T = TOP_BANDS.find(b=>b.need === tNeed) || Tc;
@@ -1503,17 +1509,17 @@ function compute(s){
   const gap = r1(Math.max(...temps) - Math.min(...temps));
 
   let topNeed = T.need, topText = T.text, topS = T.s;
-  const hx = 0.5 * (s.span==="long" ? Math.min(am, pm) : am) + 0.1 * noon + 0.4 * pm;
-  const heat = hx < 7.5, scarf = 0.7 * am + 0.3 * pm < 6;
+  const hx = Math.min(coldest, noon);   // 発熱インナーとマフラーも、いちばん寒い時間で
+  const heat = hx < 7, scarf = hx < 6;
   if(heat){ topText = "ヒートテック＋" + topText; }
   let outerNeed = O.need, outerText = O.text;
   let carry = false;
   if(outerNeed===0 && coldest < 21){ outerNeed = 1; carry = true; outerText = "薄手の羽織り（長袖シャツ・カーディガンなど）をかばんに"; }
-  const bottom = x >= 24 ? [1,"短パン・薄手のパンツ"] : x >= 15 ? [2,"チノなど薄手のパンツ"] : x >= 9 ? [3,"デニムなど厚手のパンツ"] : [4,"厚手のパンツ・タイツ併用"];
-  let shoes = (x >= 25 && !wet) ? [1,"サンダル"] : x < 8 ? [4,"ブーツ"] : x < 15 ? [3,"スニーカー・革靴"] : [2,"スニーカー"];
+  const bottom = x >= 21 ? [1,"短パン・薄手のパンツ"] : x >= 12 ? [2,"チノなど薄手のパンツ"] : x >= 6 ? [3,"デニムなど厚手のパンツ"] : [4,"厚手のパンツ・タイツ併用"];
+  let shoes = (x >= 22 && !wet) ? [1,"サンダル"] : x < 5 ? [4,"ブーツ"] : x < 12 ? [3,"スニーカー・革靴"] : [2,"スニーカー"];
   if(s.wx==="snow") shoes = [4,"滑りにくいブーツ"];
 
-  const idx = Math.max(10, Math.min(100, Math.round(((x+3)/36*90+10)/10)*10));
+  const idx = Math.max(10, Math.min(100, Math.round(((x+6)/36*90+10)/10)*10));
 
   const notes = [];
   // 西村さん流：降水確率10%以上なら折りたたみ傘
@@ -1524,7 +1530,7 @@ function compute(s){
   else if(gap >= 8) notes.push(["寒暖差", `外にいる時間の気温差が${gap}℃あります。昼は脱ぎ着で調節を。`]);
   if(carry) notes.push(["持ち歩き", "昼は半袖で大丈夫ですが、朝晩は少し冷えます。薄手の羽織りをかばんに入れておきましょう。"]);
   if(outerNeed===0 && s.noon < 28) notes.push(["冷房対策", "冷房が苦手なら、長袖シャツなどの羽織りをかばんに入れておくと安心です。"]);
-  if(x >= 16.75 && x < 19.75) notes.push(["暑がり・寒がり", "感じ方が分かれる気温です。暑がりは羽織りを軽めに、寒がりはカーディガンを1枚足して。"]);
+  if(x + seasonAdj >= 14 && x + seasonAdj < 16.5) notes.push(["暑がり・寒がり", "感じ方が分かれる気温です。暑がりは羽織りを軽めに、寒がりはカーディガンを1枚足して。"]);
   if(heat) notes.push(["ヒートテック", "朝が冷え込むので、インナーにヒートテックなどの発熱素材を。"]);
   if(scarf) notes.push(["小物", "朝晩はマフラーや手袋で防寒を。"]);
   if(outerNeed >= 4 && noon >= 13) notes.push(["昼の調節", "昼は暖かくなるので、中は脱ぎ着しやすいものにしておくと調節しやすいです。"]);
@@ -1539,7 +1545,7 @@ function compute(s){
   else verdict += outerNeed===5 ? "でしっかり防寒" : outerNeed===0 ? "で過ごせる日" : "がちょうどいい日";
 
   return {day, cold, gap, x:r1(x), topNeed, topText, outerNeed, outerText, carry,
-    bottomNeed:bottom[0], bottomText:bottom[1], shoesNeed:shoes[0], shoesText:shoes[1], innerNeed: heat ? (hx < 3 ? 2 : 1) : 0, idx, notes, verdict, rain: s.wx==="rain"||s.wx==="snow"};
+    bottomNeed:bottom[0], bottomText:bottom[1], shoesNeed:shoes[0], shoesText:shoes[1], innerNeed: heat ? (hx < 2 ? 2 : 1) : 0, seasonAdj, idx, notes, verdict, rain: s.wx==="rain"||s.wx==="snow"};
 }
 
 let seed = 0, lastCands = [], lastPool = [], listOpen = false;
@@ -1801,20 +1807,21 @@ function renderToday(){
   $("windOut").textContent = s.wind + " m/s";
 
   // 帯の幅（狭い帯も文字が読めるよう最低4℃分の幅にする）
-  const NB = EDGES.length - 1, labels = OUTER_BANDS.slice().reverse();
-  const W = []; for(let k=0;k<NB;k++) W.push(Math.max(4, EDGES[k+1]-EDGES[k]));
+  const SE = EDGES.map((e,i)=>(i === 0 || i === EDGES.length - 1) ? e : e - (r.seasonAdj||0));   // 季節で上着の境目をずらして表示（秋は1℃高い）
+  const NB = SE.length - 1, labels = OUTER_BANDS.slice().reverse();
+  const W = []; for(let k=0;k<NB;k++) W.push(Math.max(4, SE[k+1]-SE[k]));
   const total = W.reduce((a,b)=>a+b,0);
   const pos = t => {
     let acc = 0;
     for(let k=0;k<NB;k++){
-      const lo = EDGES[k], hi = EDGES[k+1];
+      const lo = SE[k], hi = SE[k+1];
       if(t < hi || k===NB-1){ const f = Math.max(0, Math.min(1, (t-lo)/(hi-lo))); return Math.max(2, Math.min(98, (acc + f*W[k])/total*100)); }
       acc += W[k];
     }
     return 98;
   };
   const bands = $("bands"); bands.textContent = "";
-  const cur = OUTER_BANDS.indexOf(pickBand(OUTER_BANDS, r.x));
+  const cur = Math.max(0, OUTER_BANDS.findIndex(b=>b.need === r.outerNeed));   // 実際に選んだ上着の帯を明るく
   for(let k=0;k<NB;k++){
     const b = el("div","band", labels[k].label);
     b.style.flex = W[k] + " 1 0";
@@ -1824,7 +1831,7 @@ function renderToday(){
     bands.appendChild(b);
   }
   const ticks = $("ticks"); ticks.textContent = "";
-  EDGES.slice(1,-1).forEach(t=>{ const sp = el("span",null,String(Math.round(t))); sp.style.left = pos(t)+"%"; ticks.appendChild(sp); });
+  SE.slice(1,-1).forEach(t=>{ const sp = el("span",null,String(Math.round(t))); sp.style.left = pos(t)+"%"; ticks.appendChild(sp); });
   const track = $("track"); track.querySelectorAll(".mk").forEach(m=>m.remove());
   const mk = (cls, label, t) => { const m = el("div","mk "+cls); m.style.left = pos(t)+"%"; m.appendChild(el("span","tag",label)); m.appendChild(el("span","line")); track.appendChild(m); };
   mk("day", "きょう "+r.x+"℃", r.x);
